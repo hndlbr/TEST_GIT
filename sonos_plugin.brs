@@ -2234,7 +2234,7 @@ End Sub
 
 Sub OnAVTransportEvent(userdata as Object, e as Object)
     print "AV Transport Event"
-    ' print e.GetRequestHeaders()
+    print e.GetRequestHeaders()
 
 	s = userData.sonos
 	sonosDevice=userData.SonosDevice
@@ -2244,6 +2244,11 @@ Sub OnAVTransportEvent(userdata as Object, e as Object)
 	eventString = rsp.getnamedelements("e:property").lastchange.gettext()
 	event = CreateObject("roXMLElement")
 	event.parse(eventString)
+
+	print "lastchange =";eventstring
+	print "avtransport URI =";event.instanceid.AVTransportURI@val
+	print "playmode = ";event.instanceid.CurrentPlayMode@val
+
 	transportState = event.instanceid.transportstate@val
 	if (transportState <> invalid) then 
 		updateDeviceVariable(s, sonosDevice, "TransportState", transportState)
