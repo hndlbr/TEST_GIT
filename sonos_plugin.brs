@@ -890,6 +890,9 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 				'print "Sending Volume Down "+str(voldecrease)+ " to "+str(sonosDevice.volume)
 				xfer = SonosSetVolume(sonos.mp, sonosDevice.baseURL, sonosDevice.volume)
 				sonos.xferObjects.push(xfer)
+			else if command="setplaymode" then
+				xfer = SonosSetPlayMode(sonos.mp, sonosDevice.baseURL)
+				sonos.xferObjects.push(xfer)
 			else if command="playmp3" then
 				' print "Playing MP3"
 				netConfig = CreateObject("roNetworkConfiguration", 0)
@@ -1543,6 +1546,44 @@ Sub SonosSurroundCtrl(mp as object, connectedPlayerIP as string, enableVal as in
 end sub
 
 
+Sub SonosSetPlayMode(mp as object, connectedPlayerIP as string) as object
+
+	xmlString="<?xml version="+chr(34)+"1.0"+chr(34)+" encoding="+chr(34)+"utf-8"+chr(34)
+	xmlString=xmlString+"?><s:Envelope s:encodingStyle="+chr(34)
+	xmlString=xmlString+"http://schemas.xmlsoap.org/soap/encoding/"+chr(34)
+	xmlString=xmlString+" xmlns:s="+chr(34)+"http://schemas.xmlsoap.org/soap/envelope/"
+	xmlString=xmlString+chr(34)+"><s:Body><u:SetPlayMode xmlns:u="+chr(34)
+	xmlString=xmlString+"urn:schemas-upnp-org:service:AVTransport:1"+chr(34)
+	xmlString=xmlString+"><InstanceID>0</InstanceID><NewPlayMode>NORMAL</NewPlayMode>"
+	xmlString=xmlString+"</u:SetPlayMode>"
+	xmlString=xmlString+"</s:Body></s:Envelope>"
+
+	sTransfer = CreateObject("roUrlTransfer")
+	sTransfer.SetMinimumTransferRate( 2000, 1 )
+	sTransfer.SetPort( mp )
+
+	sonosReqData=CreateObject("roAssociativeArray")
+	sonosReqData["type"]="SetPlayMode"
+	sonosReqData["dest"]=connectedPlayerIP
+	songTransfer.SetUserData(sonosReqData)
+
+	songTransfer.SetUrl( connectedPlayerIP + "/MediaRenderer/AVTransport/Control")
+	ok = songTransfer.addHeader("SOAPACTION", "urn:schemas-upnp-org:service:AVTransport:1#SetPlayMode")
+	if not ok then
+		stop
+	end if
+	ok = songTransfer.addHeader("Content-Type", "text/xml; charset="+ chr(34) + "utf-8" + chr(34))
+	if not ok then
+		stop
+	end if
+	' print reqString
+	ok = songTransfer.AsyncPostFromString(reqString)
+	if not ok then
+		stop
+	end if
+
+	return songTransfer
+end Sub
 
 
 Sub SonosSetSong(mp as object, myIP as string, connectedPlayerIP as string, mp3file as string) as object
