@@ -1562,11 +1562,11 @@ Sub SonosSetSleepTimer(mp as object, connectedPlayerIP as string, timeout as str
 	xmlString=xmlString+" xmlns:s="+chr(34)+"http://schemas.xmlsoap.org/soap/envelope/"
 	xmlString=xmlString+chr(34)+"><s:Body><u:ConfigureSleepTimer  xmlns:u="+chr(34)
 	xmlString=xmlString+"urn:schemas-upnp-org:service:AVTransport:1"+chr(34)
-	xmlString=xmlString+"><InstanceID>0</InstanceID><NewSleepTimerDuration>DURATION</NewSleepTimerDuration>"
+	xmlString=xmlString+"><InstanceID>0</InstanceID><NewSleepTimerDuration>TIMERDURATION</NewSleepTimerDuration>"
 	xmlString=xmlString+"</u:ConfigureSleepTimer>"
 	xmlString=xmlString+"</s:Body></s:Envelope>"
 
-	r1 = CreateObject("roRegex", "DURATION", "i")
+	r1 = CreateObject("roRegex", "TIMERDURATION", "i")
 	reqString = r1.ReplaceAll(xmlString, timeout)
 
 	sTransfer = CreateObject("roUrlTransfer")
@@ -1574,7 +1574,7 @@ Sub SonosSetSleepTimer(mp as object, connectedPlayerIP as string, timeout as str
 	sTransfer.SetPort( mp )
 
 	sonosReqData=CreateObject("roAssociativeArray")
-	sonosReqData["type"]="SetSong"
+	sonosReqData["type"]="SetSleepTimer"
 	sonosReqData["dest"]=connectedPlayerIP
 	sTransfer.SetUserData(sonosReqData)
 
@@ -1600,7 +1600,7 @@ end Sub
 Sub SonosGetSleepTimer(mp as object, connectedPlayerIP as string) as object
 
 	xmlString="<?xml version="+chr(34)+"1.0"+chr(34)+" encoding="+chr(34)+"utf-8"+chr(34)+" standalone="+chr(34)+"yes"+chr(34)
-	xmlString=xmlString+"?><s:Envelope s:encodingStyle="+chr(34)
+	xmlString=xmlString+" ?><s:Envelope s:encodingStyle="+chr(34)
 	xmlString=xmlString+"http://schemas.xmlsoap.org/soap/encoding/"+chr(34)
 	xmlString=xmlString+" xmlns:s="+chr(34)+"http://schemas.xmlsoap.org/soap/envelope/"
 	xmlString=xmlString+chr(34)+"><s:Body><u:GetRemainingSleepTimerDuration xmlns:u="+chr(34)
@@ -1614,7 +1614,7 @@ Sub SonosGetSleepTimer(mp as object, connectedPlayerIP as string) as object
 	sTransfer.SetPort( mp )
 
 	sonosReqData=CreateObject("roAssociativeArray")
-	sonosReqData["type"]="SetPlayMode"
+	sonosReqData["type"]="GetSleepTimer"
 	sonosReqData["dest"]=connectedPlayerIP
 	sTransfer.SetUserData(sonosReqData)
 
