@@ -1558,7 +1558,7 @@ Sub SonosSetSleepTimer(mp as object, connectedPlayerIP as string, timeout as str
 
 ''	xmlString="<?xml version="+chr(34)+"1.0"+chr(34)+" encoding="+chr(34)+"utf-8"+chr(34)
 	xmlString=""
-	xmlString=xmlString+"?><s:Envelope xmlns:s="+chr(34)+"http://schemas.xmlsoap.org/soap/envelope/"+chr(34)
+	xmlString=xmlString+"<s:Envelope xmlns:s="+chr(34)+"http://schemas.xmlsoap.org/soap/envelope/"+chr(34)
 	xmlString=xmlString+"s:encodingStyle="+chr(34)+"http://schemas.xmlsoap.org/soap/encoding/"+chr(34)
 	xmlString=xmlString+"><s:Body><u:ConfigureSleepTimer  xmlns:u="+chr(34)+"urn:schemas-upnp-org:service:AVTransport:1"+chr(34)
 	xmlString=xmlString+"><InstanceID>0</InstanceID><NewSleepTimerDuration>TIMOUTPERIOD</NewSleepTimerDuration>"
