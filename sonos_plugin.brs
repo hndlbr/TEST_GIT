@@ -1562,11 +1562,11 @@ Sub SonosSetSleepTimer(mp as object, connectedPlayerIP as string, timeout as str
 	xmlString=xmlString+" xmlns:s="+chr(34)+"http://schemas.xmlsoap.org/soap/envelope/"
 	xmlString=xmlString+chr(34)+"><s:Body><u:ConfigureSleepTimer  xmlns:u="+chr(34)
 	xmlString=xmlString+"urn:schemas-upnp-org:service:AVTransport:1"+chr(34)
-	xmlString=xmlString+"><InstanceID>0</InstanceID><NewSleepTimerDuration>TIMERDURATION</NewSleepTimerDuration>"
+	xmlString=xmlString+"><InstanceID>0</InstanceID><NewSleepTimerDuration>TIMOUTPERIOD</NewSleepTimerDuration>"
 	xmlString=xmlString+"</u:ConfigureSleepTimer>"
 	xmlString=xmlString+"</s:Body></s:Envelope>"
 
-	r1 = CreateObject("roRegex", "TIMERDURATION", "i")
+	r1 = CreateObject("roRegex", "TIMOUTPERIOD", "i")
 	reqString = r1.ReplaceAll(xmlString, timeout)
 
 	sTransfer = CreateObject("roUrlTransfer")
