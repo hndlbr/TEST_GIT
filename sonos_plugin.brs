@@ -2266,7 +2266,7 @@ Sub OnAVTransportEvent(userdata as Object, e as Object)
 
 	AVTransportURI = event.instanceid.AVTransportURI@val
 	if (AVTransportURI <> invalid) then 
-	    print "*** transportStateURI: ";transportStateURI
+	    print "*** transportStateURI: ";AVTransportURI
 		updateDeviceVariable(s, sonosDevice, "TransportStateURI", AVTransportURI)
 		sendPluginEvent(s, sonosDevice.modelNumber+"TransportStateURI")
 	end if
