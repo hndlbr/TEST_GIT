@@ -1556,12 +1556,11 @@ end sub
 
 Sub SonosSetSleepTimer(mp as object, connectedPlayerIP as string, timeout as string) as object
 
-	xmlString="<?xml version="+chr(34)+"1.0"+chr(34)+" encoding="+chr(34)+"utf-8"+chr(34)
-	xmlString=xmlString+"?><s:Envelope s:encodingStyle="+chr(34)
-	xmlString=xmlString+"http://schemas.xmlsoap.org/soap/encoding/"+chr(34)
-	xmlString=xmlString+" xmlns:s="+chr(34)+"http://schemas.xmlsoap.org/soap/envelope/"
-	xmlString=xmlString+chr(34)+"><s:Body><u:ConfigureSleepTimer  xmlns:u="+chr(34)
-	xmlString=xmlString+"urn:schemas-upnp-org:service:AVTransport:1"+chr(34)
+''	xmlString="<?xml version="+chr(34)+"1.0"+chr(34)+" encoding="+chr(34)+"utf-8"+chr(34)
+	xmlString=""
+	xmlString=xmlString+"?><s:Envelope xmlns:s="+chr(34)+"http://schemas.xmlsoap.org/soap/envelope/"+chr(34)
+	xmlString=xmlString+"s:encodingStyle="+chr(34)+"http://schemas.xmlsoap.org/soap/encoding/"+chr(34)
+	xmlString=xmlString+"><s:Body><u:ConfigureSleepTimer  xmlns:u="+chr(34)+"urn:schemas-upnp-org:service:AVTransport:1"+chr(34)
 	xmlString=xmlString+"><InstanceID>0</InstanceID><NewSleepTimerDuration>TIMOUTPERIOD</NewSleepTimerDuration>"
 	xmlString=xmlString+"</u:ConfigureSleepTimer>"
 	xmlString=xmlString+"</s:Body></s:Envelope>"
