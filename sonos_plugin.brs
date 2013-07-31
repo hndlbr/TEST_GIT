@@ -1576,7 +1576,7 @@ Sub SonosSetSleepTimer(mp as object, connectedPlayerIP as string, timeout as str
 	sTransfer.SetUserData(sonosReqData)
 
 	sTransfer.SetUrl( connectedPlayerIP + "/MediaRenderer/AVTransport/Control")
-	ok = sTransfer.addHeader("SOAPACTION", "urn:schemas-upnp-org:service:AVTransport:1#ConfigureSleepTimer"
+	ok = sTransfer.addHeader("SOAPACTION", "urn:schemas-upnp-org:service:AVTransport:1#ConfigureSleepTimer")
 	if not ok then
 		stop
 	end if
