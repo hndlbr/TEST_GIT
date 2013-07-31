@@ -896,12 +896,15 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 			else if command="setplaymode" then
 				xfer = SonosSetPlayMode(sonos.mp, sonosDevice.baseURL)
 				sonos.xferObjects.push(xfer)
+			else if command="resetbasiceq" then
+				xfer = SonosResetBasicEQ(sonos.mp, sonosDevice.baseURL)
+				sonos.xferObjects.push(xfer)
 			else if command="getsleeptimer" then
 				xfer = SonosGetSleepTimer(sonos.mp, sonosDevice.baseURL)
 				sonos.xferObjects.push(xfer)
 			else if command="setsleeptimer" then
 			    ' parse the detail?
-			    timeout="0:30:00"
+			    timeout="0:00:00"
 				xfer = SonosSetSleepTimer(sonos.mp, sonosDevice.baseURL,timeout)
 				sonos.xferObjects.push(xfer)
 			else if command="playmp3" then
@@ -1595,6 +1598,48 @@ Sub SonosSetSleepTimer(mp as object, connectedPlayerIP as string, timeout as str
 
 	return sTransfer
 end Sub
+
+
+
+Sub SonosResetBasicEQ(mp as object, connectedPlayerIP as string) as object
+
+	xmlString="<?xml version="+chr(34)+"1.0"+chr(34)+" encoding="+chr(34)+"utf-8"+chr(34)+" standalone="+chr(34)+"yes"+chr(34)
+	xmlString=xmlString+" ?><s:Envelope s:encodingStyle="+chr(34)
+	xmlString=xmlString+"http://schemas.xmlsoap.org/soap/encoding/"+chr(34)
+	xmlString=xmlString+" xmlns:s="+chr(34)+"http://schemas.xmlsoap.org/soap/envelope/"
+	xmlString=xmlString+chr(34)+"><s:Body><u:ResetBasicEQ xmlns:u="+chr(34)
+	xmlString=xmlString+"urn:schemas-upnp-org:service:RenderingControl:1"+chr(34)
+	xmlString=xmlString+"><InstanceID>0</InstanceID>"
+	xmlString=xmlString+"</u:ResetBasicEQ>"
+	xmlString=xmlString+"</s:Body></s:Envelope>"
+
+	sTransfer = CreateObject("roUrlTransfer")
+	sTransfer.SetMinimumTransferRate( 2000, 1 )
+	sTransfer.SetPort( mp )
+
+	sonosReqData=CreateObject("roAssociativeArray")
+	sonosReqData["type"]="ResetBasicEQ"
+	sonosReqData["dest"]=connectedPlayerIP
+	sTransfer.SetUserData(sonosReqData)
+
+	sTransfer.SetUrl( connectedPlayerIP + "/MediaRenderer/RenderingControl/Control")
+	ok = sTransfer.addHeader("SOAPACTION", "urn:schemas-upnp-org:service:RenderingControl:1#ResetBasicEQ")
+	if not ok then
+		stop
+	end if
+	ok = sTransfer.addHeader("Content-Type", "text/xml; charset="+ chr(34) + "utf-8" + chr(34))
+	if not ok then
+		stop
+	end if
+	' print reqString
+	ok = sTransfer.AsyncPostFromString(xmlString)
+	if not ok then
+		stop
+	end if
+
+	return sTransfer
+end Sub
+
 
 
 Sub SonosGetSleepTimer(mp as object, connectedPlayerIP as string) as object
