@@ -2244,7 +2244,7 @@ Sub OnAVTransportEvent(userdata as Object, e as Object)
 	eventString = rsp.getnamedelements("e:property").lastchange.gettext()
 
 	r = CreateObject("roRegex", "r:SleepTimerGeneration", "i")
-    fixedEventString=r.ReplaceAll(corrected,"rSleepTimerGeneration")
+    fixedEventString=r.ReplaceAll(eventString,"rSleepTimerGeneration")
 
 	event = CreateObject("roXMLElement")
 	event.parse(fixedEventString)
