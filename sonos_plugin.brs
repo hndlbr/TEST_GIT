@@ -1565,24 +1565,24 @@ Sub SonosSetPlayMode(mp as object, connectedPlayerIP as string) as object
 	sonosReqData=CreateObject("roAssociativeArray")
 	sonosReqData["type"]="SetPlayMode"
 	sonosReqData["dest"]=connectedPlayerIP
-	songTransfer.SetUserData(sonosReqData)
+	sTransfer.SetUserData(sonosReqData)
 
-	songTransfer.SetUrl( connectedPlayerIP + "/MediaRenderer/AVTransport/Control")
-	ok = songTransfer.addHeader("SOAPACTION", "urn:schemas-upnp-org:service:AVTransport:1#SetPlayMode")
+	sTransfer.SetUrl( connectedPlayerIP + "/MediaRenderer/AVTransport/Control")
+	ok = sTransfer.addHeader("SOAPACTION", "urn:schemas-upnp-org:service:AVTransport:1#SetPlayMode")
 	if not ok then
 		stop
 	end if
-	ok = songTransfer.addHeader("Content-Type", "text/xml; charset="+ chr(34) + "utf-8" + chr(34))
+	ok = sTransfer.addHeader("Content-Type", "text/xml; charset="+ chr(34) + "utf-8" + chr(34))
 	if not ok then
 		stop
 	end if
 	' print reqString
-	ok = songTransfer.AsyncPostFromString(xmlString)
+	ok = sTransfer.AsyncPostFromString(xmlString)
 	if not ok then
 		stop
 	end if
 
-	return songTransfer
+	return sTransfer
 end Sub
 
 
