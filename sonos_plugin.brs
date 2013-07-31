@@ -1021,20 +1021,32 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
   			    ''else
   			    ''    print "siteHHID user variable does not exist"
   			    ''end if
-  			    bspDevice = CreateObject("roDeviceInfo")
-			    bspSerial$= bspDevice.GetDeviceUniqueId()
-			    siteHHID="Sonos_RDM_"+bspSerial
-
-
+  			    siteHHID=""
+  			    if sonos.userVariables["siteHHID"] <> invalid
+  			        siteHHID=Sonos.userVariables["siteHHID"].currentValue$
+  			    end if
+			    varName=sonosDevice.modelNumber+"RoomName"
+			    if sonos.userVariables[varName] <> invalid then
+			        roomName=sonos.userVariables[varName]
+			        rdmHouseholdSetup(sonosDevice.baseURL,siteHHID,roomName,"none",1) 
+			    else
+			        print "ERROR:  no room name defined for player ";sonosDevice.modelNumber
+			        roomName="Room"
+			        rdmHouseholdSetup(sonosDevice.baseURL,siteHHID,roomName,"none",1) 
+			    end if
 			else if command = "createhhid" then
 			    if sonos.userVariables["siteHHID"] <> invalid
-  			        print "createhhid: current list of devices"
-  			        PrintAllSonosDevices(sonos)
-			        siteHHID=sonos.userVariables["siteHHID"].currentValue$
-			        rdmHouseholdSetup(sonosDevice.baseURL,"","none","none",1) 
-  			        print "deleting sonos device: ";sonosDevice.modelNumber
-  			        DeleteSonosDevice(sonos.userVariables,sonosDevices,sonosDevice.baseURL)
-  			        PrintAllSonosDevices(sonos)
+	  			    bspDevice = CreateObject("roDeviceInfo")
+				    bspSerial$= bspDevice.GetDeviceUniqueId()
+				    siteHHID="Sonos_RDM_"+bspSerial
+				    updateUserVar(sonos.userVariables,"siteHHID",siteHHID)
+''  			    print "createhhid: current list of devices"
+'' 			        PrintAllSonosDevices(sonos)
+''			        siteHHID=sonos.userVariables["siteHHID"].currentValue$
+''			        rdmHouseholdSetup(sonosDevice.baseURL,"","none","none",1) 
+''  			    print "deleting sonos device: ";sonosDevice.modelNumber
+''  			    DeleteSonosDevice(sonos.userVariables,sonosDevices,sonosDevice.baseURL)
+''  			    PrintAllSonosDevices(sonos)
 			    else
 			        print "siteHHID user variable does not exist"
 			    end if
