@@ -1038,7 +1038,7 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 			    if sonos.userVariables["siteHHID"] <> invalid
 	  			    bspDevice = CreateObject("roDeviceInfo")
 				    bspSerial$= bspDevice.GetDeviceUniqueId()
-				    siteHHID="Sonos_RDM_"+bspSerial
+				    siteHHID="Sonos_RDM_"+bspSerial$
 				    updateUserVar(sonos.userVariables,"siteHHID",siteHHID)
 ''  			    print "createhhid: current list of devices"
 '' 			        PrintAllSonosDevices(sonos)
