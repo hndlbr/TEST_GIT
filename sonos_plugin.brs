@@ -2242,15 +2242,19 @@ Sub OnAVTransportEvent(userdata as Object, e as Object)
 	rsp=CreateObject("roXMLElement")
 	rsp.Parse(e.GetRequestBodyString())
 	eventString = rsp.getnamedelements("e:property").lastchange.gettext()
+
+	r = CreateObject("roRegex", "r:SleepTimerGeneration", "i")
+    fixedEventString=r.ReplaceAll(corrected,"rSleepTimerGeneration")
+
 	event = CreateObject("roXMLElement")
-	event.parse(eventString)
+	event.parse(fixedEventString)
 
 	print "lastchange =";eventstring
-	print "avtransport URI =";event.instanceid.AVTransportURI@val
 	print "playmode = ";event.instanceid.CurrentPlayMode@val
 
 	transportState = event.instanceid.transportstate@val
 	if (transportState <> invalid) then 
+	    print "*** transportState: ";transportState
 		updateDeviceVariable(s, sonosDevice, "TransportState", transportState)
 
 		sendPluginEvent(s, sonosDevice.modelNumber+"TransportState")
@@ -2258,6 +2262,27 @@ Sub OnAVTransportEvent(userdata as Object, e as Object)
 		if (sonosDevice.modelNumber = s.masterDevice) then
 			sendPluginEvent(s, "masterDevice"+"TransportState")
 		end if
+	end if
+
+	AVTransportURI = event.instanceid.AVTransportURI@val
+	if (AVTransportURI <> invalid) then 
+	    print "*** transportStateURI: ";transportStateURI
+		updateDeviceVariable(s, sonosDevice, "TransportStateURI", AVTransportURI)
+		sendPluginEvent(s, sonosDevice.modelNumber+"TransportStateURI")
+	end if
+
+	CurrentPlayMode = event.instanceid.CurrentPlayMode@val
+	if (CurrentPlayMode <> invalid) then 
+	    print "*** CurrentPlayMode: ";CurrentPlayMode
+		updateDeviceVariable(s, sonosDevice, "CurrentPlayMode", CurrentPlayMode)
+		sendPluginEvent(s, sonosDevice.modelNumber+"CurrentPlayMode")
+	end if
+
+	SleepTimerGeneration = event.instanceid.rSleepTimerGeneration@val
+	if (SleepTimerGeneration <> invalid) then 
+	    print "*** SleepTimerGeneration: ";SleepTimerGeneration
+		updateDeviceVariable(s, sonosDevice, "SleepTimerGeneration", SleepTimerGeneration)
+		sendPluginEvent(s, sonosDevice.modelNumber+"SleepTimerGeneration")
 	end if
 
     if not e.SendResponse(200) then
