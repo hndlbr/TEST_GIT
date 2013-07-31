@@ -2250,7 +2250,6 @@ Sub OnAVTransportEvent(userdata as Object, e as Object)
 	event.parse(fixedEventString)
 
 	print "lastchange =";eventstring
-	print "playmode = ";event.instanceid.CurrentPlayMode@val
 
 	transportState = event.instanceid.transportstate@val
 	if (transportState <> invalid) then 
