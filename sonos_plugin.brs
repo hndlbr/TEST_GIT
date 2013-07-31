@@ -893,6 +893,9 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 			else if command="setplaymode" then
 				xfer = SonosSetPlayMode(sonos.mp, sonosDevice.baseURL)
 				sonos.xferObjects.push(xfer)
+			else if command="getsleeptimer" then
+				xfer = SonosGetSleepTimer(sonos.mp, sonosDevice.baseURL)
+				sonos.xferObjects.push(xfer)
 			else if command="playmp3" then
 				' print "Playing MP3"
 				netConfig = CreateObject("roNetworkConfiguration", 0)
@@ -1544,6 +1547,47 @@ Sub SonosSurroundCtrl(mp as object, connectedPlayerIP as string, enableVal as in
 
 	return soapTransfer
 end sub
+
+
+Sub SonosGetSleepTimer(mp as object, connectedPlayerIP as string) as object
+
+	xmlString="<?xml version="+chr(34)+"1.0"+chr(34)+" encoding="+chr(34)+"utf-8"+chr(34)
+	xmlString=xmlString+"?><s:Envelope s:encodingStyle="+chr(34)
+	xmlString=xmlString+"http://schemas.xmlsoap.org/soap/encoding/"+chr(34)
+	xmlString=xmlString+" xmlns:s="+chr(34)+"http://schemas.xmlsoap.org/soap/envelope/"
+	xmlString=xmlString+chr(34)+"><s:Body><u:GetRemainingSleepTimerDuration xmlns:u="+chr(34)
+	xmlString=xmlString+"urn:schemas-upnp-org:service:AVTransport:1"+chr(34)
+	xmlString=xmlString+"><InstanceID>0</InstanceID>"
+	xmlString=xmlString+"</u:GetRemainingSleepTimerDuration>"
+	xmlString=xmlString+"</s:Body></s:Envelope>"
+
+	sTransfer = CreateObject("roUrlTransfer")
+	sTransfer.SetMinimumTransferRate( 2000, 1 )
+	sTransfer.SetPort( mp )
+
+	sonosReqData=CreateObject("roAssociativeArray")
+	sonosReqData["type"]="SetPlayMode"
+	sonosReqData["dest"]=connectedPlayerIP
+	sTransfer.SetUserData(sonosReqData)
+
+	sTransfer.SetUrl( connectedPlayerIP + "/MediaRenderer/AVTransport/Control")
+	ok = sTransfer.addHeader("SOAPACTION", "urn:schemas-upnp-org:service:AVTransport:1#GetRemainingSleepTimerDuration")
+	if not ok then
+		stop
+	end if
+	ok = sTransfer.addHeader("Content-Type", "text/xml; charset="+ chr(34) + "utf-8" + chr(34))
+	if not ok then
+		stop
+	end if
+	' print reqString
+	ok = sTransfer.AsyncPostFromString(xmlString)
+	if not ok then
+		stop
+	end if
+
+	return sTransfer
+end Sub
+
 
 
 Sub SonosSetPlayMode(mp as object, connectedPlayerIP as string) as object
