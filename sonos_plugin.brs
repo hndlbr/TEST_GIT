@@ -1558,7 +1558,7 @@ Sub SonosSetSleepTimer(mp as object, connectedPlayerIP as string, timeout as str
 
 	xmlString="<s:Envelope xmlns:s="+chr(34)+"http://schemas.xmlsoap.org/soap/envelope/"+chr(34)
 	xmlString=xmlString+" s:encodingStyle="+chr(34)+"http://schemas.xmlsoap.org/soap/encoding/"+chr(34)
-	xmlString=xmlString+"><s:Body><u:ConfigureSleepTimer  xmlns:u="+chr(34)+"urn:schemas-upnp-org:service:AVTransport:1"+chr(34)
+	xmlString=xmlString+"><s:Body><u:ConfigureSleepTimer xmlns:u="+chr(34)+"urn:schemas-upnp-org:service:AVTransport:1"+chr(34)
 	xmlString=xmlString+"><InstanceID>0</InstanceID><NewSleepTimerDuration>TIMOUTPERIOD</NewSleepTimerDuration>"
 	xmlString=xmlString+"</u:ConfigureSleepTimer>"
 	xmlString=xmlString+"</s:Body></s:Envelope>"
@@ -1576,7 +1576,7 @@ Sub SonosSetSleepTimer(mp as object, connectedPlayerIP as string, timeout as str
 	sTransfer.SetUserData(sonosReqData)
 
 	sTransfer.SetUrl( connectedPlayerIP + "/MediaRenderer/AVTransport/Control")
-	ok = sTransfer.addHeader("SOAPACTION", "urn:schemas-upnp-org:service:AVTransport:1#ConfigureSleepTimer")
+	ok = sTransfer.addHeader("SOAPACTION", chr(34)+"urn:schemas-upnp-org:service:AVTransport:1#ConfigureSleepTimer"+chr(34))
 	if not ok then
 		stop
 	end if
