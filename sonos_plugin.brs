@@ -1577,7 +1577,7 @@ Sub SonosSetPlayMode(mp as object, connectedPlayerIP as string) as object
 		stop
 	end if
 	' print reqString
-	ok = songTransfer.AsyncPostFromString(reqString)
+	ok = songTransfer.AsyncPostFromString(xmlString)
 	if not ok then
 		stop
 	end if
