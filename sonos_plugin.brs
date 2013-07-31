@@ -676,8 +676,11 @@ Sub UPNPDiscoverer_ProcessDeviceXML(ev as Object)
 			print "device matches transfer ID"
 			found = true
 			deviceList[i].complete = true
-			deviceMfg = deviceXML.device.manufacturer.gettext()
-			if (instr(1, deviceMfg, "Sonos")) then
+			deviceMfg  = deviceXML.device.manufacturer.gettext()
+			deviceType = deviceXML.device.deviceType.gettext()
+''			if (instr(1, deviceMfg, "Sonos")) then
+			if (instr(1, deviceType, "urn:schemas-upnp-org:device:ZonePlayer:1")) then
+
 				print "Found Sonos device on device XML"
 				baseURL = GetBaseURLFromLocation(deviceList[i].location)
 				model = GetPlayerModelByBaseIP(s.sonosDevices, baseURL)			
