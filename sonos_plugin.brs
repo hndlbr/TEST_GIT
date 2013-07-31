@@ -1009,18 +1009,23 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 			    CheckPlayerHHIDs(sonos,siteHHID)
 			    PrintAllSonosDevices(sonos)
 			else if command = "sethhid" then
-			    if sonos.userVariables["siteHHID"] <> invalid then
-  			        print "sethhid: current list of devices"
-  			        PrintAllSonosDevices(sonos)
-			        siteHHID=sonos.userVariables["siteHHID"].currentValue$
-			        print "setHHID on ";sonosDevice.baseURL
-  			        rdmHouseholdSetup(sonosDevice.baseURL,siteHHID,"none","none",1) 
-  			        print "deleting sonos device: ";sonosDevice.modelNumber
-  			        DeleteSonosDevice(sonos.userVariables,sonosDevices,sonosDevice.baseURL)
-  			        PrintAllSonosDevices(sonos)
-  			    else
-  			        print "siteHHID user variable does not exist"
-  			    end if
+			    'if sonos.userVariables["siteHHID"] <> invalid then
+  			    ''    print "sethhid: current list of devices"
+  			    ''    PrintAllSonosDevices(sonos)
+			    ''    siteHHID=sonos.userVariables["siteHHID"].currentValue$
+			    ''    print "setHHID on ";sonosDevice.baseURL
+  			    ''    rdmHouseholdSetup(sonosDevice.baseURL,siteHHID,"none","none",1) 
+  			    ''    print "deleting sonos device: ";sonosDevice.modelNumber
+  			    ''    DeleteSonosDevice(sonos.userVariables,sonosDevices,sonosDevice.baseURL)
+  			    ''    PrintAllSonosDevices(sonos)
+  			    ''else
+  			    ''    print "siteHHID user variable does not exist"
+  			    ''end if
+  			    bspDevice = CreateObject("roDeviceInfo")
+			    bspSerial$= bspDevice.GetDeviceUniqueId()
+			    siteHHID="Sonos_RDM_"+bspSerial
+
+
 			else if command = "createhhid" then
 			    if sonos.userVariables["siteHHID"] <> invalid
   			        print "createhhid: current list of devices"
@@ -2601,15 +2606,6 @@ end sub
 
 Function rdmHouseholdSetup(connectedPlayerIP as string, hhid as string, name as string, icon as string, reboot as integer) as Object
 
-	print "setting hhhid: ";hhid;" for ";connectedPlayerIP
-	print "setting hhhid: ";hhid;" for ";connectedPlayerIP
-	print "setting hhhid: ";hhid;" for ";connectedPlayerIP
-	print "setting hhhid: ";hhid;" for ";connectedPlayerIP
-	print "setting hhhid: ";hhid;" for ";connectedPlayerIP
-	print "setting hhhid: ";hhid;" for ";connectedPlayerIP
-	print "setting hhhid: ";hhid;" for ";connectedPlayerIP
-	print "setting hhhid: ";hhid;" for ";connectedPlayerIP
-	print "setting hhhid: ";hhid;" for ";connectedPlayerIP
 	print "setting hhhid: ";hhid;" for ";connectedPlayerIP
 
 	sURL=connectedPlayerIP+"/rdmhhsetup"
