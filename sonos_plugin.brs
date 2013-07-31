@@ -2306,21 +2306,21 @@ Sub OnAVTransportEvent(userdata as Object, e as Object)
 
 	AVTransportURI = event.instanceid.AVTransportURI@val
 	if (AVTransportURI <> invalid) then 
-	    print sonosDevice.modelNumber;print " *** transportStateURI: ";AVTransportURI
+	    print sonosDevice.modelNumber;" *** transportStateURI: ";AVTransportURI
 		updateDeviceVariable(s, sonosDevice, "TransportStateURI", AVTransportURI)
 		sendPluginEvent(s, sonosDevice.modelNumber+"TransportStateURI")
 	end if
 
 	CurrentPlayMode = event.instanceid.CurrentPlayMode@val
 	if (CurrentPlayMode <> invalid) then 
-	    print sonosDevice.modelNumber;print " *** CurrentPlayMode: ";CurrentPlayMode
+	    print sonosDevice.modelNumber;" *** CurrentPlayMode: ";CurrentPlayMode
 		updateDeviceVariable(s, sonosDevice, "CurrentPlayMode", CurrentPlayMode)
 		sendPluginEvent(s, sonosDevice.modelNumber+"CurrentPlayMode")
 	end if
 
 	SleepTimerGeneration = event.instanceid.rSleepTimerGeneration@val
 	if (SleepTimerGeneration <> invalid) then 
-	    print sonosDevice.modelNumber;print " *** SleepTimerGeneration: ";SleepTimerGeneration
+	    print sonosDevice.modelNumber;" *** SleepTimerGeneration: ";SleepTimerGeneration
 		updateDeviceVariable(s, sonosDevice, "SleepTimerGeneration", SleepTimerGeneration)
 		sendPluginEvent(s, sonosDevice.modelNumber+"SleepTimerGeneration")
 	end if
