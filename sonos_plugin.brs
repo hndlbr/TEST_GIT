@@ -898,7 +898,7 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 				sonos.xferObjects.push(xfer)
 			else if command="setsleeptimer" then
 			    ' parse the detail?
-			    timeout="0:00:00"
+			    timeout="0:30:00"
 				xfer = SonosSetSleepTimer(sonos.mp, sonosDevice.baseURL,timeout)
 				sonos.xferObjects.push(xfer)
 			else if command="playmp3" then
