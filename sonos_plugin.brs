@@ -1593,7 +1593,7 @@ Sub SonosSetSleepTimer(mp as object, connectedPlayerIP as string, timeout as str
 		stop
 	end if
 
-	return songTransfer
+	return sTransfer
 end Sub
 
 
