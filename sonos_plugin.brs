@@ -1599,7 +1599,7 @@ end Sub
 
 Sub SonosGetSleepTimer(mp as object, connectedPlayerIP as string) as object
 
-	xmlString="<?xml version="+chr(34)+"1.0"+chr(34)+" encoding="+chr(34)+"utf-8 "+chr(34)+"standalone="+chr(34)+"yes"+chr(34)
+	xmlString="<?xml version="+chr(34)+"1.0"+chr(34)+" encoding="+chr(34)+"utf-8"+chr(34)+" standalone="+chr(34)+"yes"+chr(34)
 	xmlString=xmlString+"?><s:Envelope s:encodingStyle="+chr(34)
 	xmlString=xmlString+"http://schemas.xmlsoap.org/soap/encoding/"+chr(34)
 	xmlString=xmlString+" xmlns:s="+chr(34)+"http://schemas.xmlsoap.org/soap/envelope/"
