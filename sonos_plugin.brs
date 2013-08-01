@@ -1002,12 +1002,12 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 			else if command = "reboot" then
 			    xfer=SonosPlayerReboot(sonos.mp, sonosDevice.baseURL)
 				sonos.xferObjects.push(xfer)
-			else if command = "checkhhid" then
-			    siteHHID=DetermineSiteHHID(sonos)
-			    print "siteHHID is determined to be: ";siteHHID
-		        updateUserVar(sonos.userVariables,"siteHHID",siteHHID)
-			    CheckPlayerHHIDs(sonos,siteHHID)
-			    PrintAllSonosDevices(sonos)
+			'else if command = "checkhhid" then
+			''    siteHHID=DetermineSiteHHID(sonos)
+			''    print "siteHHID is determined to be: ";siteHHID
+		    ''    updateUserVar(sonos.userVariables,"siteHHID",siteHHID)
+			''    CheckPlayerHHIDs(sonos,siteHHID)
+			''    PrintAllSonosDevices(sonos)
 			else if command = "sethhid" then
 			    'if sonos.userVariables["siteHHID"] <> invalid then
   			    ''    print "sethhid: current list of devices"
@@ -2630,6 +2630,8 @@ Function rdmHouseholdSetup(connectedPlayerIP as string, hhid as string, name as 
 	b = postFormData(sURL,v)
 	if b<>true
 		print "ERROR setting Household for "+connectedPlayerIP
+	else
+	    print "set hhid ";hhid;" on ";connectedPlayerIP
 	end if
 
 	return v
