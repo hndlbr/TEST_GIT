@@ -1027,7 +1027,7 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
   			    end if
 			    varName=sonosDevice.modelNumber+"RoomName"
 			    if sonos.userVariables[varName] <> invalid then
-			        roomName=sonos.userVariables[varName]
+			        roomName=sonos.userVariables[varName].currentValue$
 			        rdmHouseholdSetup(sonosDevice.baseURL,siteHHID,roomName,"none",1) 
 			    else
 			        print "ERROR:  no room name defined for player ";sonosDevice.modelNumber
