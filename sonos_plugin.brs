@@ -2462,6 +2462,7 @@ End Sub
 Sub OnAVTransportEvent(userdata as Object, e as Object)
     print "AV Transport Event"
     print e.GetRequestHeaders()
+    print e.GetRequestBodyString()
 
 	s = userData.sonos
 	sonosDevice=userData.SonosDevice
