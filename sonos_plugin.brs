@@ -2476,7 +2476,7 @@ Sub OnAVTransportEvent(userdata as Object, e as Object)
 	event = CreateObject("roXMLElement")
 	event.parse(fixedEventString)
 
-	' print "lastchange =";eventstring
+	print "lastchange =";eventstring
 
 	transportState = event.instanceid.transportstate@val
 	if (transportState <> invalid) then 
