@@ -1010,18 +1010,18 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 			''    CheckPlayerHHIDs(sonos,siteHHID)
 			''    PrintAllSonosDevices(sonos)
 			else if command = "sethhid" then
-			    'if sonos.userVariables["siteHHID"] <> invalid then
-  			    ''    print "sethhid: current list of devices"
-  			    ''    PrintAllSonosDevices(sonos)
-			    ''    siteHHID=sonos.userVariables["siteHHID"].currentValue$
-			    ''    print "setHHID on ";sonosDevice.baseURL
-  			    ''    rdmHouseholdSetup(sonosDevice.baseURL,siteHHID,"none","none",1) 
-  			    ''    print "deleting sonos device: ";sonosDevice.modelNumber
-  			    ''    DeleteSonosDevice(sonos.userVariables,sonosDevices,sonosDevice.baseURL)
-  			    ''    PrintAllSonosDevices(sonos)
-  			    ''else
-  			    ''    print "siteHHID user variable does not exist"
-  			    ''end if
+			    if sonos.userVariables["siteHHID"] <> invalid then
+  			        print "sethhid: current list of devices"
+  			        PrintAllSonosDevices(sonos)
+			        siteHHID=sonos.userVariables["siteHHID"].currentValue$
+			        print "setHHID on ";sonosDevice.baseURL
+  			        rdmHouseholdSetup(sonosDevice.baseURL,siteHHID,"none","none",1) 
+  			        print "deleting sonos device: ";sonosDevice.modelNumber
+  			        DeleteSonosDevice(sonos.userVariables,sonosDevices,sonosDevice.baseURL)
+  			        PrintAllSonosDevices(sonos)
+  			    else
+  			        print "siteHHID user variable does not exist"
+  			    end if
   			    siteHHID=""
   			    if sonos.userVariables["siteHHID"] <> invalid
   			        siteHHID=Sonos.userVariables["siteHHID"].currentValue$
@@ -1041,9 +1041,9 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 				    bspSerial$= bspDevice.GetDeviceUniqueId()
 				    siteHHID="Sonos_RDM_"+bspSerial$
 				    updateUserVar(sonos.userVariables,"siteHHID",siteHHID)
-''  			    print "createhhid: current list of devices"
-'' 			        PrintAllSonosDevices(sonos)
-''			        siteHHID=sonos.userVariables["siteHHID"].currentValue$
+				    print "createhhid: current list of devices"
+ 			        PrintAllSonosDevices(sonos)
+			        siteHHID=sonos.userVariables["siteHHID"].currentValue$
 ''			        rdmHouseholdSetup(sonosDevice.baseURL,"","none","none",1) 
 ''  			    print "deleting sonos device: ";sonosDevice.modelNumber
 ''  			    DeleteSonosDevice(sonos.userVariables,sonosDevices,sonosDevice.baseURL)
