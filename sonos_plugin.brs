@@ -2461,7 +2461,7 @@ End Sub
 
 Sub OnAVTransportEvent(userdata as Object, e as Object)
     print "AV Transport Event"
-    print e.GetRequestHeaders()
+    'print e.GetRequestHeaders()
     'print e.GetRequestBodyString()
 
 	s = userData.sonos
@@ -2485,16 +2485,12 @@ Sub OnAVTransportEvent(userdata as Object, e as Object)
 	end if
 
 	AVTransportURI = event.instanceid.AVTransportURI@val
-	print "*************************************** AVTransportURI: [";AVTransportURI;"] *********************************************************"
-	print "*************************************** AVTransportURI: [";AVTransportURI;"] *********************************************************"
-	print "*************************************** AVTransportURI: [";AVTransportURI;"] *********************************************************"
-	print "*************************************** AVTransportURI: [";AVTransportURI;"] *********************************************************"
-	print "*************************************** AVTransportURI: [";AVTransportURI;"] *********************************************************"
-	print "*************************************** AVTransportURI: [";AVTransportURI;"] *********************************************************"
-	print "*************************************** AVTransportURI: [";AVTransportURI;"] *********************************************************"
-	print "*************************************** AVTransportURI: [";AVTransportURI;"] *********************************************************"
-	print "*************************************** AVTransportURI: [";AVTransportURI;"] *********************************************************"
-	print "*************************************** AVTransportURI: [";AVTransportURI;"] *********************************************************"
+	print "*************************************** AVTransportURI: [";AVTransportURI;"] "
+	print "*************************************** AVTransportURI: [";AVTransportURI;"] "
+	print "*************************************** AVTransportURI: [";AVTransportURI;"] "
+	print "*************************************** AVTransportURI: [";AVTransportURI;"] "
+	print "*************************************** AVTransportURI: [";AVTransportURI;"] "
+	print "*************************************** AVTransportURI: [";AVTransportURI;"] "
 	if (AVTransportURI <> invalid) then 
 		updateDeviceVariable(s, sonosDevice, "AVTransportURI", AVTransportURI)
 	end if
@@ -2522,7 +2518,7 @@ End Sub
 
 Sub OnRenderingControlEvent(userdata as Object, e as Object)
     print "Rendering Control Event"
-    print e.GetRequestHeaders()
+    'print e.GetRequestHeaders()
 	s = userData.sonos
     sonosDevice=userData.SonosDevice    
     x=e.GetRequestBodyString()
