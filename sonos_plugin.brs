@@ -2511,7 +2511,7 @@ End Sub
 
 Sub OnRenderingControlEvent(userdata as Object, e as Object)
     print "Rendering Control Event"
-    ' print e.GetRequestHeaders()
+    print e.GetRequestHeaders()
 	s = userData.sonos
     sonosDevice=userData.SonosDevice    
     x=e.GetRequestBodyString()
