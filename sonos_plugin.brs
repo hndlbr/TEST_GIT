@@ -607,8 +607,8 @@ Sub UPNPDiscoverer_ProcessDeviceXML(ev as Object)
 
 					    print "setting the device hhid"
 					    varName=sonosDevice.modelNumber+"RoomName"
-					    if sonosDevice.userVariables[varName] <> invalid then
-					        roomName=sonosDevice.userVariables[varName].currentValue$
+					    if s.userVariables[varName] <> invalid then
+					        roomName=s.userVariables[varName].currentValue$
 					    else
 					        print "ERROR:  no room name defined for player ";sonosDevice.modelNumber
 					        roomName=sonosDevice.modelNumber
