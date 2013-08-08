@@ -547,7 +547,6 @@ function DeterminePlayerStatus(s as Object, sonosDevice as object)
 	return true
 end Function
 
-
 Sub UPNPDiscoverer_ProcessDeviceXML(ev as Object)
 	'print "UPNPDiscoverer_ProcessDeviceXML"
 	s = ev.GetUserData()
@@ -594,33 +593,10 @@ Sub UPNPDiscoverer_ProcessDeviceXML(ev as Object)
 					updateUserVar(s.userVariables,SonosDevice.modelNumber+"Version",SonosDevice.softwareVersion)
 					updateUserVar(s.userVariables,SonosDevice.modelNumber+"HHID",SonosDevice.hhid)
 
-					print "**************** site hhid:    ";s.hhid
-					print "**************** device hhid:  ";SonosDevice.hhid
-					print "**************** device hhid:  ";SonosDevice.hhid
-					print "**************** device hhid:  ";SonosDevice.hhid
-					print "**************** device hhid:  ";SonosDevice.hhid
-					print "**************** device hhid:  ";SonosDevice.hhid
-					print "**************** device hhid:  ";SonosDevice.hhid
+					'DeterminePlayerStatus(s,SonosDevice)
 
-					' check the hhid '
-					if s.hhid<>SonosDevice.hhid then
-
-					    print "setting the device hhid"
-					    varName=sonosDevice.modelNumber+"RoomName"
-					    if s.userVariables[varName] <> invalid then
-					        roomName=s.userVariables[varName].currentValue$
-					    else
-					        print "ERROR:  no room name defined for player ";sonosDevice.modelNumber
-					        roomName=sonosDevice.modelNumber
-					    end if
-
-					    rdmHouseholdSetup(sonosDevice.baseURL,s.hhid,roomName,"none",1) 
-				        print "deleting sonos device: ";sonosDevice.modelNumber
-				        DeleteSonosDevice(s.userVariables,s.sonosDevices,sonosDevice.baseURL)
-				    else
-						SonosRegisterForEvents(s, s.mp, SonosDevice)
-						s.sonosDevices.push(SonosDevice)
-					end if
+					SonosRegisterForEvents(s, s.mp, SonosDevice)
+					s.sonosDevices.push(SonosDevice)
 				else
 					print "Player ";model;" already exists in device list"
 				end if
