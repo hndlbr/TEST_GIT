@@ -76,8 +76,8 @@ Function newSonos(msgPort As Object, userVariables As Object, bsp as Object)
 	bspDevice = CreateObject("roDeviceInfo")
 	bspSerial$= bspDevice.GetDeviceUniqueId()
 	s.hhid="Sonos_RDM_"+bspSerial$
-    if sonos.userVariables["siteHHID"] <> invalid
-	    updateUserVar(sonos.userVariables,"siteHHID",s.hhid)
+    if s.userVariables["siteHHID"] <> invalid
+	    updateUserVar(s.userVariables,"siteHHID",s.hhid)
     else
         print "siteHHID user variable does not exist"
     end if
