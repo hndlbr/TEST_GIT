@@ -616,7 +616,7 @@ Sub UPNPDiscoverer_ProcessDeviceXML(ev as Object)
 
 					    rdmHouseholdSetup(sonosDevice.baseURL,s.hhid,roomName,"none",1) 
 				        print "deleting sonos device: ";sonosDevice.modelNumber
-				        DeleteSonosDevice(sonos.userVariables,sonosDevices,sonosDevice.baseURL)
+				        DeleteSonosDevice(s.userVariables,s.sonosDevices,sonosDevice.baseURL)
 				    else
 						SonosRegisterForEvents(s, s.mp, SonosDevice)
 						s.sonosDevices.push(SonosDevice)
