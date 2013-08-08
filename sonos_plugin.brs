@@ -25,7 +25,6 @@ Function newSonos(msgPort As Object, userVariables As Object, bsp as Object)
 	s.ProcessEvent = sonos_ProcessEvent
 	s.objectName = "sonos_object"
 	s.disco = invalid 
-	s.hhid = "12345" ' common household id string for all our deployments'
 	s.bootseq ="" 'a number that is the number of times rebooted since some start point... factory reset?'
 
 	' Create timer to renew register events, we will renew every hour at 15 mins past the hour
@@ -73,6 +72,15 @@ Function newSonos(msgPort As Object, userVariables As Object, bsp as Object)
 	s.udpReceiver = CreateObject("roDatagramReceiver", s.udpReceiverPort)
 	s.udpReceiver.SetPort(msgPort)
 
+	' create the site's hhid 
+	bspDevice = CreateObject("roDeviceInfo")
+	bspSerial$= bspDevice.GetDeviceUniqueId()
+	s.hhid="Sonos_RDM_"+bspSerial$
+    if sonos.userVariables["siteHHID"] <> invalid
+	    updateUserVar(sonos.userVariables,"siteHHID",s.hhid)
+    else
+        print "siteHHID user variable does not exist"
+    end if
 	return s
 End Function
 
@@ -159,7 +167,7 @@ Sub FindAllSonosDevices(s as Object)
 End Sub
 
 Sub PrintAllSonosDevices(s as Object) 
-    print "-- siteHHID:        "s.userVariables["siteHHID"].currentValue$
+    print "-- siteHHID:        "s.hhid
 	devices = s.devices
 	for each device in s.sonosDevices
 		print "++ device url:      "+device.baseURL
@@ -448,152 +456,41 @@ function findMatchingValidHHID(s as object)
 end function
 
 
-function DetermineSiteHHID(s as object)
+'function DetermineSiteHHID(s as object)
 
 	' this function will scan a set of SonosDevices and return the HHID string that should be used for the site'
 
-      matchHHID=findMatchingValidHHID(s)
-      if matchHHID<>""
-        print "two devices have: ";matchHHID;" - using that as siteHHID"
-        return matchHHID
-      end if
+ ''     matchHHID=findMatchingValidHHID(s)
+ ''     if matchHHID<>""
+ ''       print "two devices have: ";matchHHID;" - using that as siteHHID"
+ ''       return matchHHID
+ ''     end if
     
 	' if we get here we have no idea, so we'll just assume that any valid siteHHID is the right hhid by default
+''	for each device in s.sonosDevices
+''		if (instr(1, device.hhid, "Sonos_RDM_")) then
+''		    print "using ";device.hhid;" as the site HHID"
+''	        return device.hhid
+''	    end if
+ ''   next
+''
+ ''   ' if we get here, it means we basically have all factory reset players - so we'll make it up later!
+  ''  print "no devices have a valid RDM HHID"
+   '' return ""
+
+'end function
+
+
+sub CheckPlayerHHIDs(s as object) as boolean
+	' this function will check the players hhid against the site hhid, and if it does not match it will mark it as needsUpdate'
 	for each device in s.sonosDevices
-		if (instr(1, device.hhid, "Sonos_RDM_")) then
-		    print "using ";device.hhid;" as the site HHID"
-	        return device.hhid
+	    print "looking at ";device.modelNumber;": [";device.hhid;"]"
+        if device.hhid<>s.hhid
+            updateUserVar(s.userVariables,device.modelNumber+"HHIDStatus","needsUpdate")
+        else 
+	        updateUserVar(s.userVariables,device.modelNumber+"HHIDStatus","valid")
 	    end if
-    next
-
-    ' if we get here, it means we basically have all factory reset players - so we'll make it up later!
-    print "no devices have a valid RDM HHID"
-    return ""
-
-end function
-
-
-sub CheckPlayerHHIDs(s as object, siteHHID as string) as boolean
-
-	' this function will scan a set of SonosDevices and set the sXHHIDstatus user variables based on what needs to be done 
-	' based on comparing each devices hhid to the passed in siteHHID
-
-	' if it matches, it's valid
-	' if it does not match and it's an empty string, we set needsUpdate
-	' if it does not match and it's not an empty string, we set needsManualUpdate to indicate it needs a factory reset
-	print "CheckPlayerHHIDs: [";siteHHID;"]"
-
-	' set all status to unknown until we actually know'
-	for each device in s.sonosDevices
-        updateUserVar(s.userVariables,device.modelNumber+"HHIDStatus","unknown")
-	next
-
-	' detect if we have a solo device'
-	if s.sonosDevices.count()=1
-        if device.hhid=""
-            updateUserVar(s.userVariables,device.modelNumber+"HHIDStatus","needsNewHHID")
-        else
-            updateUserVar(s.userVariables,device.modelNumber+"HHIDStatus","needsFactoryReset")
-        end if
-
-        ' if we have only the one device, no point in going further'
-        print "only one device found, done checking/setting hhid"
-        goto end_check
-	end if
-
-
-	' if we have no siteHHID that means we basically have no RDM units in the kiosk'
-	if siteHHID=""
-	    fr_found=false
-        ' proceed in order from s1 to s9, checking if they are actually desired '
-        BubbleSortDeviceList(s.sonosDevices)
-
-        for each device in s.sonosDevices
-
-       
-            print "checking HHID on device: ";device.modelNumber
-            if device.modelNumber="s1"
-                if s.userVariables["s1Desired"]<>invalid
-                    if s.userVariables["s1Desired"].currentValue$ = "yes"
-				        if device.hhid="" then
-			                print "device ";device.modelNumber ;" is factory reset, setting to needsNewHHID"
-			                updateUserVar(s.userVariables,device.modelNumber+"HHIDStatus","needsNewHHID")
-			                fr_found=true
-				        end if
-                    end if
-                end if
-            else if device.modelNumber="s3"
-                if s.userVariables["s3Desired"]<>invalid
-                    if s.userVariables["s3Desired"].currentValue$ = "yes"
-				        if device.hhid="" then
-				            if fr_found=true ' then we already asked for this'
-					            print "device ";device.modelNumber ;" is factory reset but we aleady are using s1 to create, setting to needsUpdate"
-				                updateUserVar(s.userVariables,device.modelNumber+"HHIDStatus","needsUpdate")
-				                fr_found=true
-				            else
-					            print "device ";device.modelNumber ;" is factory reset, setting to needsNewHHID"
-				                updateUserVar(s.userVariables,device.modelNumber+"HHIDStatus","needsNewHHID")
-				                fr_found=true
-				            end if
-				        end if
-                    end if
-                end if
-            else if device.modelNumber="s5"
-                if s.userVariables["s5Desired"]<>invalid
-                    if s.userVariables["s5Desired"].currentValue$ = "yes"
-				        if device.hhid="" then
-				            if fr_found=true ' then we already asked for this'
-					            print "device ";device.modelNumber ;" is factory reset but we aleady are using s1 to create, setting to needsUpdate"
-				                updateUserVar(s.userVariables,device.modelNumber+"HHIDStatus","needsUpdate")
-				                fr_found=true
-				            else
-					            print "device ";device.modelNumber ;" is factory reset, setting to needsNewHHID"
-				                updateUserVar(s.userVariables,device.modelNumber+"HHIDStatus","needsNewHHID")
-				                fr_found=true
-				            end if
-				        end if
-                    end if
-                end if
-            else if device.modelNumber="s9"
-                if s.userVariables["s9Desired"]<>invalid
-                    if s.userVariables["s9Desired"].currentValue$ = "yes"
-				        if device.hhid="" then
-				            if fr_found=true ' then we already asked for this'
-					            print "device ";device.modelNumber ;" is factory reset but we aleady are using s1 to create, setting to needsUpdate"
-				                updateUserVar(s.userVariables,device.modelNumber+"HHIDStatus","needsUpdate")
-				                fr_found=true
-				            else
-					            print "device ";device.modelNumber ;" is factory reset, setting to needsNewHHID"
-				                updateUserVar(s.userVariables,device.modelNumber+"HHIDStatus","needsNewHHID")
-				                fr_found=true
-				            end if
-				        end if
-                    end if
-                end if
-            else if device.hhid="" then
-                print "************ unexpected Sonos device found - trying our best to handle it anyway ***************"
-                print "device ";device.modelNumber ;" is factory reset, setting to needsNewHHID"
-                updateUserVar(s.userVariables,device.modelNumber+"HHIDStatus","needsNewHHID")
-                fr_found=true
-	        end if
-        next
-        goto end_check:
-
-    else ' siteHHID is not empty'    
-		print "siteHHID is valid [";siteHHID;"] - scanning device set"
-		' we have a good HHID, match and set'
-		for each device in s.sonosDevices
-		    print "looking at ";device.modelNumber;": [";device.hhid;"]"
-	        if device.hhid=""
-	            updateUserVar(s.userVariables,device.modelNumber+"HHIDStatus","needsUpdate")
-	        else if device.hhid=siteHHID
-		        updateUserVar(s.userVariables,device.modelNumber+"HHIDStatus","valid")
-		    else 
-	            updateUserVar(s.userVariables,device.modelNumber+"HHIDStatus","needsFactoryReset")
-		    end if
-		end for
-	end if
-	end_check:
+	end for
 end sub
 
 
@@ -697,10 +594,33 @@ Sub UPNPDiscoverer_ProcessDeviceXML(ev as Object)
 					updateUserVar(s.userVariables,SonosDevice.modelNumber+"Version",SonosDevice.softwareVersion)
 					updateUserVar(s.userVariables,SonosDevice.modelNumber+"HHID",SonosDevice.hhid)
 
-					'DeterminePlayerStatus(s,SonosDevice)
+					print "**************** site hhid:    ";s.hhid
+					print "**************** device hhid:  ";SonosDevice.hhid
+					print "**************** device hhid:  ";SonosDevice.hhid
+					print "**************** device hhid:  ";SonosDevice.hhid
+					print "**************** device hhid:  ";SonosDevice.hhid
+					print "**************** device hhid:  ";SonosDevice.hhid
+					print "**************** device hhid:  ";SonosDevice.hhid
 
-					SonosRegisterForEvents(s, s.mp, SonosDevice)
-					s.sonosDevices.push(SonosDevice)
+					' check the hhid '
+					if s.hhid<>SonosDevice.hhid then
+
+					    print "setting the device hhid"
+					    varName=sonosDevice.modelNumber+"RoomName"
+					    if sonos.userVariables[varName] <> invalid then
+					        roomName=sonos.userVariables[varName].currentValue$
+					    else
+					        print "ERROR:  no room name defined for player ";sonosDevice.modelNumber
+					        roomName=sonosDevice.modelNumber
+					    end if
+
+					    rdmHouseholdSetup(sonosDevice.baseURL,sonos.hhid,roomName,"none",1) 
+				        'print "deleting sonos device: ";sonosDevice.modelNumber
+				        'DeleteSonosDevice(sonos.userVariables,sonosDevices,sonosDevice.baseURL)
+				    else
+						SonosRegisterForEvents(s, s.mp, SonosDevice)
+						s.sonosDevices.push(SonosDevice)
+					end if
 				else
 					print "Player ";model;" already exists in device list"
 				end if
@@ -1003,54 +923,23 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 			else if command = "reboot" then
 			    xfer=SonosPlayerReboot(sonos.mp, sonosDevice.baseURL)
 				sonos.xferObjects.push(xfer)
-			'else if command = "checkhhid" then
-			''    siteHHID=DetermineSiteHHID(sonos)
-			''    print "siteHHID is determined to be: ";siteHHID
-		    ''    updateUserVar(sonos.userVariables,"siteHHID",siteHHID)
-			''    CheckPlayerHHIDs(sonos,siteHHID)
-			''    PrintAllSonosDevices(sonos)
+			else if command = "checkhhid" then
+			    CheckPlayerHHIDs(sonos)
+			    PrintAllSonosDevices(sonos)
+			else if command = "rdmping" then
+			    rdmPing(sonosDevice.baseURL,sonos.hhid) 
 			else if command = "sethhid" then
-			    if sonos.userVariables["siteHHID"] <> invalid then
-  			        print "sethhid: current list of devices"
-  			        PrintAllSonosDevices(sonos)
-			        siteHHID=sonos.userVariables["siteHHID"].currentValue$
-			        print "setHHID on ";sonosDevice.baseURL
-  			        rdmHouseholdSetup(sonosDevice.baseURL,siteHHID,"none","none",1) 
-  			        print "deleting sonos device: ";sonosDevice.modelNumber
-  			        DeleteSonosDevice(sonos.userVariables,sonosDevices,sonosDevice.baseURL)
-  			        PrintAllSonosDevices(sonos)
-  			    else
-  			        print "siteHHID user variable does not exist"
-  			    end if
-  			    siteHHID=""
-  			    if sonos.userVariables["siteHHID"] <> invalid
-  			        siteHHID=Sonos.userVariables["siteHHID"].currentValue$
-  			    end if
 			    varName=sonosDevice.modelNumber+"RoomName"
 			    if sonos.userVariables[varName] <> invalid then
 			        roomName=sonos.userVariables[varName].currentValue$
-			        rdmHouseholdSetup(sonosDevice.baseURL,siteHHID,roomName,"none",1) 
 			    else
 			        print "ERROR:  no room name defined for player ";sonosDevice.modelNumber
-			        roomName="Room"
-			        rdmHouseholdSetup(sonosDevice.baseURL,siteHHID,roomName,"none",1) 
+			        roomName=sonosDevice.modelNumber
 			    end if
-			else if command = "createhhid" then
-			    if sonos.userVariables["siteHHID"] <> invalid
-	  			    bspDevice = CreateObject("roDeviceInfo")
-				    bspSerial$= bspDevice.GetDeviceUniqueId()
-				    siteHHID="Sonos_RDM_"+bspSerial$
-				    updateUserVar(sonos.userVariables,"siteHHID",siteHHID)
-				    print "createhhid: current list of devices"
- 			        PrintAllSonosDevices(sonos)
-			        siteHHID=sonos.userVariables["siteHHID"].currentValue$
-''			        rdmHouseholdSetup(sonosDevice.baseURL,"","none","none",1) 
-''  			    print "deleting sonos device: ";sonosDevice.modelNumber
-''  			    DeleteSonosDevice(sonos.userVariables,sonosDevices,sonosDevice.baseURL)
-''  			    PrintAllSonosDevices(sonos)
-			    else
-			        print "siteHHID user variable does not exist"
-			    end if
+			    rdmHouseholdSetup(sonosDevice.baseURL,sonos.hhid,roomName,"none",1) 
+		        print "deleting sonos device: ";sonosDevice.modelNumber
+		        DeleteSonosDevice(sonos.userVariables,sonosDevices,sonosDevice.baseURL)
+		        PrintAllSonosDevices(sonos)
 			else if command = "addmp3" then
 				AddMP3(sonos, detail)
 			else if command = "addupgradefiles" then
@@ -2660,6 +2549,24 @@ Sub PrintXML(element As Object, depth As Integer)
 	print
 end sub
 
+
+Function rdmPing(connectedPlayerIP as string, hhid as string) as Object
+
+	print "rdmping: ";hhid;" for ";connectedPlayerIP
+
+	sURL=connectedPlayerIP+"/rdmping"
+	v={}
+	v.hhid=hhid
+	b = postFormData(sURL,v)
+	if b<>true
+		print "ERROR rdmping for "+connectedPlayerIP
+	else
+	    print "successful rdmping for ";hhid;" on ";connectedPlayerIP
+	end if
+	return v
+end Function
+
+
 Function rdmHouseholdSetup(connectedPlayerIP as string, hhid as string, name as string, icon as string, reboot as integer) as Object
 
 	print "setting hhhid: ";hhid;" for ";connectedPlayerIP
@@ -2685,7 +2592,6 @@ end Function
 Sub SonosSetRDMDefaults(mp as object, connectedPlayerIP as string, sonos as object) as object
 
 	r={}
-
 	' set all of the defaults that don't change
 	r["enable"]="1"
 	r["tosl"]= "1"
@@ -2695,7 +2601,7 @@ Sub SonosSetRDMDefaults(mp as object, connectedPlayerIP as string, sonos as obje
 	r.["vol:ZP80"] = "10"
 	r.["vol:ZP90"] = "10"
 	r.["vol:ZP120"] = "10"
-	r.["wto"] = "0"
+	r.["wto"] = "60"
 
 	' Now set all of the RDM defaults that have user variables
 	' rdmwifi = off means that we want to turn off the wifi radio on the device.  To do this we set the post value to 1
@@ -2741,24 +2647,8 @@ Sub SonosSetRDMDefaults(mp as object, connectedPlayerIP as string, sonos as obje
 	good = postFormData(sURL,r)
 	if not good then
 	    print "ERROR from POST to RDM"
-	    print "ERROR from POST to RDM"
-	    print "ERROR from POST to RDM"
-	    print "ERROR from POST to RDM"
-	    print "ERROR from POST to RDM"
-	    print "ERROR from POST to RDM"
-	    print "ERROR from POST to RDM"
-	    print "ERROR from POST to RDM"
-	    print "ERROR from POST to RDM"
-	    print "ERROR from POST to RDM"
-	    print "ERROR from POST to RDM"
-	    print "ERROR from POST to RDM"
-	    print "ERROR from POST to RDM"
-	    print "ERROR from POST to RDM"
 ''		stop
 	end if
-
-	' this is a hard coded POST string - the right way is to build this from variables '
-	'postString="enable=1&to=0&vol%3AZP100=15&vol%3AZP80=15&vol%3AZP90=15&vol%3AZP120=15&vol%3AS5=15&vol%3AS3=15&vol%3AS1=15&vol%3AS9=15"
 
 end sub	
 
