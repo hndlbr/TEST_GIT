@@ -1947,7 +1947,7 @@ Function HandleSonosXferEvent(msg as object, sonos as object) as boolean
 				if (eventCode = 200) then 
 					if reqData="GetVolume" then
 						processSonosVolumeResponse(msg,connectedPlayerIP,sonos)
-					if reqData="SetVolume" then
+					else if reqData="SetVolume" then
 						processSonosSetVolumeResponse(msg,connectedPlayerIP,sonos)
 					else if reqData="GetRDM" then
 						processSonosRDMResponse(msg,connectedPlayerIP,sonos)
