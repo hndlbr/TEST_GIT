@@ -684,7 +684,7 @@ end sub
 
 Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 
-	print "Received command - ParseSonosPluginMsg: " + origMsg
+	print "Received command - ParseSonosPluginMsg: " + origMsg;" at: ";sonos.st.GetLocalDateTime()
 
 	retval = false
 		
@@ -1943,7 +1943,7 @@ Function HandleSonosXferEvent(msg as object, sonos as object) as boolean
 				reqData = ""
 			end if
 			if (msg.getInt() = 1) then
-				print "Http transfer code: "; eventCode; " request type: ";reqData;" ";connectedPlayerIP
+				print "Http transfer code: "; eventCode; " request type: ";reqData;" from ";connectedPlayerIP;"at: ";sonos.st.GetLocalDateTime()
 				if (eventCode = 200) then 
 					if reqData="GetVolume" then
 						processSonosVolumeResponse(msg,connectedPlayerIP,sonos)
@@ -1985,7 +1985,7 @@ sub postNextCommandInQueue(sonos as object, connectedPlayerIP as string)
 	cmdFound = false
 	x = 0
 	if (numCmds > 0) then 
-		print "There are ";numCmds;" in the queue"
+		print "There are ";numCmds;" in the queue at ";sonos.st.GetLocalDateTime()
 	end if
 
 	' loop thru all of the commands to see if we can find one that matches this player IP
