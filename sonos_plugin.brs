@@ -2338,11 +2338,10 @@ Sub OnGenaRenewResponse(userData as object,e as Object, s as object)
 End Sub
 
 Sub OnAVTransportEvent(userdata as Object, e as Object)
-    'print e.GetRequestHeaders()
-    'print e.GetRequestBodyString()
-
 	s = userData.sonos
     print "AV Transport Event at: ";s.st.GetLocalDateTime()
+    'print e.GetRequestHeaders()
+    'print e.GetRequestBodyString()
 
 	sonosDevice=userData.SonosDevice
     ' Big chunk of XML comes in here.
@@ -2391,11 +2390,9 @@ Sub OnAVTransportEvent(userdata as Object, e as Object)
 End Sub
 
 Sub OnRenderingControlEvent(userdata as Object, e as Object)
-    print "Rendering Control Event"
-    'print e.GetRequestHeaders()
-
 	s = userData.sonos
     print "Rendering Control Event at: ";s.st.GetLocalDateTime()
+    'print e.GetRequestHeaders()
 
 
     sonosDevice=userData.SonosDevice    
