@@ -34,6 +34,9 @@ Function newSonos(msgPort As Object, userVariables As Object, bsp as Object)
 	s.timer.SetTime(-1, 25, 0, 0) 
 	s.timer.Start()
 
+	s.st=CreateObject("roSystemTime")
+	print "Sonos Plugin created at: ";s.st.GetLocalDateTime()
+
 
 	' Need to remove once all instances of this are taken out of the Sonos code
 	s.mp = msgPort
@@ -776,7 +779,7 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 				if (sonosDevice.volume > 100) then
 					sonosDevice.volume = 100
 				end if
-				print "Sending Volume Up "+str(volincrease)+ " to "+str(sonosDevice.volume)
+				print "Sending Volume Up "+str(volincrease)+ " to "+str(sonosDevice.volume);" at: ";sonos.st.GetLocalDateTime()
 				xfer = SonosSetVolume(sonos.mp, sonosDevice.baseURL, sonosDevice.volume)
 				sonos.xferObjects.push(xfer)
 			else if command="voldown" then
@@ -789,7 +792,7 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 				if (sonosDevice.volume < 0) then
 					sonosDevice.volume = 0
 				end if
-				'print "Sending Volume Down "+str(voldecrease)+ " to "+str(sonosDevice.volume)
+				print "Sending Volume Down "+str(voldecrease)+ " to "+str(sonosDevice.volume);" at: ";sonos.st.GetLocalDateTime()
 				xfer = SonosSetVolume(sonos.mp, sonosDevice.baseURL, sonosDevice.volume)
 				sonos.xferObjects.push(xfer)
 			else if command="setplaymode" then
@@ -806,6 +809,7 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 				SonosSetSleepTimer(sonos, sonosDevice,timeout)
 			else if command="playmp3" then
 				' print "Playing MP3"
+				print "Playing MP3 on "+sonosDevice.modelNumber" at: ";sonos.st.GetLocalDateTime()
 				netConfig = CreateObject("roNetworkConfiguration", 0)
 				currentNet = netConfig.GetCurrentConfig()
 				xfer = SonosSetSong(sonos.mp, currentNet.ip4_address, sonosDevice.baseURL, detail)
@@ -1804,7 +1808,7 @@ end sub
 
 Function processSonosVolumeResponse(msg as object, connectedPlayerIP as string, sonos as Object)
 
-	print "processSonosVolumeResponse from " + connectedPlayerIP
+	print "processSonosVolumeResponse from " + connectedPlayerIP+" at: ";sonos.st.GetLocalDateTime();
 ''	print msg
 
 	match="<CurrentVolume>"
