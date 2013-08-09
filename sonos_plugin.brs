@@ -956,7 +956,7 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 				print "Discarding UNSUPPORTED command :"; command
 			end if
 		else
-			print "Queueing command due to device being busy: ";msg
+			print "Queueing command due to device being busy: ";msg;" at: ";sonos.st.GetLocalDateTime()
 			commandToQ = {}
 			commandToQ.IP = sonosDevice.baseURL
 			commandToQ.msg = msg
@@ -973,7 +973,7 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 			fields=r2.split(msg)
 			numFields = fields.count()
 			if (numFields < 3) or (numFields > 5) then
-				print "Incorrect number of fields for BrightSign command:";msg
+				print "************ Incorrect number of fields for BrightSign command:";msg
 				' need to have a least 3 fields and not more than 4 fields to be valid
 				return retval
 			else if (numFields = 3) then
@@ -1943,7 +1943,7 @@ Function HandleSonosXferEvent(msg as object, sonos as object) as boolean
 				reqData = ""
 			end if
 			if (msg.getInt() = 1) then
-				print "Http transfer code: "; eventCode; " request type: ";reqData;" from ";connectedPlayerIP;"at: ";sonos.st.GetLocalDateTime()
+				print "HTTP return code: "; eventCode; " request type: ";reqData;" from ";connectedPlayerIP;" at: ";sonos.st.GetLocalDateTime()
 				if (eventCode = 200) then 
 					if reqData="GetVolume" then
 						processSonosVolumeResponse(msg,connectedPlayerIP,sonos)
@@ -2355,7 +2355,7 @@ Sub OnAVTransportEvent(userdata as Object, e as Object)
 	event = CreateObject("roXMLElement")
 	event.parse(fixedEventString)
 
-	print "lastchange =";eventstring
+	'print "lastchange =";eventstring
 
 	transportState = event.instanceid.transportstate@val
 	if (transportState <> invalid) then 
