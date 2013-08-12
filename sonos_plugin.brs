@@ -775,7 +775,7 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 			desired = false
 			for i = 0 to sonos.desiredDevices.count() - 1
 				if (devType = sonos.desiredDevices[i]) then
-					print "Found device ";devType;" in list of desired devices"
+					'print "Found device ";devType;" in list of desired devices"
 					desired = true
 				end if
 			end for
