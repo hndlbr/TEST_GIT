@@ -702,7 +702,7 @@ end sub
 
 Function CheckGroupValid(sonosDevices as Object, masterDevice as object) as object
 	
-	masterString="xrincon:"+masterDevice.UDN
+	masterString="x-rincon:"+masterDevice.UDN
 
 	' if any of the devices don't have their AVTransportURI set to the UDN of the master then they are 
 	' not grouped'
