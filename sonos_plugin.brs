@@ -2067,7 +2067,7 @@ Function HandleSonosXferEvent(msg as object, sonos as object) as boolean
 				print "HTTP return code: "; eventCode; " request type: ";reqData;" from ";connectedPlayerIP;
 				if (eventCode = 200) then 
 					if reqData="rdmPing" then
-					     "got reply for rdmPing"
+					     print "got reply for rdmPing"
 					end if
 				end if		
 
