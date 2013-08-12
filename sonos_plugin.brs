@@ -779,10 +779,23 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 				xfer = SonosSetMute(sonos.mp, sonosDevice.baseURL,0) 
 				sonos.xferObjects.push(xfer)
 			else if command="volume" then
-				' print "Setting volume"
 				volume = val(detail)
-				xfer = SonosSetVolume(sonos.mp, sonosDevice.baseURL, volume )
-				sonos.xferObjects.push(xfer)
+				print "Setting volume on ";sonosDevice.modelNumber;" to ["volume;"]"
+				if sonosDevice.volume<>volume
+					xfer = SonosSetVolume(sonos.mp, sonosDevice.baseURL, volume )
+					sonos.xferObjects.push(xfer)
+				else
+				    print "+++ volume already set correctly - ignoring command"
+				    print "+++ volume already set correctly - ignoring command"
+				    print "+++ volume already set correctly - ignoring command"
+				    print "+++ volume already set correctly - ignoring command"
+				    print "+++ volume already set correctly - ignoring command"
+				    print "+++ volume already set correctly - ignoring command"
+				    print "+++ volume already set correctly - ignoring command"
+				    print "+++ volume already set correctly - ignoring command"
+				    print "+++ volume already set correctly - ignoring command"
+				    print "+++ volume already set correctly - ignoring command"
+				end if
 			else if command="getvol" then
 				' print "Getting volume"
 				xfer = SonosGetVolume(sonos.mp, sonosDevice.baseURL)
@@ -2395,18 +2408,10 @@ Sub OnAVTransportEvent(userdata as Object, e as Object)
 			myIP=currentNet.ip4_address
 			ipFound = instr(1,AVTransportURI,myIP)
 			if ipFound
-			    print "************* playing kiosk content  ********************"
+''			    print "************* playing kiosk content  ********************"
 			else
+				sendPluginEvent(s,"ForeignTransportStateURI")
 			    print "************* NOT playing kiosk content  ********************"
-   			    print "************* NOT playing kiosk content  ********************"
-			    print "************* NOT playing kiosk content  ********************"
-   			    print "************* NOT playing kiosk content  ********************"
-			    print "************* NOT playing kiosk content  ********************"
-   			    print "************* NOT playing kiosk content  ********************"
-			    print "************* NOT playing kiosk content  ********************"
-   			    print "************* NOT playing kiosk content  ********************"
-			    print "************* NOT playing kiosk content  ********************"
-   			    print "************* NOT playing kiosk content  ********************"
    			end if
 		end if
 	end if
