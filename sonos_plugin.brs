@@ -700,24 +700,14 @@ Sub GetBaseIPByPlayerModel(sonosDevices as Object, modelNumber as string) as str
 end sub
 
 
-Sub GetUDNByPlayerModel(sonosDevices as Object, modelNumber as string) as string
+Function CheckGroupValid(sonosDevices as Object, masterDevice as object) as object
 	
-	UDN = ""
-	for i = 0 to sonosDevices.count() - 1
-		if (sonosDevices[i].modelNumber = modelNumber) then
-			UDN = sonosDevices[i].UDN
-		end if
-	end for
-	return UDN
-end sub
+	masterString="xrincon:"+masterDevice.UDN
 
-Function CheckGroupValid(sonosDevices as Object, masterUDN as string) as object
-	
-	masterString="xrincon:"+masterUDN
 	' if any of the devices don't have their AVTransportURI set to the UDN of the master then they are 
 	' not grouped'
 	for i = 0 to sonosDevices.count() - 1
-		if (sonosDevices[i].modelNumber <> masterModelNumber) then
+		if (sonosDevices[i].modelNumber <> masterDevice.modelNumber) then
 		    print "+++ comparing ";sonosDevices[i].AVTransportURI;" to ";masterString
 		    if sonosDevices[i].AVTransportURI<>masterString
 		        print "+++ NOT Grouped!"
@@ -890,8 +880,7 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 						endif
 					end for
 					
-					masterUDN=GetUDNByPlayerModel(sonosDevices,MasterSonosDevice.modelNumber)
-					groupValid=CheckGroupValid(sonosDevices, masterUDN)
+					groupValid=CheckGroupValid(sonosDevices, MasterSonosDevice)
 
 					if groupValid=false then
 						if MasterSonosDevice = invalid then
