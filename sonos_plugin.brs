@@ -792,13 +792,21 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 		if (not SonosDeviceBusy(sonos, devType)) or (command = "present") or (command = "addplayertogroup") or (devType = "sall") then
 			' TOTO: should consider putting xferobjects inside functions where they belong!'
 			if command="mute" then
-				' print "Sending mute"
-				xfer = SonosSetMute(sonos.mp, sonosDevice.baseURL,1) 
-				sonos.xferObjects.push(xfer)
+				if sonosDevice.mute=0
+				    print "Sending mute"
+					xfer = SonosSetMute(sonos.mp, sonosDevice.baseURL,1) 
+					sonos.xferObjects.push(xfer)
+				else
+				    print "+++ device already muted - ignorning command"
+				end if
 			else if command="unmute" then
-				' print "Sending unMute"
-				xfer = SonosSetMute(sonos.mp, sonosDevice.baseURL,0) 
-				sonos.xferObjects.push(xfer)
+				if sonosDevice.mute=1
+				    print "Sending unMute"
+					xfer = SonosSetMute(sonos.mp, sonosDevice.baseURL,0) 
+					sonos.xferObjects.push(xfer)
+				else
+				    print "+++ device not muted - ignorning command"
+				end if
 			else if command="volume" then
 				volume = val(detail)
 				print "Setting volume on ";sonosDevice.modelNumber;" to ["volume;"]"
@@ -1993,8 +2001,8 @@ Function HandleSonosXferEvent(msg as object, sonos as object) as boolean
 				reqData = ""
 			end if
 			if (msg.getInt() = 1) then
-				print "HTTP return code: "; eventCode; " request type: ";reqData;" from ";connectedPlayerIP;" at: ";sonos.st.GetLocalDateTime()
-''				print "HTTP return code: "; eventCode; " request type: ";reqData;" from ";connectedPlayerIP;
+''				print "HTTP return code: "; eventCode; " request type: ";reqData;" from ";connectedPlayerIP;" at: ";sonos.st.GetLocalDateTime()
+				print "HTTP return code: "; eventCode; " request type: ";reqData;" from ";connectedPlayerIP;
 				if (eventCode = 200) then 
 					if reqData="GetVolume" then
 						processSonosVolumeResponse(msg,connectedPlayerIP,sonos)
