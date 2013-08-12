@@ -315,7 +315,7 @@ Sub OnFound(response as String)
 					' if it's bootseq is different we need to punt and treat it as new
 					if bootseq<>sonosDevice.bootseq then
 					    'tickle the rdmPing or it will reset itself'
-					    rdmPing(sonosDevice.baseURL,m.s.hhid) 
+''					    rdmPing(sonosDevice.baseURL,m.s.hhid) 
 					    print "+++ bootseq incremented - treating as a new player"
 					    print "+++ bootseq incremented - treating as a new player"
 					    print "+++ bootseq incremented - treating as a new player"
