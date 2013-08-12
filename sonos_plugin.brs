@@ -713,12 +713,13 @@ end sub
 
 Function CheckGroupValid(sonosDevices as Object, masterUDN as string) as object
 	
+	masterString="xrincon:"+masterUDN
 	' if any of the devices don't have their AVTransportURI set to the UDN of the master then they are 
 	' not grouped'
 	for i = 0 to sonosDevices.count() - 1
 		if (sonosDevices[i].modelNumber <> masterModelNumber) then
-		    print "+++ comparing ";sonosDevices[i].AVTransportURI;" to ";masterUDN
-		    if sonosDevices[i].AVTransportURI<>masterUDN
+		    print "+++ comparing ";sonosDevices[i].AVTransportURI;" to ";masterString
+		    if sonosDevices[i].AVTransportURI<>masterString
 		        print "+++ NOT Grouped!"
 		        return false
 		    end if
@@ -2432,9 +2433,7 @@ Sub OnAVTransportEvent(userdata as Object, e as Object)
 		updateDeviceVariable(s, sonosDevice, "TransportState", transportState)
 	end if
 
-	AVTransportURIRaw = event.instanceid.AVTransportURI@val
-	r = CreateObject("roRegex", "x-rincon:", "i")
-    AVTransportURI=r.ReplaceAll(AVTransportURIRaw,"")
+	AVTransportURI = event.instanceid.AVTransportURI@val
 	print "AVTransportURI: [";AVTransportURI;"] "
 	if (AVTransportURI <> invalid) then 
 		updateDeviceVariable(s, sonosDevice, "AVTransportURI", AVTransportURI)
