@@ -2791,7 +2791,6 @@ end Function
 
 
 Sub SonosSetRDMDefaults(mp as object, connectedPlayerIP as string, sonos as object) as object
-
 	r={}
 	' set all of the defaults that don't change
 	r["enable"]="1"
