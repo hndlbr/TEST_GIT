@@ -700,6 +700,36 @@ Sub GetBaseIPByPlayerModel(sonosDevices as Object, modelNumber as string) as str
 end sub
 
 
+Sub GetUDNByPlayerModel(sonosDevices as Object, modelNumber as string) as string
+	
+	UDN = ""
+	for i = 0 to sonosDevices.count() - 1
+		if (sonosDevices[i].modelNumber = modelNumber) then
+			UDN = sonosDevices[i].UDN
+		end if
+	end for
+	return UDN
+end sub
+
+Function CheckGroupValid(sonosDevices as Object, masterUDN as string) as object
+	
+	' if any of the devices don't have their AVTransportURI set to the UDN of the master then they are 
+	' not grouped'
+	for i = 0 to sonosDevices.count() - 1
+		if (sonosDevices[i].modelNumber <> masterModelNumber) then
+		    print "+++ comparing ";sonosDevices[i].AVTransportURI;" to ";masterUDN
+		    if sonosDevices[i].AVTransportURI<>masterUDN
+		        print "+++ NOT Grouped!"
+		        return false
+		    end if
+		end if
+	end for
+	print "+++ Grouped!"
+	return true
+end sub
+
+
+
 Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 
 	print "Received command - ParseSonosPluginMsg: " + origMsg;" at: ";sonos.st.GetLocalDateTime()
@@ -851,32 +881,37 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 				sonos.xferObjects.push(xfer)
 			else if command="group" then
 				if (devType <> "sall") then 
-				' print "Grouping players"
-				
-				MasterSonosDevice = invalid
-				for each device in sonos.sonosDevices
-					if device.modelNumber = detail
-						MasterSonosDevice = device			
-					endif
-				end for
-				if MasterSonosDevice = invalid then
-					print "No  master device of that type on this network"
-				else
-					xfer = SonosSetGroup(sonos.mp, sonosDevice.baseURL, MasterSonosDevice.UDN)
-					sonos.xferObjects.push(xfer)						
-				endif
-				else
-					print "Grouping all devices"
-					if (sonos.masterDevice <> "") then
-						print "Number of device in playing group is: ";sonos.playingGroup.count()
-						for i = 0 to sonos.playingGroup.count() - 1
-							print "Comparing ";sonos.playingGroup[i];" to ";sonos.masterDevice
-							if (sonos.playingGroup[i] <> sonos.masterDevice) then
-								print "Sending plugin message:";"sonos!"+sonos.playingGroup[i]+"!group!"+sonos.masterDevice
-								sendPluginMessage(sonos, "sonos!"+sonos.playingGroup[i]+"!group!"+sonos.masterDevice)
-							end if
-						end for
+					' print "Grouping players"
+					MasterSonosDevice = invalid
+					for each device in sonos.sonosDevices
+						if device.modelNumber = detail
+							MasterSonosDevice = device			
+						endif
+					end for
+					
+					masterUDN=GetUDNByPlayerModel(sonosDevices,MasterSonosDevice)
+					groupValid=CheckGroupValid(sonosDevices, masterUDN)
+
+					if groupValid=false then
+						if MasterSonosDevice = invalid then
+							print "No  master device of that type on this network"
+						else
+							xfer = SonosSetGroup(sonos.mp, sonosDevice.baseURL, MasterSonosDevice.UDN)
+							sonos.xferObjects.push(xfer)						
+						endif
 					end if
+				else
+						print "Grouping all devices"
+						if (sonos.masterDevice <> "") then
+							print "Number of device in playing group is: ";sonos.playingGroup.count()
+							for i = 0 to sonos.playingGroup.count() - 1
+								print "Comparing ";sonos.playingGroup[i];" to ";sonos.masterDevice
+								if (sonos.playingGroup[i] <> sonos.masterDevice) then
+									print "Sending plugin message:";"sonos!"+sonos.playingGroup[i]+"!group!"+sonos.masterDevice
+									sendPluginMessage(sonos, "sonos!"+sonos.playingGroup[i]+"!group!"+sonos.masterDevice)
+								end if
+							end for
+						end if
 				end if
 			else if command = "play" then
 				xfer = SonosPlaySong(sonos.mp, sonosDevice.baseURL)
@@ -2397,7 +2432,9 @@ Sub OnAVTransportEvent(userdata as Object, e as Object)
 		updateDeviceVariable(s, sonosDevice, "TransportState", transportState)
 	end if
 
-	AVTransportURI = event.instanceid.AVTransportURI@val
+	AVTransportURIRaw = event.instanceid.AVTransportURI@val
+	r = CreateObject("roRegex", "x-rincon:", "i")
+    AVTransportURI=r2.ReplaceAll(AVTransportURIRaw,"")
 	print "AVTransportURI: [";AVTransportURI;"] "
 	if (AVTransportURI <> invalid) then 
 		updateDeviceVariable(s, sonosDevice, "AVTransportURI", AVTransportURI)
