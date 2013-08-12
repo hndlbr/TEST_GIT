@@ -314,6 +314,8 @@ Sub OnFound(response as String)
 					updateUserVar(m.s.userVariables,SonosDevice.modelNumber+"HHID",SonosDevice.hhid)
 					' if it's bootseq is different we need to punt and treat it as new
 					if bootseq<>sonosDevice.bootseq then
+					    'tickle the rdmPing or it will reset itself'
+					    rdmPing(sonosDevice.baseURL,m.s.hhid) 
 					    m.s.sonosDevices.delete(sonosDeviceIndex)
 					    updateUserVar(m.s.userVariables,SonosDevice.modelNumber+"HHIDStatus","pending")
 					    SendXMLQuery(m.s, response)
@@ -786,7 +788,7 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 			endif
 
 			print command +" " + devType + " " + detail + " " +sonosDevice.baseURL
-			
+
 		end if
 
 		' if the Sonos device is not already processing a command, the process if
