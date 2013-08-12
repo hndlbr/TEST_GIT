@@ -890,7 +890,7 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 						endif
 					end for
 					
-					masterUDN=GetUDNByPlayerModel(sonosDevices,MasterSonosDevice)
+					masterUDN=GetUDNByPlayerModel(sonosDevices,MasterSonosDevice.modelNumber)
 					groupValid=CheckGroupValid(sonosDevices, masterUDN)
 
 					if groupValid=false then
