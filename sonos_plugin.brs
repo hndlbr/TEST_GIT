@@ -2357,11 +2357,12 @@ End Sub
 
 Sub OnAVTransportEvent(userdata as Object, e as Object)
 	s = userData.sonos
-    print "AV Transport Event at: ";s.st.GetLocalDateTime()
     'print e.GetRequestHeaders()
     'print e.GetRequestBodyString()
 
 	sonosDevice=userData.SonosDevice
+    print "AV Transport Event [";sonosDevice.modelNumber;"] at: ";s.st.GetLocalDateTime()
+
     ' Big chunk of XML comes in here.
 	rsp=CreateObject("roXMLElement")
 	rsp.Parse(e.GetRequestBodyString())
@@ -2370,12 +2371,12 @@ Sub OnAVTransportEvent(userdata as Object, e as Object)
 	r = CreateObject("roRegex", "r:SleepTimerGeneration", "i")
     fixedEventString=r.ReplaceAll(eventString,"rSleepTimerGeneration")
 
-	print fixedEventString
+	'print fixedEventString
 
 	event = CreateObject("roXMLElement")
 	event.parse(fixedEventString)
 
-	print "lastchange =";eventstring
+	'print "lastchange =";eventstring
 
 	transportState = event.instanceid.transportstate@val
 	if (transportState <> invalid) then 
@@ -2386,6 +2387,27 @@ Sub OnAVTransportEvent(userdata as Object, e as Object)
 	print "AVTransportURI: [";AVTransportURI;"] "
 	if (AVTransportURI <> invalid) then 
 		updateDeviceVariable(s, sonosDevice, "AVTransportURI", AVTransportURI)
+
+		' check if we're not playing something from our own IP
+		if s.masterDevice=sonosDevice.modelNumber
+		    netConfig = CreateObject("roNetworkConfiguration", 0)
+			currentNet = netConfig.GetCurrentConfig()
+			myIP=currentNet.ip4_address
+			ipFound = instr(1,AVTransportURI,myIP)
+			if ipFound
+			    print "************* playing kiosk content  ********************"
+			else
+			    print "************* NOT playing kiosk content  ********************"
+   			    print "************* NOT playing kiosk content  ********************"
+			    print "************* NOT playing kiosk content  ********************"
+   			    print "************* NOT playing kiosk content  ********************"
+			    print "************* NOT playing kiosk content  ********************"
+   			    print "************* NOT playing kiosk content  ********************"
+			    print "************* NOT playing kiosk content  ********************"
+   			    print "************* NOT playing kiosk content  ********************"
+			    print "************* NOT playing kiosk content  ********************"
+   			    print "************* NOT playing kiosk content  ********************"
+		end if
 	end if
 
 	CurrentPlayMode = event.instanceid.CurrentPlayMode@val
@@ -2420,7 +2442,7 @@ Sub OnRenderingControlEvent(userdata as Object, e as Object)
     x=e.GetRequestBodyString()
     corrected=escapeDecode(x)
     
-    print corrected
+    'print corrected
     
     r2 = CreateObject("roRegex", "e:property", "i")
     pstr=r2.ReplaceAll(corrected,"eproperty")
