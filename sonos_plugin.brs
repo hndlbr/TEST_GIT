@@ -1993,7 +1993,7 @@ Function HandleSonosXferEvent(msg as object, sonos as object) as boolean
 				reqData = ""
 			end if
 			if (msg.getInt() = 1) then
-'TIMING'				print "HTTP return code: "; eventCode; " request type: ";reqData;" from ";connectedPlayerIP;" at: ";sonos.st.GetLocalDateTime()
+				print "HTTP return code: "; eventCode; " request type: ";reqData;" from ";connectedPlayerIP;" at: ";sonos.st.GetLocalDateTime()
 ''				print "HTTP return code: "; eventCode; " request type: ";reqData;" from ";connectedPlayerIP;
 				if (eventCode = 200) then 
 					if reqData="GetVolume" then
@@ -2036,8 +2036,8 @@ sub postNextCommandInQueue(sonos as object, connectedPlayerIP as string)
 	cmdFound = false
 	x = 0
 	if (numCmds > 0) then 
-		print "+++ There are ";numCmds;" in the queue at ";sonos.st.GetLocalDateTime()
-''		print "+++ There are ";numCmds;" in the queue"
+'TIMING'		print "+++ There are ";numCmds;" in the queue at ";sonos.st.GetLocalDateTime()
+		print "+++ There are ";numCmds;" in the queue"
 	end if
 
 	' loop thru all of the commands to see if we can find one that matches this player IP
