@@ -726,7 +726,7 @@ Function CheckGroupValid(sonosDevices as Object, masterUDN as string) as object
 	end for
 	print "+++ Grouped!"
 	return true
-end sub
+end function
 
 
 
