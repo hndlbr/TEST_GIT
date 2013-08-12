@@ -621,7 +621,7 @@ Sub UPNPDiscoverer_ProcessDeviceXML(ev as Object)
 					if s.userVariables[skippedString] <> invalid then
 					    skipVal=s.userVariables[skippedString].currentValue$ 
 					    if skipVal="yes"
-					        "+++ skipped player ";model;" - rebooting!"
+					        print "+++ skipped player ";model;" - rebooting!"
 					        RebootSystem()
 					    end if
 					end if
