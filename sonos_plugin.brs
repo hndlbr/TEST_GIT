@@ -187,6 +187,9 @@ Sub PrintAllSonosDevices(s as Object)
 		print "++ device uuid:     "+device.uuid
 		print "++ device software: "+device.softwareVersion
 		print "++ device bootseq:  "+device.bootseq
+		print "++ transportState:  "+device.transportstate
+		print "++ AVtransportURI:  "+device.AVTransportURI
+		print "++ currentPlayMode: "+device.CurrentPlayMode
 		print "++ UV: device:      ";s.userVariables[device.modelNumber].currentvalue$
 		print "++ UV: HHID:        ";s.userVariables[device.modelNumber+"HHID"].currentvalue$
 		print "++ UV: HHIDStatus:  ";s.userVariables[device.modelNumber+"HHIDstatus"].currentvalue$
@@ -2384,6 +2387,8 @@ Sub OnAVTransportEvent(userdata as Object, e as Object)
 		sendPluginEvent(s, "masterDevice"+"TransportState")
 	end if
 
+	PrintAllSonosDevices()
+
     if not e.SendResponse(200) then
 		stop
     end if
@@ -2435,6 +2440,8 @@ Sub OnRenderingControlEvent(userdata as Object, e as Object)
 			sendPluginEvent(s, "masterDevice"+"RenderState")
 		end if
 	end if
+
+	PrintAllSonosDevices()
 
     if not e.SendResponse(200) then
 		stop
