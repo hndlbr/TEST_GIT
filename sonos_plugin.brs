@@ -962,7 +962,9 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
  				sonos.xferObjects.push(xfer)
 			else if command = "setrdmvalues" then
 				print "Setting all of the RDM default values"
-				SonosSetRDMDefaults(sonos.mp, sonosDevice.baseURL, sonos)
+				xfer=SonosSetRDMDefaultsAsync(sonos.mp, sonosDevice.baseURL, sonos)
+				sonos.postObjects.push(xfer)
+				'SonosSetRDMDefaults(sonos.mp, sonosDevice.baseURL, sonos)
 			else if command = "getrdm" then
 				xfer = SonosGetRDM(sonos.mp, sonosDevice.baseURL)
 				sonos.xferObjects.push(xfer)
@@ -2725,6 +2727,66 @@ Function rdmHouseholdSetup(connectedPlayerIP as string, hhid as string, name as 
 	end if
 
 	return v
+end Function
+
+
+Function SonosSetRDMDefaultsAsync(mp as object, connectedPlayerIP as string, sonos as object) as object
+
+	r={}
+	' set all of the defaults that don't change
+	r["enable"]="1"
+	r["tosl"]= "1"
+	r["cavt"] = "1"
+	r["to"] = "0"
+	r.["vol:ZP100"] = "10"
+	r.["vol:ZP80"] = "10"
+	r.["vol:ZP90"] = "10"
+	r.["vol:ZP120"] = "10"
+	r.["wto"] = "60"
+
+	' Now set all of the RDM defaults that have user variables
+	' rdmwifi = off means that we want to turn off the wifi radio on the device.  To do this we set the post value to 1
+	if (sonos.userVariables["rdmwifi"] <> invalid) then
+		if (sonos.userVariables["rdmwifi"].currentvalue$ = "off") then
+			r["wifi"] = "1"
+		else
+			r["wifi"] = "0"
+		end if
+	else
+		r["wifi"] = "1"
+	end if
+	
+	' set the s5 default volume level
+	if (sonos.userVariables["s5defaultvolume"] <> invalid) then
+		r.["vol:S5"] = sonos.userVariables["s5defaultvolume"].currentvalue$
+	else
+		r.["vol:S5"]= "15"
+	end if
+
+	' set the s3 default volume level
+	if (sonos.userVariables["s3defaultvolume"] <> invalid) then
+		r.["vol:S3"] = sonos.userVariables["s3defaultvolume"].currentvalue$
+	else
+		r.["vol:S3"]="15"
+	end if
+
+	' set the s1 default volume level
+	if (sonos.userVariables["s1defaultvolume"] <> invalid) then
+		r.["vol:S1"] = sonos.userVariables["s1defaultvolume"].currentvalue$
+	else
+		r.["vol:S1"]="15"
+	end if
+
+	' set the s9 default volume level
+	if (sonos.userVariables["s9defaultvolume"] <> invalid) then
+		r.["vol:S9"] = sonos.userVariables["s9defaultvolume"].currentvalue$
+	else
+		r.["vol:S9"]="15"
+	end if
+	
+	sURL = "/rdm"
+	b = postFormData(mp,connectedPlayerIP,sURL,r,"SonosSetRDMDefaults")
+	return b
 end Function
 
 
