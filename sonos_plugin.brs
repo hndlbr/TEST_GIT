@@ -318,6 +318,11 @@ Sub OnFound(response as String)
 					xfer=rdmPingAsync(m.s.mp,SonosDevice.baseURL,hhid) 
 					m.s.postObjects.push(xfer)
 
+					' if this device is in our list but is in factory reset we need to reboot'
+					if SonosDevice.hhid="" then
+					    print "device has no hhid - rebooting!"					
+					    RebootSystem()
+					end if
 
 					' if it's bootseq is different we need to punt and treat it as new
 					if bootseq<>sonosDevice.bootseq then
@@ -332,6 +337,7 @@ Sub OnFound(response as String)
 					updateUserVar(m.s.userVariables,SonosDevice.modelNumber,"present")
 					updateUserVar(m.s.userVariables,SonosDevice.modelNumber+"Version",SonosDevice.softwareVersion)
 					updateUserVar(m.s.userVariables,SonosDevice.modelNumber+"HHID",SonosDevice.hhid)
+
 
 				else ' must be a new device
 				    print "Received ssdp:alive, querying device..."
@@ -621,6 +627,7 @@ Sub UPNPDiscoverer_ProcessDeviceXML(ev as Object)
 					updateUserVar(s.userVariables,SonosDevice.modelNumber+"Version",SonosDevice.softwareVersion)
 					updateUserVar(s.userVariables,SonosDevice.modelNumber+"HHID",SonosDevice.hhid)
 
+
 					' if this device was previously skipped on boot, we need to reboot'
 					skippedString=model+"Skipped"
 					if s.userVariables[skippedString] <> invalid then
@@ -906,17 +913,17 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
                         print "devices grouped - taking no action"					
 					end if
 				else
-						print "Grouping all devices"
-						if (sonos.masterDevice <> "") then
-							print "Number of device in playing group is: ";sonos.playingGroup.count()
-							for i = 0 to sonos.playingGroup.count() - 1
-								print "Comparing ";sonos.playingGroup[i];" to ";sonos.masterDevice
-								if (sonos.playingGroup[i] <> sonos.masterDevice) then
-									print "Sending plugin message:";"sonos!"+sonos.playingGroup[i]+"!group!"+sonos.masterDevice
-									sendPluginMessage(sonos, "sonos!"+sonos.playingGroup[i]+"!group!"+sonos.masterDevice)
-								end if
-							end for
-						end if
+					print "Grouping all devices"
+					if (sonos.masterDevice <> "") then
+						print "Number of device in playing group is: ";sonos.playingGroup.count()
+						for i = 0 to sonos.playingGroup.count() - 1
+							print "Comparing ";sonos.playingGroup[i];" to ";sonos.masterDevice
+							if (sonos.playingGroup[i] <> sonos.masterDevice) then
+								print "Sending plugin message:";"sonos!"+sonos.playingGroup[i]+"!group!"+sonos.masterDevice
+								sendPluginMessage(sonos, "sonos!"+sonos.playingGroup[i]+"!group!"+sonos.masterDevice)
+							end if
+						end for
+					end if
 				end if
 			else if command = "play" then
 				xfer = SonosPlaySong(sonos.mp, sonosDevice.baseURL)
@@ -981,7 +988,6 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 			else if command = "rdmping" then
 			    xfer=rdmPingAsync(sonos.mp,sonosDevice.baseURL,sonos.hhid) 
 			    sonos.postObjects.push(xfer)
-			    'rdmPing(sonosDevice.baseURL,sonos.hhid) 
 			else if command = "sethhid" then
 			    varName=sonosDevice.modelNumber+"RoomName"
 			    if sonos.userVariables[varName] <> invalid then
