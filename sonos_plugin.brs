@@ -708,7 +708,7 @@ Function CheckGroupValid(sonosDevices as Object, masterDevice as object) as obje
 	' not grouped'
 	for i = 0 to sonosDevices.count() - 1
 		if (sonosDevices[i].modelNumber <> masterDevice.modelNumber) then
-		    print "+++ comparing [";sonosDevices[i].AVTransportURI;"] to [";masterString;"]"
+		    'print "+++ comparing [";sonosDevices[i].AVTransportURI;"] to [";masterString;"]"
 		    if sonosDevices[i].AVTransportURI<>masterString
 		        print "+++ NOT Grouped!"
 		        return false
@@ -2036,8 +2036,8 @@ sub postNextCommandInQueue(sonos as object, connectedPlayerIP as string)
 	cmdFound = false
 	x = 0
 	if (numCmds > 0) then 
-'TIMING'		print "There are ";numCmds;" in the queue at ";sonos.st.GetLocalDateTime()
-		print "There are ";numCmds;" in the queue"
+		print "+++ There are ";numCmds;" in the queue at ";sonos.st.GetLocalDateTime()
+''		print "+++ There are ";numCmds;" in the queue"
 	end if
 
 	' loop thru all of the commands to see if we can find one that matches this player IP
@@ -2487,10 +2487,10 @@ Sub OnRenderingControlEvent(userdata as Object, e as Object)
 			v=x@val
 			if c="Master"
 				updateDeviceVariable(s, sonosDevice, "Volume", v)
-				print "+++ Master volume changed (channel: ";c;")"
+				'print "+++ Master volume changed (channel: ";c;")"
 				changed = true
 			else
-				print "+++ Other volume changed (channel: ";c;")"
+				'print "+++ Other volume changed (channel: ";c;")"
 			end if
 		end if	
 		if name="Mute"
@@ -2498,10 +2498,10 @@ Sub OnRenderingControlEvent(userdata as Object, e as Object)
 			v=x@val
 			if c="Master"
 				updateDeviceVariable(s, sonosDevice, "Mute", v)
-				print "+++ Master muted (channel: ";c;")"
+				'print "+++ Master muted (channel: ";c;")"
 				changed = true
 			else
-				print "+++ Other muted (channel: ";c;")"
+				'print "+++ Other muted (channel: ";c;")"
 			end if
 		end if	
     end for
