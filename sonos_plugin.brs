@@ -2785,7 +2785,7 @@ Function SonosSetRDMDefaultsAsync(mp as object, connectedPlayerIP as string, son
 	end if
 	
 	sURL = "/rdm"
-	b = postFormData(mp,connectedPlayerIP,sURL,r,"SonosSetRDMDefaults")
+	b = postFormDataAsync(mp,connectedPlayerIP,sURL,r,"SonosSetRDMDefaults")
 	return b
 end Function
 
