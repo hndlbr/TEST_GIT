@@ -35,7 +35,7 @@ Function newSonos(msgPort As Object, userVariables As Object, bsp as Object)
 	s.timer.Start()
 
 	s.st=CreateObject("roSystemTime")
-	print "Sonos Plugin created at: ";s.st.GetLocalDateTime()
+	'TIMING print "Sonos Plugin created at: ";s.st.GetLocalDateTime()
 
 
 	' Need to remove once all instances of this are taken out of the Sonos code
@@ -723,7 +723,7 @@ end function
 
 Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 
-	print "Received command - ParseSonosPluginMsg: " + origMsg;" at: ";sonos.st.GetLocalDateTime()
+	'TIMING print "Received command - ParseSonosPluginMsg: " + origMsg;" at: ";sonos.st.GetLocalDateTime()
 
 	retval = false
 		
@@ -807,15 +807,6 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 					sonos.xferObjects.push(xfer)
 				else
 				    print "+++ volume already set correctly - ignoring command"
-				    print "+++ volume already set correctly - ignoring command"
-				    print "+++ volume already set correctly - ignoring command"
-				    print "+++ volume already set correctly - ignoring command"
-				    print "+++ volume already set correctly - ignoring command"
-				    print "+++ volume already set correctly - ignoring command"
-				    print "+++ volume already set correctly - ignoring command"
-				    print "+++ volume already set correctly - ignoring command"
-				    print "+++ volume already set correctly - ignoring command"
-				    print "+++ volume already set correctly - ignoring command"
 				end if
 			else if command="getvol" then
 				' print "Getting volume"
@@ -831,7 +822,7 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 				if (sonosDevice.volume > 100) then
 					sonosDevice.volume = 100
 				end if
-				print "Sending Volume Up "+str(volincrease)+ " to "+str(sonosDevice.volume);" at: ";sonos.st.GetLocalDateTime()
+				'TIMING print "Sending Volume Up "+str(volincrease)+ " to "+str(sonosDevice.volume);" at: ";sonos.st.GetLocalDateTime()
 				xfer = SonosSetVolume(sonos.mp, sonosDevice.baseURL, sonosDevice.volume)
 				sonos.xferObjects.push(xfer)
 			else if command="voldown" then
@@ -844,7 +835,7 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 				if (sonosDevice.volume < 0) then
 					sonosDevice.volume = 0
 				end if
-				print "Sending Volume Down "+str(voldecrease)+ " to "+str(sonosDevice.volume);" at: ";sonos.st.GetLocalDateTime()
+				'TIMING print "Sending Volume Down "+str(voldecrease)+ " to "+str(sonosDevice.volume);" at: ";sonos.st.GetLocalDateTime()
 				xfer = SonosSetVolume(sonos.mp, sonosDevice.baseURL, sonosDevice.volume)
 				sonos.xferObjects.push(xfer)
 			else if command="setplaymode" then
@@ -861,7 +852,7 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 				SonosSetSleepTimer(sonos, sonosDevice,timeout)
 			else if command="playmp3" then
 				' print "Playing MP3"
-				print "Playing MP3 on "+sonosDevice.modelNumber" at: ";sonos.st.GetLocalDateTime()
+				'TIMING print "Playing MP3 on "+sonosDevice.modelNumber" at: ";sonos.st.GetLocalDateTime()
 				netConfig = CreateObject("roNetworkConfiguration", 0)
 				currentNet = netConfig.GetCurrentConfig()
 				xfer = SonosSetSong(sonos.mp, currentNet.ip4_address, sonosDevice.baseURL, detail)
@@ -881,14 +872,16 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 					end for
 					
 					groupValid=CheckGroupValid(sonosDevices, MasterSonosDevice)
-
 					if groupValid=false then
+                        print "grouping devices"					
 						if MasterSonosDevice = invalid then
 							print "No  master device of that type on this network"
 						else
 							xfer = SonosSetGroup(sonos.mp, sonosDevice.baseURL, MasterSonosDevice.UDN)
 							sonos.xferObjects.push(xfer)						
 						endif
+					else
+                        print "devices grouped - taking no action"					
 					end if
 				else
 						print "Grouping all devices"
@@ -1013,7 +1006,7 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 				print "Discarding UNSUPPORTED command :"; command
 			end if
 		else
-			print "Queueing command due to device being busy: ";msg;" at: ";sonos.st.GetLocalDateTime()
+			'TIMING print "Queueing command due to device being busy: ";msg;" at: ";sonos.st.GetLocalDateTime()
 			commandToQ = {}
 			commandToQ.IP = sonosDevice.baseURL
 			commandToQ.msg = msg
@@ -1865,14 +1858,14 @@ end sub
 
 Function processSonosSetVolumeResponse(msg as object, connectedPlayerIP as string, sonos as Object)
 
-	print "processSonosSetVolumeResponse from " + connectedPlayerIP+" at: ";sonos.st.GetLocalDateTime();
+	'TIMING print "processSonosSetVolumeResponse from " + connectedPlayerIP+" at: ";sonos.st.GetLocalDateTime();
 
 End Function
 
 
 Function processSonosVolumeResponse(msg as object, connectedPlayerIP as string, sonos as Object)
 
-	print "processSonosVolumeResponse from " + connectedPlayerIP+" at: ";sonos.st.GetLocalDateTime();
+	'TIMING print "processSonosVolumeResponse from " + connectedPlayerIP+" at: ";sonos.st.GetLocalDateTime();
 ''	print msg
 
 	match="<CurrentVolume>"
@@ -2000,7 +1993,8 @@ Function HandleSonosXferEvent(msg as object, sonos as object) as boolean
 				reqData = ""
 			end if
 			if (msg.getInt() = 1) then
-				print "HTTP return code: "; eventCode; " request type: ";reqData;" from ";connectedPlayerIP;" at: ";sonos.st.GetLocalDateTime()
+'TIMING'				print "HTTP return code: "; eventCode; " request type: ";reqData;" from ";connectedPlayerIP;" at: ";sonos.st.GetLocalDateTime()
+''				print "HTTP return code: "; eventCode; " request type: ";reqData;" from ";connectedPlayerIP;
 				if (eventCode = 200) then 
 					if reqData="GetVolume" then
 						processSonosVolumeResponse(msg,connectedPlayerIP,sonos)
@@ -2042,7 +2036,8 @@ sub postNextCommandInQueue(sonos as object, connectedPlayerIP as string)
 	cmdFound = false
 	x = 0
 	if (numCmds > 0) then 
-		print "There are ";numCmds;" in the queue at ";sonos.st.GetLocalDateTime()
+'TIMING'		print "There are ";numCmds;" in the queue at ";sonos.st.GetLocalDateTime()
+		print "There are ";numCmds;" in the queue"
 	end if
 
 	' loop thru all of the commands to see if we can find one that matches this player IP
@@ -2400,7 +2395,7 @@ Sub OnAVTransportEvent(userdata as Object, e as Object)
     'print e.GetRequestBodyString()
 
 	sonosDevice=userData.SonosDevice
-    print "AV Transport Event [";sonosDevice.modelNumber;"] at: ";s.st.GetLocalDateTime()
+    'TIMING print "AV Transport Event [";sonosDevice.modelNumber;"] at: ";s.st.GetLocalDateTime()
 
     ' Big chunk of XML comes in here.
 	rsp=CreateObject("roXMLElement")
@@ -2467,7 +2462,7 @@ End Sub
 
 Sub OnRenderingControlEvent(userdata as Object, e as Object)
 	s = userData.sonos
-    print "Rendering Control Event at: ";s.st.GetLocalDateTime()
+    'TIMING print "Rendering Control Event at: ";s.st.GetLocalDateTime()
     'print e.GetRequestHeaders()
 
     sonosDevice=userData.SonosDevice    
