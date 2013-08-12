@@ -316,6 +316,16 @@ Sub OnFound(response as String)
 					if bootseq<>sonosDevice.bootseq then
 					    'tickle the rdmPing or it will reset itself'
 					    rdmPing(sonosDevice.baseURL,m.s.hhid) 
+					    print "+++ bootseq incremented - treating as a new player"
+					    print "+++ bootseq incremented - treating as a new player"
+					    print "+++ bootseq incremented - treating as a new player"
+					    print "+++ bootseq incremented - treating as a new player"
+					    print "+++ bootseq incremented - treating as a new player"
+					    print "+++ bootseq incremented - treating as a new player"
+					    print "+++ bootseq incremented - treating as a new player"
+					    print "+++ bootseq incremented - treating as a new player"
+					    print "+++ bootseq incremented - treating as a new player"
+					    print "+++ bootseq incremented - treating as a new player"
 					    m.s.sonosDevices.delete(sonosDeviceIndex)
 					    updateUserVar(m.s.userVariables,SonosDevice.modelNumber+"HHIDStatus","pending")
 					    SendXMLQuery(m.s, response)
