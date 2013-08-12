@@ -2387,7 +2387,7 @@ Sub OnAVTransportEvent(userdata as Object, e as Object)
 		sendPluginEvent(s, "masterDevice"+"TransportState")
 	end if
 
-	PrintAllSonosDevices()
+	PrintAllSonosDevices(userData.sonos)
 
     if not e.SendResponse(200) then
 		stop
@@ -2441,7 +2441,7 @@ Sub OnRenderingControlEvent(userdata as Object, e as Object)
 		end if
 	end if
 
-	PrintAllSonosDevices()
+	PrintAllSonosDevices(userData.sonos)
 
     if not e.SendResponse(200) then
 		stop
