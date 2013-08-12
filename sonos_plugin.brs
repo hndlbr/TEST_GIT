@@ -996,8 +996,7 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 			        print "ERROR:  no room name defined for player ";sonosDevice.modelNumber
 			        roomName=sonosDevice.modelNumber
 			    end if
-
-			    xfer=rdmHouseholdSetup(sonos.mp,sonosDevice.baseURL,sonos.hhid,roomName,"none",1) 
+			    xfer=rdmHouseholdSetupAsync(sonos.mp,sonosDevice.baseURL,sonos.hhid,roomName,"none",1) 
 			    sonos.postObjects.push(xfer)
 			    print "hhsetup: ";type(xfer)
 		        print "deleting sonos device: ";sonosDevice.modelNumber
