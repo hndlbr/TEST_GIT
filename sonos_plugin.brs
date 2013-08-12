@@ -852,6 +852,7 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 			else if command="group" then
 				if (devType <> "sall") then 
 				' print "Grouping players"
+				
 				MasterSonosDevice = invalid
 				for each device in sonos.sonosDevices
 					if device.modelNumber = detail
