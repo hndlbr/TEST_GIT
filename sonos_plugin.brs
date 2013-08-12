@@ -626,10 +626,6 @@ Sub UPNPDiscoverer_ProcessDeviceXML(ev as Object)
 					    end if
 					end if
 
-					print "device ";model;" skipped value:"
-
-					'DeterminePlayerStatus(s,SonosDevice)
-
 					SonosRegisterForEvents(s, s.mp, SonosDevice)
 					s.sonosDevices.push(SonosDevice)
 				else
