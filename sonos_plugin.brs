@@ -315,7 +315,9 @@ Sub OnFound(response as String)
 					print "Received ssdp:alive, device already in list "; responseBaseURL;" hhid: ";hhid;" old bootseq: "sonosDevice.bootseq;" new bootseq: ";bootseq
 					sonosDevice.hhid=hhid
 					updateUserVar(m.s.userVariables,SonosDevice.modelNumber+"HHID",SonosDevice.hhid)
-				    rdmPingAsync(sonosDevice.baseURL,m.s.hhid) 
+					xfer=rdmPingAsync(sonosDevice.baseURL,m.s.hhid) 
+					m.s.postObjects.push(xfer)
+
 
 					' if it's bootseq is different we need to punt and treat it as new
 					if bootseq<>sonosDevice.bootseq then
@@ -988,10 +990,13 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 			        print "ERROR:  no room name defined for player ";sonosDevice.modelNumber
 			        roomName=sonosDevice.modelNumber
 			    end if
-			    rdmHouseholdSetup(sonosDevice.baseURL,sonos.hhid,roomName,"none",1) 
+
+			    xfer=rdmHouseholdSetup(sonos.mp,sonosDevice.baseURL,sonos.hhid,roomName,"none",1) 
+			    sonos.postObjects.push(xfer)
+			    print "hhsetup: ";type(xfer)
 		        print "deleting sonos device: ";sonosDevice.modelNumber
 		        DeleteSonosDevice(sonos.userVariables,sonosDevices,sonosDevice.baseURL)
-		        PrintAllSonosDevices(sonos)
+''		        PrintAllSonosDevices(sonos)
 			else if command = "addmp3" then
 				AddMP3(sonos, detail)
 			else if command = "addupgradefiles" then
@@ -2067,7 +2072,7 @@ Function HandleSonosXferEvent(msg as object, sonos as object) as boolean
 				print "HTTP return code: "; eventCode; " request type: ";reqData;" from ";connectedPlayerIP;
 				if (eventCode = 200) then 
 					if reqData="rdmPing" then
-					     print "got reply for rdmPing"
+					     print "+++ got reply for rdmPing"
 					end if
 				end if		
 
@@ -2681,22 +2686,20 @@ Function rdmPingAsync(mp as object,connectedPlayerIP as string, hhid as string) 
 end Function
 
 
-Function rdmPing(connectedPlayerIP as string, hhid as string) as Object
+Function rdmHouseholdSetupAsync(mp as object,connectedPlayerIP as string, hhid as string, name as string, icon as string, reboot as integer) as Object
 
-	print "rdmping: ";hhid;" for ";connectedPlayerIP
+	print "setting hhhid: ";hhid;" for ";connectedPlayerIP
 
-	sURL=connectedPlayerIP+"/rdmping"
+	sURL="/rdmhhsetup"
 	v={}
 	v.hhid=hhid
-	b = postFormData(sURL,v)
-	if b<>true
-		print "ERROR rdmping for "+connectedPlayerIP
-	else
-	    print "successful rdmping for ";hhid;" on ";connectedPlayerIP
-	end if
-	return v
+	v.name=name
+	v.icon=icon
+	v.reboot=str(reboot)
+	v.reboot=v.reboot.trim()
+	b = postFormDataAsync(mp,connectedPlayerIP,sURL,v,"rdmHouseholdSetup")
+	return b
 end Function
-
 
 Function rdmHouseholdSetup(connectedPlayerIP as string, hhid as string, name as string, icon as string, reboot as integer) as Object
 
