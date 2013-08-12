@@ -2407,6 +2407,7 @@ Sub OnAVTransportEvent(userdata as Object, e as Object)
    			    print "************* NOT playing kiosk content  ********************"
 			    print "************* NOT playing kiosk content  ********************"
    			    print "************* NOT playing kiosk content  ********************"
+   			end if
 		end if
 	end if
 
