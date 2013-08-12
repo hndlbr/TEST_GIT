@@ -315,7 +315,7 @@ Sub OnFound(response as String)
 					print "Received ssdp:alive, device already in list "; responseBaseURL;" hhid: ";hhid;" old bootseq: "sonosDevice.bootseq;" new bootseq: ";bootseq
 					sonosDevice.hhid=hhid
 					updateUserVar(m.s.userVariables,SonosDevice.modelNumber+"HHID",SonosDevice.hhid)
-					xfer=rdmPingAsync(sonosDevice.baseURL,m.s.hhid) 
+					xfer=rdmPingAsync(m.s.mp,SonosDevice.baseURL,hhid) 
 					m.s.postObjects.push(xfer)
 
 
