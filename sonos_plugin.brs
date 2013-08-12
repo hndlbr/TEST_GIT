@@ -116,14 +116,14 @@ Function sonos_ProcessEvent(event As Object) as boolean
 		end if
 		retval = ParseSonosPluginMsg(msg$, m)
 	else if (type(event) = "roUrlEvent") and (type(event.GetUserData()) = "roAssociativeArray") and (event.GetUserData().objectName = "sonos_object") then
-		print "Got roUrlEvent - now processing the XML"
+		'print "Got roUrlEvent - now processing the XML"
 		UPNPDiscoverer_ProcessDeviceXML(event)
 		retval = true
 	else if (type(event) = "roUrlEvent") then
-		print "*****  Got roUrlEvent in Sonos"	
+		'print "*****  Got roUrlEvent in Sonos"	
 		retval = HandleSonosXferEvent(event, m)
 	else if type(event) = "roHttpEvent" then
-		print "roHttp event received in Sonos processing"
+		'print "roHttp event received in Sonos processing"
 	else if type(event) = "roTimerEvent" then
 		if (event.GetSourceIdentity() = m.timer.GetIdentity()) then
 			print "renewing for registering events"
@@ -2453,7 +2453,7 @@ Sub OnAVTransportEvent(userdata as Object, e as Object)
 		sendPluginEvent(s, "masterDevice"+"TransportState")
 	end if
 
-	PrintAllSonosDevicesState(userData.sonos)
+	'PrintAllSonosDevicesState(userData.sonos)
 
     if not e.SendResponse(200) then
 		stop
@@ -2514,7 +2514,7 @@ Sub OnRenderingControlEvent(userdata as Object, e as Object)
 		end if
 	end if
 
-	PrintAllSonosDevicesState(userData.sonos)
+	'PrintAllSonosDevicesState(userData.sonos)
 
     if not e.SendResponse(200) then
 		stop
