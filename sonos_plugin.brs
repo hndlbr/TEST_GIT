@@ -708,7 +708,7 @@ Function CheckGroupValid(sonosDevices as Object, masterDevice as object) as obje
 	' not grouped'
 	for i = 0 to sonosDevices.count() - 1
 		if (sonosDevices[i].modelNumber <> masterDevice.modelNumber) then
-		    print "+++ comparing ";sonosDevices[i].AVTransportURI;" to ";masterString
+		    print "+++ comparing [";sonosDevices[i].AVTransportURI;"] to [";masterString;"]"
 		    if sonosDevices[i].AVTransportURI<>masterString
 		        print "+++ NOT Grouped!"
 		        return false
