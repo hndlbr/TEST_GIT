@@ -786,6 +786,7 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 			endif
 
 			print command +" " + devType + " " + detail + " " +sonosDevice.baseURL
+			
 		end if
 
 		' if the Sonos device is not already processing a command, the process if
