@@ -2434,7 +2434,7 @@ Sub OnAVTransportEvent(userdata as Object, e as Object)
 
 	AVTransportURIRaw = event.instanceid.AVTransportURI@val
 	r = CreateObject("roRegex", "x-rincon:", "i")
-    AVTransportURI=r2.ReplaceAll(AVTransportURIRaw,"")
+    AVTransportURI=r.ReplaceAll(AVTransportURIRaw,"")
 	print "AVTransportURI: [";AVTransportURI;"] "
 	if (AVTransportURI <> invalid) then 
 		updateDeviceVariable(s, sonosDevice, "AVTransportURI", AVTransportURI)
