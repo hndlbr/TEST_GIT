@@ -200,6 +200,7 @@ End Sub
 
 Sub PrintAllSonosDevicesState(s as Object) 
 	devices = s.devices
+        print "-- master device:   ";s.masterDevice
 	for each device in s.sonosDevices
 		print "++ device model:    "+device.modelNumber
 		print "++ device t-state:  "+device.transportstate
