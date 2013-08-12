@@ -58,6 +58,9 @@ Function newSonos(msgPort As Object, userVariables As Object, bsp as Object)
 	' Create an array to hold roUrlTransferObject that are being used by the SOAP commands
 	s.xferObjects = createObject("roArray",0, true)
 
+	' Create an array to hold roUrlTransferObject from normal POSTs 
+	s.postObjects = createObject("roArray",0, true)
+
 	' Create an array to hold commands that have come in when the device is busy processing other commands
 	s.commandQ = createObject("roArray",0, true)
 
@@ -312,7 +315,7 @@ Sub OnFound(response as String)
 					print "Received ssdp:alive, device already in list "; responseBaseURL;" hhid: ";hhid;" old bootseq: "sonosDevice.bootseq;" new bootseq: ";bootseq
 					sonosDevice.hhid=hhid
 					updateUserVar(m.s.userVariables,SonosDevice.modelNumber+"HHID",SonosDevice.hhid)
-				    rdmPing(sonosDevice.baseURL,m.s.hhid) 
+				    rdmPingAsync(sonosDevice.baseURL,m.s.hhid) 
 
 					' if it's bootseq is different we need to punt and treat it as new
 					if bootseq<>sonosDevice.bootseq then
@@ -974,7 +977,9 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 			    CheckPlayerHHIDs(sonos)
 			    PrintAllSonosDevices(sonos)
 			else if command = "rdmping" then
-			    rdmPing(sonosDevice.baseURL,sonos.hhid) 
+			    xfer=rdmPingAsync(sonos.mp,sonosDevice.baseURL,sonos.hhid) 
+			    sonos.postObjects.push(xfer)
+			    'rdmPing(sonosDevice.baseURL,sonos.hhid) 
 			else if command = "sethhid" then
 			    varName=sonosDevice.modelNumber+"RoomName"
 			    if sonos.userVariables[varName] <> invalid then
@@ -2043,6 +2048,38 @@ Function HandleSonosXferEvent(msg as object, sonos as object) as boolean
 		i = i + 1
 	end while
 
+	' now read from the POST queue'
+	numPosts = sonos.postObjects.count()
+	i = 0
+	while (not found) and (i < numPosts)
+		id = sonos.postObjects[i].GetIdentity()
+		sonosReqData=sonos.postObjects[i].GetUserData()
+		if (id = eventID) then
+			' See if this is the transfer being complete
+			if (sonosReqData <> invalid) then 
+				connectedPlayerIP=sonosReqData["dest"]
+				reqData=sonosReqData["type"]
+			else
+				connectedPlayerIP = ""
+				reqData = ""
+			end if
+			if (msg.getInt() = 1) then
+				print "HTTP return code: "; eventCode; " request type: ";reqData;" from ";connectedPlayerIP;
+				if (eventCode = 200) then 
+					if reqData="rdmPing" then
+					     "got reply for rdmPing"
+					end if
+				end if		
+
+				' delete this transfer object from the transfer object list
+				sonos.postObjects.Delete(i)
+				found = true
+			end if
+		end if
+		i = i + 1
+
+    end while
+
 	return found
 end Function
 
@@ -2633,6 +2670,17 @@ Sub PrintXML(element As Object, depth As Integer)
 end sub
 
 
+Function rdmPingAsync(mp as object,connectedPlayerIP as string, hhid as string) as Object
+	print "rdmPingAsync: ";hhid;" for ";connectedPlayerIP
+
+	sURL="/rdmping"
+	v={}
+	v.hhid=hhid
+	b = postFormDataAsync(mp,connectedPlayerIP,sURL,v,"rdmPing")
+	return b
+end Function
+
+
 Function rdmPing(connectedPlayerIP as string, hhid as string) as Object
 
 	print "rdmping: ";hhid;" for ";connectedPlayerIP
@@ -2734,6 +2782,38 @@ Sub SonosSetRDMDefaults(mp as object, connectedPlayerIP as string, sonos as obje
 	end if
 
 end sub	
+
+
+Function postFormDataAsync(mp as object, connectedPlayerIP as object, sURL as string, vars as Object, reqType as object) as Object
+	
+	targetURL=connectedPlayerIP+sURL
+    fTransfer = CreateObject("roUrlTransfer")
+    fTransfer.SetUrl(targetURL)
+    fTransfer.SetPort(mp)
+
+    sonosReqData=CreateObject("roAssociativeArray")
+	sonosReqData["type"]=reqType
+	sonosReqData["dest"]=connectedPlayerIP
+	fTransfer.SetUserData(sonosReqData)
+
+	postString=""
+	for each v in vars
+			''    print "*** "+v
+	    if postString<>""
+	      postString=postString+"&"
+	    endif
+	    postString=postString+fTransfer.escape(v)+"="+fTransfer.escape(vars[v])
+	next
+
+	print "POSTing "+postString+" to "+sURL
+
+	ok = fTransfer.AsyncPostFromString(postString)
+	if not ok then
+		stop
+	end if
+	return fTransfer
+end Function  
+
 
 
 
@@ -3068,3 +3148,5 @@ sub DeleteSonosDevice(userVariables as object, devices as object, baseURL as obj
 		devices.delete(deviceToDelete)
 	end if 
 end sub
+
+
