@@ -2369,10 +2369,12 @@ Sub OnAVTransportEvent(userdata as Object, e as Object)
 	r = CreateObject("roRegex", "r:SleepTimerGeneration", "i")
     fixedEventString=r.ReplaceAll(eventString,"rSleepTimerGeneration")
 
+	print fixedEventString
+
 	event = CreateObject("roXMLElement")
 	event.parse(fixedEventString)
 
-	'print "lastchange =";eventstring
+	print "lastchange =";eventstring
 
 	transportState = event.instanceid.transportstate@val
 	if (transportState <> invalid) then 
