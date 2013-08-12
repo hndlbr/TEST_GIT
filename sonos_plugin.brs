@@ -312,7 +312,6 @@ Sub OnFound(response as String)
 					print "Received ssdp:alive, device already in list "; responseBaseURL;" hhid: ";hhid;" old bootseq: "sonosDevice.bootseq;" new bootseq: ";bootseq
 					sonosDevice.hhid=hhid
 					updateUserVar(m.s.userVariables,SonosDevice.modelNumber+"HHID",SonosDevice.hhid)
-
 				    rdmPing(sonosDevice.baseURL,m.s.hhid) 
 
 					' if it's bootseq is different we need to punt and treat it as new
@@ -329,7 +328,6 @@ Sub OnFound(response as String)
 					updateUserVar(m.s.userVariables,SonosDevice.modelNumber+"Version",SonosDevice.softwareVersion)
 					updateUserVar(m.s.userVariables,SonosDevice.modelNumber+"HHID",SonosDevice.hhid)
 
-					'DeterminePlayerStatus(m.s,sonosDevice)
 				else ' must be a new device
 				    print "Received ssdp:alive, querying device..."
 				    SendXMLQuery(m.s, response)
@@ -617,6 +615,18 @@ Sub UPNPDiscoverer_ProcessDeviceXML(ev as Object)
 					updateUserVar(s.userVariables,SonosDevice.modelNumber,"present")
 					updateUserVar(s.userVariables,SonosDevice.modelNumber+"Version",SonosDevice.softwareVersion)
 					updateUserVar(s.userVariables,SonosDevice.modelNumber+"HHID",SonosDevice.hhid)
+
+					' if this device was previously skipped on boot, we need to reboot'
+					skippedString=model+"Skipped"
+					if s.userVariables[skippedString] <> invalid then
+					    skipVal=s.userVariables[skippedString].currentValue$ 
+					    if skipVal="yes"
+					        "+++ skipped player ";model;" - rebooting!"
+					        RebootSystem()
+					    end if
+					end if
+
+					print "device ";model;" skipped value:"
 
 					'DeterminePlayerStatus(s,SonosDevice)
 
