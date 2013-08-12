@@ -198,6 +198,20 @@ Sub PrintAllSonosDevices(s as Object)
 End Sub
 
 
+Sub PrintAllSonosDevicesState(s as Object) 
+	devices = s.devices
+	for each device in s.sonosDevices
+		print "++ device model:    "+device.modelNumber
+		print "++ device t-state:  "+device.transportstate
+		print "++ device t-sid:    "+device.avTransportSID
+		print "++ device r-sid:    "+device.renderingSID
+		print "++ transportState:  "+device.transportstate
+		print "++ AVtransportURI:  "+device.AVTransportURI
+		print "++ currentPlayMode: "+device.CurrentPlayMode
+		print "+++++++++++++++++++++++++++++++++++++++++"
+	end for
+End Sub
+
 Sub UPnPDiscoverer_OnEvent(ev as Object)
 	'print "UPnPDiscoverer_OnEvent"
 	response = ev.GetString()
@@ -2387,7 +2401,7 @@ Sub OnAVTransportEvent(userdata as Object, e as Object)
 		sendPluginEvent(s, "masterDevice"+"TransportState")
 	end if
 
-	PrintAllSonosDevices(userData.sonos)
+	PrintAllSonosDevicesState(userData.sonos)
 
     if not e.SendResponse(200) then
 		stop
@@ -2399,11 +2413,12 @@ Sub OnRenderingControlEvent(userdata as Object, e as Object)
     print "Rendering Control Event at: ";s.st.GetLocalDateTime()
     'print e.GetRequestHeaders()
 
-
     sonosDevice=userData.SonosDevice    
     x=e.GetRequestBodyString()
     corrected=escapeDecode(x)
-    ' print corrected
+    
+    print corrected
+    
     r2 = CreateObject("roRegex", "e:property", "i")
     pstr=r2.ReplaceAll(corrected,"eproperty")
 
@@ -2420,17 +2435,23 @@ Sub OnRenderingControlEvent(userdata as Object, e as Object)
 			v=x@val
 			if c="Master"
 				updateDeviceVariable(s, sonosDevice, "Volume", v)
-					changed = true
-				end if
-			end if	
+				print "+++ Master volume changed (channel: ";c;")"
+				changed = true
+			else
+				print "+++ Other volume changed (channel: ";c;")"
+			end if
+		end if	
 		if name="Mute"
 			c=x@channel
 			v=x@val
 			if c="Master"
 				updateDeviceVariable(s, sonosDevice, "Mute", v)
-					changed = true
-				end if
-			end if	
+				print "+++ Master muted (channel: ";c;")"
+				changed = true
+			else
+				print "+++ Other muted (channel: ";c;")"
+			end if
+		end if	
     end for
 
 	' Send a plugin message to indicate at least one of the render state variables has changed
@@ -2441,7 +2462,7 @@ Sub OnRenderingControlEvent(userdata as Object, e as Object)
 		end if
 	end if
 
-	PrintAllSonosDevices(userData.sonos)
+	PrintAllSonosDevicesState(userData.sonos)
 
     if not e.SendResponse(200) then
 		stop
