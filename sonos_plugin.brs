@@ -999,7 +999,7 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 			   if nr=false
 			       ' our session timer expired in the presentation and we'll need a reset on the next button
 			       ' but, since we are not playing foreign content, we can get a head start to make the system more responsive'
-			       
+
 			   else
 			       print "+++ playing foreign content"
 			   end if
@@ -2537,24 +2537,26 @@ End Sub
 
 
 
-Function CheckForeignPlayback(s as Object)
+Function CheckForeignPlayback(s as Object) as object
 
 	' check if we're not playing something from our own IP, and if so, send a ForeignTransportStateURI message and return true
 	master=GetDeviceByPlayerModel(s.sonosDevices, s.masterDevice)
-
-	AVTransportURI=master.AVTransportURI
-    netConfig = CreateObject("roNetworkConfiguration", 0)
-	currentNet = netConfig.GetCurrentConfig()
-	myIP=currentNet.ip4_address
-	ipFound = instr(1,AVTransportURI,myIP)
-	if ipFound
-	    print "************* playing kiosk content  ********************"
-        return false	
-	else
-		sendPluginEvent(s,"ForeignTransportStateURI")
-	    print "************* NOT playing kiosk content  ********************"
-    end if
-	return true
+	if master<>invalid
+		AVTransportURI=master.AVTransportURI
+		netConfig = CreateObject("roNetworkConfiguration", 0)
+		currentNet = netConfig.GetCurrentConfig()
+		myIP=currentNet.ip4_address
+		ipFound = instr(1,AVTransportURI,myIP)
+		if ipFound
+		    print "************* playing kiosk content  ********************"
+		    return false	
+		else
+		    sendPluginEvent(s,"ForeignTransportStateURI")
+		    print "************* NOT playing kiosk content  ********************"
+		    return false
+		end if
+	end if
+	return invalid
 end Function
 
 
