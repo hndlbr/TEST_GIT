@@ -2553,7 +2553,7 @@ Function CheckForeignPlayback(s as Object) as object
 		else
 		    sendPluginEvent(s,"ForeignTransportStateURI")
 		    print "************* NOT playing kiosk content  ********************"
-		    return false
+		    return true
 		end if
 	end if
 	return invalid
