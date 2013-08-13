@@ -994,14 +994,15 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 				sendSelfUDP("scancomplete")
 			else if command = "list" then
 				PrintAllSonosDevices(sonos)
-			else if command = "needsreset" then
+			else if command = "checkforeign" then
+			   ' this message allows a state to ask if foreign content is actually playing or not'
 			   nr=CheckForeignPlayback(sonos)
-			   if nr=false
-			       ' our session timer expired in the presentation and we'll need a reset on the next button
-			       ' but, since we are not playing foreign content, we can get a head start to make the system more responsive'
-
-			   else
-			       print "+++ playing foreign content"
+			   if nr=true
+			        print "+++ playing foreign content"
+			        sendPluginEvent(sonos,"ForeignTransportStateURI")
+			   else if nr=false
+			        print "+++ playing local content"
+        		    sendPluginEvent(sonos,"LocalTransportStateURI")
 			   end if
 			else if command = "reboot" then
 			    xfer=SonosPlayerReboot(sonos.mp, sonosDevice.baseURL)
@@ -2509,7 +2510,10 @@ Sub OnAVTransportEvent(userdata as Object, e as Object)
 	if (AVTransportURI <> invalid) then 
 		updateDeviceVariable(s, sonosDevice, "AVTransportURI", AVTransportURI)
   	    print "AVTransportURI: [";AVTransportURI;"] "
-		CheckForeignPlayback(s)
+		nr=CheckForeignPlayback(s)
+		if nr=true
+		    sendPluginEvent(s,"ForeignTransportStateURI")
+		end if
 	end if
 
 	CurrentPlayMode = event.instanceid.CurrentPlayMode@val
@@ -2538,8 +2542,7 @@ End Sub
 
 
 Function CheckForeignPlayback(s as Object) as object
-
-	' check if we're not playing something from our own IP, and if so, send a ForeignTransportStateURI message and return true
+	' check if we're not playing something from our own IP
 	master=GetDeviceByPlayerModel(s.sonosDevices, s.masterDevice)
 	if master<>invalid
 		AVTransportURI=master.AVTransportURI
@@ -2548,11 +2551,10 @@ Function CheckForeignPlayback(s as Object) as object
 		myIP=currentNet.ip4_address
 		ipFound = instr(1,AVTransportURI,myIP)
 		if ipFound
-		    print "************* playing kiosk content  ********************"
+		    print "************* playing local content  ********************"
 		    return false	
 		else
-		    sendPluginEvent(s,"ForeignTransportStateURI")
-		    print "************* NOT playing kiosk content  ********************"
+		    print "************* playing foreign content  ********************"
 		    return true
 		end if
 	end if
