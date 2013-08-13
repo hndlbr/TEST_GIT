@@ -1,4 +1,4 @@
-' Plug-in script for BA 3.7.0.6 and greater
+' release 2.14 - dated 8-13 '
 
 Function sonos_Initialize(msgPort As Object, userVariables As Object, bsp as Object)
 
