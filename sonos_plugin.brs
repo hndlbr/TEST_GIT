@@ -721,6 +721,19 @@ Sub GetBaseIPByPlayerModel(sonosDevices as Object, modelNumber as string) as str
 	return newIP
 end sub
 
+Sub GetDeviceByPlayerModel(sonosDevices as Object, modelNumber as string) as object
+	
+	device = invalid
+	for i = 0 to sonosDevices.count() - 1
+		if (sonosDevices[i].modelNumber = modelNumber) then
+			device = sonosDevices[i]
+		end if
+	end for
+	return device
+
+end sub
+
+
 
 Function CheckGroupValid(sonosDevices as Object, masterDevice as object) as object
 	masterString="x-rincon:"+masterDevice.UDN
@@ -981,6 +994,15 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 				sendSelfUDP("scancomplete")
 			else if command = "list" then
 				PrintAllSonosDevices(sonos)
+			else if command = "needsreset" then
+			   nr=CheckForeignPlayback(sonos)
+			   if nr=false
+			       ' our session timer expired in the presentation and we'll need a reset on the next button
+			       ' but, since we are not playing foreign content, we can get a head start to make the system more responsive'
+			       
+			   else
+			       print "+++ playing foreign content"
+			   end if
 			else if command = "reboot" then
 			    xfer=SonosPlayerReboot(sonos.mp, sonosDevice.baseURL)
 				sonos.xferObjects.push(xfer)
@@ -2484,23 +2506,10 @@ Sub OnAVTransportEvent(userdata as Object, e as Object)
 	end if
 
 	AVTransportURI = event.instanceid.AVTransportURI@val
-	print "AVTransportURI: [";AVTransportURI;"] "
 	if (AVTransportURI <> invalid) then 
 		updateDeviceVariable(s, sonosDevice, "AVTransportURI", AVTransportURI)
-
-		' check if we're not playing something from our own IP
-		if s.masterDevice=sonosDevice.modelNumber
-		    netConfig = CreateObject("roNetworkConfiguration", 0)
-			currentNet = netConfig.GetCurrentConfig()
-			myIP=currentNet.ip4_address
-			ipFound = instr(1,AVTransportURI,myIP)
-			if ipFound
-''			    print "************* playing kiosk content  ********************"
-			else
-				sendPluginEvent(s,"ForeignTransportStateURI")
-			    print "************* NOT playing kiosk content  ********************"
-   			end if
-		end if
+  	    print "AVTransportURI: [";AVTransportURI;"] "
+		CheckForeignPlayback(s)
 	end if
 
 	CurrentPlayMode = event.instanceid.CurrentPlayMode@val
@@ -2525,6 +2534,29 @@ Sub OnAVTransportEvent(userdata as Object, e as Object)
 		stop
     end if
 End Sub
+
+
+
+Function CheckForeignPlayback(s as Object)
+
+	' check if we're not playing something from our own IP, and if so, send a ForeignTransportStateURI message and return true
+	master=GetDeviceByPlayerModel(s.sonosDevices, s.masterDevice)
+
+	AVTransportURI=master.AVTransportURI
+    netConfig = CreateObject("roNetworkConfiguration", 0)
+	currentNet = netConfig.GetCurrentConfig()
+	myIP=currentNet.ip4_address
+	ipFound = instr(1,AVTransportURI,myIP)
+	if ipFound
+	    print "************* playing kiosk content  ********************"
+        return false	
+	else
+		sendPluginEvent(s,"ForeignTransportStateURI")
+	    print "************* NOT playing kiosk content  ********************"
+    end if
+	return true
+end Function
+
 
 Sub OnRenderingControlEvent(userdata as Object, e as Object)
 	s = userData.sonos
