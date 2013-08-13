@@ -2099,7 +2099,7 @@ Function HandleSonosXferEvent(msg as object, sonos as object) as boolean
 				reqData = ""
 			end if
 			if (msg.getInt() = 1) then
-				print "HTTP return code: "; eventCode; " request type: ";reqData;" from ";connectedPlayerIP;
+				print "HTTP return code: "; eventCode; " request type: ";reqData;" from ";connectedPlayerIP
 				if (eventCode = 200) then 
 					if reqData="rdmPing" then
 					     print "+++ got reply for rdmPing"
@@ -2500,6 +2500,7 @@ Sub OnAVTransportEvent(userdata as Object, e as Object)
 	event.parse(fixedEventString)
 
 	'print "lastchange =";eventstring
+
 
 	transportState = event.instanceid.transportstate@val
 	if (transportState <> invalid) then 
