@@ -193,9 +193,15 @@ Sub PrintAllSonosDevices(s as Object)
 		print "++ transportState:  "+device.transportstate
 		print "++ AVtransportURI:  "+device.AVTransportURI
 		print "++ currentPlayMode: "+device.CurrentPlayMode
-		print "++ UV: device:      ";s.userVariables[device.modelNumber].currentvalue$
-		print "++ UV: HHID:        ";s.userVariables[device.modelNumber+"HHID"].currentvalue$
-		print "++ UV: HHIDStatus:  ";s.userVariables[device.modelNumber+"HHIDstatus"].currentvalue$
+		if s.userVariables[device.modelNumber]<>invalid
+		     print "++ UV: device:      ";s.userVariables[device.modelNumber].currentvalue$
+		endif
+		if s.userVariables[device.modelNumber+"HHID"]<>invalid
+		    print "++ UV: HHID:        ";s.userVariables[device.modelNumber+"HHID"].currentvalue$
+		end if
+		if s.userVariables[device.modelNumber+"HHIDstatus"]<>invalid
+		    print "++ UV: HHIDStatus:  ";s.userVariables[device.modelNumber+"HHIDstatus"].currentvalue$
+		endif 
 		print "+++++++++++++++++++++++++++++++++++++++++"
 	end for
 End Sub
