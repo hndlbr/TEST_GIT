@@ -1,4 +1,3 @@
-' release 2.14 - dated 8-13 '
 
 Function sonos_Initialize(msgPort As Object, userVariables As Object, bsp as Object)
 
