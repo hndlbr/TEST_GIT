@@ -1,3 +1,4 @@
+' Plug-in script for BA 3.7.0.6 and greater
 
 Function sonos_Initialize(msgPort As Object, userVariables As Object, bsp as Object)
 
@@ -192,15 +193,9 @@ Sub PrintAllSonosDevices(s as Object)
 		print "++ transportState:  "+device.transportstate
 		print "++ AVtransportURI:  "+device.AVTransportURI
 		print "++ currentPlayMode: "+device.CurrentPlayMode
-		if s.userVariables[device.modelNumber]<>invalid
-		     print "++ UV: device:      ";s.userVariables[device.modelNumber].currentvalue$
-		endif
-		if s.userVariables[device.modelNumber+"HHID"]<>invalid
-		    print "++ UV: HHID:        ";s.userVariables[device.modelNumber+"HHID"].currentvalue$
-		end if
-		if s.userVariables[device.modelNumber+"HHIDstatus"]<>invalid
-		    print "++ UV: HHIDStatus:  ";s.userVariables[device.modelNumber+"HHIDstatus"].currentvalue$
-		endif 
+		print "++ UV: device:      ";s.userVariables[device.modelNumber].currentvalue$
+		print "++ UV: HHID:        ";s.userVariables[device.modelNumber+"HHID"].currentvalue$
+		print "++ UV: HHIDStatus:  ";s.userVariables[device.modelNumber+"HHIDstatus"].currentvalue$
 		print "+++++++++++++++++++++++++++++++++++++++++"
 	end for
 End Sub
@@ -798,6 +793,7 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 
 		if ((devType = "sall") or (command = "present") or (command = "desired")) then
 			' Do not try to validate the device
+			sonosDevice = invalid
 		else
 			'get the IP of the desired device
 			sonosDevices=sonos.sonosDevices
@@ -823,29 +819,40 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 				return retval
 			endif
 
-			print command +" " + devType + " " + detail + " " +sonosDevice.baseURL
+			' print command +" " + devType + " " + detail + " " +sonosDevice.baseURL
 
 		end if
 
 		' if the Sonos device is not already processing a command, the process if
 		if (not SonosDeviceBusy(sonos, devType)) or (command = "present") or (command = "addplayertogroup") or (devType = "sall") then
+			if sonosDevice <> invalid then
+				print "Executing:";command +" " + devType + " " + detail + " " + sonosDevice.baseURL
+			else
+				print "Executing:";command +" " + devType + " " + detail + " " + "No URL Specified"
+			end if
 			' TOTO: should consider putting xferobjects inside functions where they belong!'
 			if command="mute" then
-				if sonosDevice.mute=0
+				'if sonosDevice.mute=0
 				    print "Sending mute"
 					xfer = SonosSetMute(sonos.mp, sonosDevice.baseURL,1) 
 					sonos.xferObjects.push(xfer)
-				else
-				    print "+++ device already muted - ignorning command"
-				end if
+				'else
+				    'print "+++ device already muted - ignorning command"
+					'postNextCommandInQueue(sonos, sonosDevice.baseURL)
+				'end if
+			else if command="flush" then
+				' Flush all of the commands in the command Queue
+				print "Flushing Command Queue"
+				sonos.commandQ.Clear()
 			else if command="unmute" then
-				if sonosDevice.mute=1
+				'if sonosDevice.mute=1
 				    print "Sending unMute"
 					xfer = SonosSetMute(sonos.mp, sonosDevice.baseURL,0) 
 					sonos.xferObjects.push(xfer)
-				else
-				    print "+++ device not muted - ignorning command"
-				end if
+				'else
+				    'print "+++ device not muted - ignorning command"
+					'postNextCommandInQueue(sonos, sonosDevice.baseURL)
+				'end if
 			else if command="volume" then
 				volume = val(detail)
 				print "Setting volume on ";sonosDevice.modelNumber;" to ["volume;"]"
@@ -854,6 +861,7 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 					sonos.xferObjects.push(xfer)
 				else
 				    print "+++ volume already set correctly - ignoring command"
+					postNextCommandInQueue(sonos, sonosDevice.baseURL)
 				end if
 			else if command="getvol" then
 				' print "Getting volume"
@@ -928,7 +936,8 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 							sonos.xferObjects.push(xfer)						
 						endif
 					else
-                        print "devices grouped - taking no action"					
+                        print "devices grouped - taking no action"
+						postNextCommandInQueue(sonos, sonosDevice.baseURL)				
 					end if
 				else
 					print "Grouping all devices"
@@ -1072,7 +1081,8 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 			commandToQ = {}
 			commandToQ.IP = sonosDevice.baseURL
 			commandToQ.msg = msg
-			sonos.commandQ.push(commandToQ)				
+			sonos.commandQ.push(commandToQ)	
+			print "Queuing:";command +" " + devType + " " + detail + " " +sonosDevice.baseURL		
 		end if
 	else
 		' See if it is a Brightsign message
@@ -1249,7 +1259,7 @@ Sub SonosSetMute(mp as object, connectedPlayerIP as string, muteVal as integer) 
 		reqString=r.ReplaceAll(muteXML,"1")
 	end if
 
-	' print reqString
+	print "Executing Mute: ";connectedPlayerIP
 	ok = soapTransfer.AsyncPostFromString(reqString)
 	if not ok then
 		stop
@@ -1288,7 +1298,7 @@ Sub SonosGetMute(mp as object, connectedPlayerIP as string) as object
 		stop
 	end if
 
-	' print muteXML
+	print "Executing GetMute: ";connectedPlayerIP
 	ok = soapTransfer.AsyncPostFromString(muteXML)
 	if not ok then
 		stop
@@ -1325,7 +1335,7 @@ Sub SonosSetRDM(mp as object, connectedPlayerIP as string, rdmVal as integer) as
 	mXML=mXML+" xmlns:s="+chr(34)+"http://schemas.xmlsoap.org/soap/envelope/"+chr(34)
 	mXML=mXML+"><s:Body><u:EnableRDM xmlns:u="+chr(34)
 	mXML=mXML+"urn:schemas-upnp-org:service:SystemProperties:1"+chr(34)
-	mXML=mXML+"><RDMValue>RDMVALUEVAR</RDMValue></u:EnableRDN></s:Body></s:Envelope>"
+	mXML=mXML+"><RDMValue>RDMVALUEVAR</RDMValue></u:EnableRDM></s:Body></s:Envelope>"
 	
 	soapTransfer.SetUrl( connectedPlayerIP + "/SystemProperties/Control")
 	ok = soapTransfer.addHeader("SOAPACTION", "urn:schemas-upnp-org:service:SystemProperties:1#EnableRDM")
@@ -1345,7 +1355,7 @@ Sub SonosSetRDM(mp as object, connectedPlayerIP as string, rdmVal as integer) as
 		reqString=r.ReplaceAll(mXML,"1")
 	end if
 
-	' print reqString
+	print "Executing SetRDM: ";connectedPlayerIP
 	ok = soapTransfer.AsyncPostFromString(reqString)
 	if not ok then
 		stop
@@ -1388,8 +1398,6 @@ sub SonosGetRDM(mp as object, connectedPlayerIP as string) as object
 	rXML=rXML+"urn:schemas-upnp-org:service:SystemProperties:1"+chr(34)
 	rXML=rXML+"></u:GetRDM></s:Body></s:Envelope>"
 
-	' print rXML
-
 	ok = soapTransfer.AsyncPostFromString(rXML)
 	if not ok then
 		stop
@@ -1426,7 +1434,8 @@ sub SonosApplyRDMDefaultSettings(mp as object, connectedPlayerIP as string) as o
 	volXML=volXML+"<s:Body><u:ApplyRDMDefaultSettings xmlns:u=" +chr(34)
 	volXML=volXML+"urn:schemas-upnp-org:service:SystemProperties:1"+chr(34)
 	volXML=volXML+"></u:ApplyRDMDefaultSettings></s:Body></s:Envelope>"
-
+	
+	print "Executing ApplyRDMDefaultSettings: ";connectedPlayerIP
 	ok = soapTransfer.AsyncPostFromString(volXML)
 	if not ok then
 		stop
@@ -1448,6 +1457,7 @@ Sub SonosSetWifi(mp as object, connectedPlayerIP as string, setValue as string) 
 
 	soapTransfer.SetUrl( connectedPlayerIP + "/wifictrl?wifi="+ setValue)
 
+	print "Executing SonosSetWifi: ";connectedPlayerIP
 	ok = soapTransfer.AsyncGetToString()
 	if not ok then
 		stop
@@ -1498,7 +1508,7 @@ Sub SonosSubCtrl(mp as object, connectedPlayerIP as string, enableVal as integer
 		reqString=r.ReplaceAll(subXML,"1")
 	end if
 
-	' print reqString
+	print "Executing SubControl: ";connectedPlayerIP
 	ok = soapTransfer.AsyncPostFromString(reqString)
 	if not ok then
 		stop
@@ -1549,7 +1559,7 @@ Sub SonosSurroundCtrl(mp as object, connectedPlayerIP as string, enableVal as in
 		reqString=r.ReplaceAll(subXML,"1")
 	end if
 
-	' print reqString
+	print "Executing SubControl: ";connectedPlayerIP
 	ok = soapTransfer.AsyncPostFromString(reqString)
 	if not ok then
 		stop
@@ -1600,7 +1610,8 @@ Sub SonosSetSleepTimer(sonos as object, sonosDevice as object, timeout as string
 		if not ok then
 			stop
 		end if
-		' print reqString
+		
+		print "Executing SubControl: ";connectedPlayerIP
 		ok = sTransfer.AsyncPostFromString(reqString)
 		if not ok then
 			stop
@@ -1642,7 +1653,8 @@ Sub SonosResetBasicEQ(mp as object, connectedPlayerIP as string) as object
 	if not ok then
 		stop
 	end if
-	' print reqString
+	
+	print "Executing ResetBasicEQ: ";connectedPlayerIP
 	ok = sTransfer.AsyncPostFromString(xmlString)
 	if not ok then
 		stop
@@ -1683,7 +1695,8 @@ Sub SonosGetSleepTimer(mp as object, connectedPlayerIP as string) as object
 	if not ok then
 		stop
 	end if
-	' print reqString
+	
+	print "Executing GetSleepTimer: ";connectedPlayerIP
 	ok = sTransfer.AsyncPostFromString(xmlString)
 	if not ok then
 		stop
@@ -1697,7 +1710,7 @@ end Sub
 Sub SonosSetPlayMode(sonos as object, sonosDevice as object) 
 
 		connectedPlayerIP = sonosDevice.baseURL
-		if (sonosDevice.CurrentPlayMode = "NORMAL") then
+	if (sonosDevice.CurrentPlayMode = "NORMAL") then
 		' do nothing save time on the SOAP call
 
 		' Post the next command in the queue for this player
@@ -1733,7 +1746,8 @@ Sub SonosSetPlayMode(sonos as object, sonosDevice as object)
 		if not ok then
 			stop
 		end if
-		' print reqString
+		
+		print "Executing SetPlayMode: ";connectedPlayerIP
 		ok = sTransfer.AsyncPostFromString(xmlString)
 		if not ok then
 			stop
@@ -1781,7 +1795,8 @@ Sub SonosSetSong(mp as object, myIP as string, connectedPlayerIP as string, mp3f
 	if not ok then
 		stop
 	end if
-	' print reqString
+	
+	print "Executing SetSong: ";connectedPlayerIP
 	ok = songTransfer.AsyncPostFromString(reqString)
 	if not ok then
 		stop
@@ -1825,7 +1840,8 @@ Sub SonosSetSPDIF(mp as object, connectedPlayerIP as string, sonosPlayerUDN as s
 	if not ok then
 		stop
 	end if
-	' print reqString
+	
+	print "Executing SetSPDIF: ";connectedPlayerIP
 	ok = songTransfer.AsyncPostFromString(reqString)
 	if not ok then
 		stop
@@ -1869,7 +1885,8 @@ Sub SonosSetGroup(mp as object, connectedPlayerIP as string, sonosPlayerUDN as s
 	if not ok then
 		stop
 	end if
-	' print reqString
+	
+	print "Executing SetGroup: ";connectedPlayerIP
 	ok = songTransfer.AsyncPostFromString(reqString)
 	if not ok then
 		stop
@@ -1911,7 +1928,7 @@ Sub SonosPlaySong(mp as object, connectedPlayerIP as string) as object
 	if not ok then
 		stop
 	end if
-	' print reqString
+	print "Executing PlaySong: ";connectedPlayerIP
 	ok = soapTransfer.AsyncPostFromString(reqString)
 
 	return soapTransfer
@@ -2054,6 +2071,7 @@ Function HandleSonosXferEvent(msg as object, sonos as object) as boolean
 				connectedPlayerIP = ""
 				reqData = ""
 			end if
+			print "Message.getInt() = ";msg.getInt(); "reqData:";reqData;"  IP:"; connectedPlayerIP
 			if (msg.getInt() = 1) then
 ''				print "HTTP return code: "; eventCode; " request type: ";reqData;" from ";connectedPlayerIP;" at: ";sonos.st.GetLocalDateTime()
 				print "HTTP return code: "; eventCode; " request type: ";reqData;" from ";connectedPlayerIP;
