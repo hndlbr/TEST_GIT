@@ -1,4 +1,3 @@
-' v 2.16'
 ' Plug-in script for BA 3.7.0.6 and greater
 
 Function sonos_Initialize(msgPort As Object, userVariables As Object, bsp as Object)
@@ -1074,6 +1073,8 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 					print "Adding ";devType;" to playing group"
 					sonos.playingGroup.push(devType)	
 				end if
+			else if command = "buttonstate" then
+				setbuttonstate(sonos, detail)
 			else
 				print "Discarding UNSUPPORTED command :"; command
 			end if
@@ -3278,5 +3279,40 @@ sub DeleteSonosDevice(userVariables as object, devices as object, baseURL as obj
 		devices.delete(deviceToDelete)
 	end if 
 end sub
+
+sub setbuttonstate(sonos as object, state as string)
+	' If the user variable ButtonType = EUCapSense then set the two GPIO's to the following
+	'        GPIO 3 7
+	' learnmore = 1 0  (backward compatible)
+	' s1		= 0 0
+	' s3		= 0 1
+	' s5		= 1 1 
+
+	gpioPort = CreateObject("roControlPort", "BrightSign")
+	if sonos.userVariables["ButtonType"] <> invalid then
+		if sonos.userVariables["ButtonType"].currentValue$ = "EUCapSense" then
+			print "setting EUCapSense button state as ";state
+			if state = "s1" then
+				gpioPort.SetOutputState(3, false)
+				gpioPort.SetOutputState(7, false)
+			else if state = "s3" then
+				gpioPort.SetOutputState(3, false)
+				gpioPort.SetOutputState(7, true)
+			else if state = "s5" then
+				gpioPort.SetOutputState(3, true)
+				gpioPort.SetOutputState(7, true)
+			else if state = "learnmore" then
+				gpioPort.SetOutputState(3, true)
+				gpioPort.SetOutputState(7, false)
+			end if
+		else
+			print "setting button state for non-EUCapSense"
+			' set the default state which is GPIO 3 on and GPIO 7 off
+			gpioPort.SetOutputState(3, true)
+			gpioPort.SetOutputState(7, false)
+		end  if
+	end if
+end sub	
+		
 
 
