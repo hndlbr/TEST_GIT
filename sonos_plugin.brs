@@ -138,17 +138,12 @@ Function sonos_ProcessEvent(event As Object) as boolean
 	else if type(event) = "roHttpEvent" then
 		'print "roHttp event received in Sonos processing"
 	else if type(event) = "roTimerEvent" then
-''		if (event.GetSourceIdentity() = m.timer.GetIdentity()) then
-''			print "renewing for registering events"
-''			SonosRenewRegisterForEvents(m)
-''			retval = true
-''		end if
-	    if (event.GetSourceIdentity() = "GENA") then
+		if (event.GetSourceIdentity() = m.timer.GetIdentity()) then
 			print "renewing for registering events"
 			SonosRenewRegisterForEvents(m)
 			retval = true
 		end if
-	    if (event.GetSourceIdentity() = "Alive") then
+		if (event.GetSourceIdentity() = m.timer2.GetIdentity()) then
 			print "***************************************************  Alive timer fired"
 			print "***************************************************  Alive timer fired"
 			print "***************************************************  Alive timer fired"
