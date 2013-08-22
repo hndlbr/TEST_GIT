@@ -39,7 +39,7 @@ Function newSonos(msgPort As Object, userVariables As Object, bsp as Object)
 
 	' Create timer to see if players have gone away
 	s.timer2=CreateObject("roTimer")  
-	s.timer2.SetPort(mp)
+	s.timer2.SetPort(msgPort)
 	timeout=s.st.GetLocalDateTime()
 	timeout.AddSeconds(30)
 	s.timer2.SetDateTime(timeout)
