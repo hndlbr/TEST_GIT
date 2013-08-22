@@ -43,8 +43,8 @@ Function newSonos(msgPort As Object, userVariables As Object, bsp as Object)
 
 	timeout=s.st.GetLocalDateTime()
 	delay=600
-	if (m.userVariables["aliveTimeoutSeconds"] <> invalid) then
-	    delay=s.userVariables["aliveTimeoutSeconds"].currentValue$
+	if (userVariables["aliveTimeoutSeconds"] <> invalid) then
+	    delay=userVariables["aliveTimeoutSeconds"].currentValue$
 	end if
 	timeout.AddSeconds(delay)
 	s.timer2.SetDateTime(timeout)
