@@ -217,6 +217,11 @@ Sub PrintAllSonosDevices(s as Object)
 		else
 		    print "++ desired:         false"
 		end if 
+		if device.alive=true
+		    print "++ alive:           true"
+		else
+		    print "++ alive:           false"
+		end if 
 		print "++ device url:      "+device.baseURL
 		print "++ device UDN:      "+device.UDN
 		print "++ device type:     "+device.deviceType
@@ -359,6 +364,8 @@ Sub OnFound(response as String)
 		        print "************ alive found ************ [";responseBaseURL;"]"
 		        if (sonosDevice <> invalid) then
 					print "Received ssdp:alive, device already in list "; responseBaseURL;" hhid: ";hhid;" old bootseq: "sonosDevice.bootseq;" new bootseq: ";bootseq
+
+					sonosDevice.alive=yes
 					sonosDevice.hhid=hhid
 					updateUserVar(m.s.userVariables,SonosDevice.modelNumber+"HHID",SonosDevice.hhid)
 					xfer=rdmPingAsync(m.s.mp,SonosDevice.baseURL,hhid) 
@@ -408,24 +415,27 @@ Sub OnFound(response as String)
 					'print "uuid: "+uuidString
 					found = false
 					i = 0
-					numdevices = m.s.sonosDevices.count()
-					while (not found) and (i < numdevices)  
-						if (uuidString=m.s.sonosDevices[i].uuid) then
-						  print "found player to delete "+m.s.sonosDevices[i].modelNumber+"with uuid: " + uuidString 
-						  found = true
-						  deviceNumToDelete = i
-						end if
-						i = i + 1
-					end while
-					if (found) then
-						print "Deleting Player"+m.s.sonosDevices[deviceNumToDelete].modelNumber+"with uuid: " + uuidString
-						' Indicate the player is no longer present
-						if (m.s.userVariables[m.s.sonosDevices[deviceNumToDelete].modelNumber] <> invalid) then
-							m.s.userVariables[m.s.sonosDevices[deviceNumToDelete].modelNumber].currentValue$ = "notpresent"
-						end if
-						m.s.sonosDevices.delete(deviceNumToDelete)
+''					numdevices = m.s.sonosDevices.count()
+''					while (not found) and (i < numdevices)  
+''						if (uuidString=m.s.sonosDevices[i].uuid) then
+''						  print "found player to delete "+m.s.sonosDevices[i].modelNumber+"with uuid: " + uuidString 
+''						  found = true
+''						  deviceNumToDelete = i
+''						end if
+''						i = i + 1
+''					end while
+''					if (found) then
+''						print "Deleting Player"+m.s.sonosDevices[deviceNumToDelete].modelNumber+"with uuid: " + uuidString
+''						' Indicate the player is no longer present
+''						if (m.s.userVariables[m.s.sonosDevices[deviceNumToDelete].modelNumber] <> invalid) then
+''							m.s.userVariables[m.s.sonosDevices[deviceNumToDelete].modelNumber].currentValue$ = "notpresent"
+''						end if
+''						m.s.sonosDevices.delete(deviceNumToDelete)
+	                deleted=deletePlayerByUUID(m.s,uuidString)
+	                if deleted=true
+						print "+++ deleted player with uuid: ",uuidString
 					else
-						print "Got byebye but player is not in list:";response	
+						print "+++ Got byebye but player is not in list:";response	
 					end if		
 				end if
 			end if
@@ -434,6 +444,32 @@ Sub OnFound(response as String)
 
   done_all_found:
 End Sub
+
+
+function deletePlayerByUUID(s as object, uuid as String) as object
+
+	numdevices = s.sonosDevices.count()
+	while (not found) and (i < numdevices)  
+		if (uuidString=s.sonosDevices[i].uuid) then
+		  print "found player to delete "+s.sonosDevices[i].modelNumber+"with uuid: " + uuidString 
+		  found = true
+		  deviceNumToDelete = i
+		end if
+		i = i + 1
+	end while
+	if (found) then
+		print "Deleting Player"+s.sonosDevices[deviceNumToDelete].modelNumber+"with uuid: " + uuidString
+		' Indicate the player is no longer present
+		if (s.userVariables[m.s.sonosDevices[deviceNumToDelete].modelNumber] <> invalid) then
+			s.userVariables[m.s.sonosDevices[deviceNumToDelete].modelNumber].currentValue$ = "notpresent"
+		end if
+		s.sonosDevices.delete(deviceNumToDelete)
+		return true
+	else
+		print "matching uuid not in list: ";uuid	
+	end if		
+
+end function
 
 Sub SendXMLQuery(s as object, response as string)
 	Query = {}
@@ -702,6 +738,7 @@ Sub UPNPDiscoverer_ProcessDeviceXML(ev as Object)
 					end if ' desired=true'
 				else
 					print "Player ";model;" already exists in device list"
+					sonosDevice.alive=yes
 				end if
 			end if
 			deviceList.delete(i)
@@ -748,6 +785,7 @@ Sub newSonosDevice(device as Object) as Object
 	sonosDevice.softwareVersion=lcase(device.deviceXML.device.softwareVersion.getText())
 	sonosDevice.bootseq=device.bootseq
 	sonosDevice.desired=false
+	sonosDevice.alive=yes
 
 	print "device HHID:       ["+device.hhid+"]"
 	print "device UUID:       ["+device.uuid+"]"
