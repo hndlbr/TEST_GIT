@@ -152,7 +152,7 @@ Function sonos_ProcessEvent(event As Object) as boolean
 			timeout=m.st.GetLocalDateTime()
 			delay=600
 			if (m.userVariables["aliveTimeoutSeconds"] <> invalid) then
-			    d=s.userVariables["aliveTimeoutSeconds"].currentValue$
+			    d=m.userVariables["aliveTimeoutSeconds"].currentValue$
 			    delay=val(d)
 			end if
 			timeout.AddSeconds(delay)
