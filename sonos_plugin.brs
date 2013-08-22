@@ -44,7 +44,8 @@ Function newSonos(msgPort As Object, userVariables As Object, bsp as Object)
 	timeout=s.st.GetLocalDateTime()
 	delay=600
 	if (userVariables["aliveTimeoutSeconds"] <> invalid) then
-	    delay=userVariables["aliveTimeoutSeconds"].currentValue$
+	    d=userVariables["aliveTimeoutSeconds"].currentValue$
+	    delay=val(d)
 	end if
 	timeout.AddSeconds(delay)
 	s.timer2.SetDateTime(timeout)
@@ -151,7 +152,8 @@ Function sonos_ProcessEvent(event As Object) as boolean
 			timeout=m.st.GetLocalDateTime()
 			delay=600
 			if (m.userVariables["aliveTimeoutSeconds"] <> invalid) then
-			    delay=s.userVariables["aliveTimeoutSeconds"].currentValue$
+			    d=s.userVariables["aliveTimeoutSeconds"].currentValue$
+			    delay=val(d)
 			end if
 			timeout.AddSeconds(delay)
 			m.timer2.SetDateTime(timeout)
