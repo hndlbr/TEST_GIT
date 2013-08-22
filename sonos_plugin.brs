@@ -40,8 +40,13 @@ Function newSonos(msgPort As Object, userVariables As Object, bsp as Object)
 	' Create timer to see if players have gone away
 	s.timer2=CreateObject("roTimer")  
 	s.timer2.SetPort(msgPort)
-	timeout=s.st.GetLocalDateTime()
-	timeout.AddSeconds(30)
+
+	timeout=m.st.GetLocalDateTime()
+	delay=600
+	if (m.userVariables["aliveTimeoutSeconds"] <> invalid) then
+	    delay=s.userVariables["aliveTimeoutSeconds"].currentValue$
+	end if
+	timeout.AddSeconds(delay)
 	s.timer2.SetDateTime(timeout)
 	s.timer2.Start()
 
@@ -144,7 +149,11 @@ Function sonos_ProcessEvent(event As Object) as boolean
 		end if
 		if (event.GetSourceIdentity() = m.timer2.GetIdentity()) then
 			timeout=m.st.GetLocalDateTime()
-			timeout.AddSeconds(30)
+			delay=600
+			if (m.userVariables["aliveTimeoutSeconds"] <> invalid) then
+			    delay=s.userVariables["aliveTimeoutSeconds"].currentValue$
+			end if
+			timeout.AddSeconds(delay)
 			m.timer2.SetDateTime(timeout)
 			m.timer2.Start()
 
