@@ -32,7 +32,7 @@ Function newSonos(msgPort As Object, userVariables As Object, bsp as Object)
 	s.timer.SetPort(msgPort) 
 	s.timer.SetDate(-1, -1, -1) 
 	s.timer.SetTime(-1, 25, 0, 0) 
-	s.timer.SetSourceIdentity("GENA")
+	's.timer.SetSourceIdentity("GENA")
 	s.timer.Start()
 
 	' Create timer to see if players have gone away
@@ -40,7 +40,7 @@ Function newSonos(msgPort As Object, userVariables As Object, bsp as Object)
 	s.timer2.SetPort(msgPort) 
 	s.timer2.SetDate(-1, -1, -1) 
 	s.timer2.SetTime(-1, -1 , 0, 0) 
-	s.timer2.SetSourceIdentity("Alive")
+	's.timer2.SetSourceIdentity("Alive")
 	s.timer2.Start()
 
 	s.st=CreateObject("roSystemTime")
