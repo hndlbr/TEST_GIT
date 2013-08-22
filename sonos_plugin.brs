@@ -165,26 +165,15 @@ Function sonos_ProcessEvent(event As Object) as boolean
 			        device.alive=false
 			    end if
 			    if device.alive=false
-			        print "+++ alive timer expired - device [";device.modelNumber;"] not seen and is deleted"
 			        deletePlayerByUUID(m,device.uuid)
+			        print "+++ alive timer expired - device [";device.modelNumber;"] not seen and is deleted"
+			        print "+++ alive timer expired - device [";device.modelNumber;"] not seen and is deleted"
+			        print "+++ alive timer expired - device [";device.modelNumber;"] not seen and is deleted"
+			        print "+++ alive timer expired - device [";device.modelNumber;"] not seen and is deleted"
+			        print "+++ alive timer expired - device [";device.modelNumber;"] not seen and is deleted"
+			        print "+++ alive timer expired - device [";device.modelNumber;"] not seen and is deleted"
 			    end if
 			end for
-
-			print "***************************************************  Alive timer fired"
-			print "***************************************************  Alive timer fired"
-			print "***************************************************  Alive timer fired"
-			print "***************************************************  Alive timer fired"
-			print "***************************************************  Alive timer fired"
-			print "***************************************************  Alive timer fired"
-			print "***************************************************  Alive timer fired"
-			print "***************************************************  Alive timer fired"
-			print "***************************************************  Alive timer fired"
-			print "***************************************************  Alive timer fired"
-			print "***************************************************  Alive timer fired"
-			print "***************************************************  Alive timer fired"
-			print "***************************************************  Alive timer fired"
-			print "***************************************************  Alive timer fired"
-
 	        retval=true
 		end if
 
