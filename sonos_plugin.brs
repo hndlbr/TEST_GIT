@@ -1217,7 +1217,7 @@ function setSonosMasterDevice(sonos as object,devType as string) as string
 	    return sonos.masterDevice 
 	end if
 	return invalid
-end sub
+end function
 
 sub SonosGetVolume(mp as object, connectedPlayerIP as string) as object
 
