@@ -87,6 +87,7 @@ Function newSonos(msgPort As Object, userVariables As Object, bsp as Object)
     else
         print "siteHHID user variable does not exist"
     end if
+
 	return s
 End Function
 
@@ -176,8 +177,13 @@ Sub PrintAllSonosDevices(s as Object)
     print "-- siteHHID:        "s.hhid
 	devices = s.devices
 	for each device in s.sonosDevices
-		print "++ device url:      "+device.baseURL
 		print "++ device model:    "+device.modelNumber
+		if device.desired=true
+		    print "++ desired:         true"
+		else
+		    print "++ desired:         false"
+		end if 
+		print "++ device url:      "+device.baseURL
 		print "++ device UDN:      "+device.UDN
 		print "++ device type:     "+device.deviceType
 		print "++ device volume:   "+str(device.volume)
@@ -193,9 +199,15 @@ Sub PrintAllSonosDevices(s as Object)
 		print "++ transportState:  "+device.transportstate
 		print "++ AVtransportURI:  "+device.AVTransportURI
 		print "++ currentPlayMode: "+device.CurrentPlayMode
-		print "++ UV: device:      ";s.userVariables[device.modelNumber].currentvalue$
-		print "++ UV: HHID:        ";s.userVariables[device.modelNumber+"HHID"].currentvalue$
-		print "++ UV: HHIDStatus:  ";s.userVariables[device.modelNumber+"HHIDstatus"].currentvalue$
+		if s.userVariables[device.modelNumber]<>invalid
+		    print "++ UV: device:      ";s.userVariables[device.modelNumber].currentvalue$
+		endif
+		if s.userVariables[device.modelNumber+"HHID"]<>invalid
+		   print "++ UV: HHID:        ";s.userVariables[device.modelNumber+"HHID"].currentvalue$
+		end if
+		if s.userVariables[device.modelNumber+"HHIDstatus"]<>invalid
+		   print "++ UV: HHIDStatus:  ";s.userVariables[device.modelNumber+"HHIDstatus"].currentvalue$
+		endif 
 		print "+++++++++++++++++++++++++++++++++++++++++"
 	end for
 End Sub
@@ -310,7 +322,7 @@ Sub OnFound(response as String)
 		rootDeviceString = instr(1,response,"NT: upnp:rootdevice")
 		if (aliveFound) then
 		    if(rootDeviceString) then
-		        print "************ alive found ************ ";responseBaseURL
+		        print "************ alive found ************ [";responseBaseURL;"]"
 		        if (sonosDevice <> invalid) then
 					print "Received ssdp:alive, device already in list "; responseBaseURL;" hhid: ";hhid;" old bootseq: "sonosDevice.bootseq;" new bootseq: ";bootseq
 					sonosDevice.hhid=hhid
@@ -619,27 +631,35 @@ Sub UPNPDiscoverer_ProcessDeviceXML(ev as Object)
 				if (model = "") then
 					deviceList[i].deviceXML = deviceXML
 					model = deviceXML.device.modelNumber.getText()
-
+					model = lcase(model)
+					
+					desired=isModelDesired(s,model)
 					SonosDevice = newSonosDevice(deviceList[i])
+					if desired=true
+					    SonosDevice.desired=true
 
-					' Set the user variables
-					updateUserVar(s.userVariables,SonosDevice.modelNumber,"present")
-					updateUserVar(s.userVariables,SonosDevice.modelNumber+"Version",SonosDevice.softwareVersion)
-					updateUserVar(s.userVariables,SonosDevice.modelNumber+"HHID",SonosDevice.hhid)
+						' Set the user variables
+						updateUserVar(s.userVariables,SonosDevice.modelNumber,"present")
+						updateUserVar(s.userVariables,SonosDevice.modelNumber+"Version",SonosDevice.softwareVersion)
+						updateUserVar(s.userVariables,SonosDevice.modelNumber+"HHID",SonosDevice.hhid)
 
 
-					' if this device was previously skipped on boot, we need to reboot'
-					skippedString=model+"Skipped"
-					if s.userVariables[skippedString] <> invalid then
-					    skipVal=s.userVariables[skippedString].currentValue$ 
-					    if skipVal="yes"
-					        print "+++ skipped player ";model;" - rebooting!"
-					        RebootSystem()
-					    end if
-					end if
+						' if this device was previously skipped on boot, we need to reboot'
+						skippedString=model+"Skipped"
+						if s.userVariables[skippedString] <> invalid then
+						    skipVal=s.userVariables[skippedString].currentValue$ 
+						    if skipVal="yes"
+						        print "+++ skipped player ";model;" - rebooting!"
+						        RebootSystem()
+						    end if
+						end if
 
-					SonosRegisterForEvents(s, s.mp, SonosDevice)
-					s.sonosDevices.push(SonosDevice)
+						SonosRegisterForEvents(s, s.mp, SonosDevice)
+						s.sonosDevices.push(SonosDevice)
+					else
+					    print "+++ player model ";model;" is not in the desired list - ignoring"
+						s.sonosDevices.push(SonosDevice)
+					end if ' desired=true'
 				else
 					print "Player ";model;" already exists in device list"
 				end if
@@ -654,17 +674,17 @@ Sub UPNPDiscoverer_ProcessDeviceXML(ev as Object)
 	end if
 end Sub	
 
-' this function is deprecated in favor of dynamically addeing devices '
-'Sub PopulateSonosDevices( allDevices as Object, sonosDevices as Object)
-''	
-''	SonosIndex = 0
-''	for i = 0 to allDevices.count() - 1
-''		if (allDevices[i].sonosDevice) then
-''			sonosDevices[SonosIndex] = newSonosDevice(allDevices[i])
-''			SonosIndex = SonosIndex + 1
-''		end if
-''	end for
-'end Sub
+
+Function isModelDesired(s as object, model as string)
+
+	for each modelNumber in s.desiredDevices
+	    print "+++ checking if ";model;" equals ";modelNumber
+	    if model = modelNumber
+	        return true
+	    end if
+	end for
+	return false
+end Function
 
 
 
@@ -687,6 +707,7 @@ Sub newSonosDevice(device as Object) as Object
 	sonosDevice.uuid=device.uuid
 	sonosDevice.softwareVersion=lcase(device.deviceXML.device.softwareVersion.getText())
 	sonosDevice.bootseq=device.bootseq
+	sonosDevice.desired=false
 
 	print "device HHID:       ["+device.hhid+"]"
 	print "device UUID:       ["+device.uuid+"]"
@@ -2422,63 +2443,70 @@ Function SonosRenewRegisterForEvents(sonos as Object)
 
 	' Loop thru all of the devices and renew the register for events
 	for each device in sonos.sonosDevices
-		' Set up the Transfer Object AV Transport
-		eventRegister = CreateObject("roUrlTransfer")
-		eventRegister.SetMinimumTransferRate( 2000, 1 )
-		eventRegister.SetPort( sonos.msgPort )
 
-		' Set the URL for the AVTransport Events
-		sURL=device.baseURL+"/MediaRenderer/AVTransport/Event"
-		eventRegister.SetUrl(sURL)
+	    if device.desired=true
 
-		'  Add the headers for renewing, we only need 2, SID and Timeout
-		' avTransportSID: "",renderingSID 
-		eventRegister.AddHeader("SID", device.avTransportSID)
-		eventRegister.AddHeader("Timeout", "Second-7200")
+			' Set up the Transfer Object AV Transport
+			eventRegister = CreateObject("roUrlTransfer")
+			eventRegister.SetMinimumTransferRate( 2000, 1 )
+			eventRegister.SetPort( sonos.msgPort )
 
-		' Set up the request data so we get http return we know where it came from
-		sonosReqData=CreateObject("roAssociativeArray")
-		sonosReqData["type"]="RenewRegisterForAVTransportEvent"
-		sonosReqData["dest"]=device.baseURL
-		eventRegister.SetUserData(sonosReqData)
+			' Set the URL for the AVTransport Events
+			sURL=device.baseURL+"/MediaRenderer/AVTransport/Event"
+			eventRegister.SetUrl(sURL)
 
-		' Start the renew request
-		if not eventRegister.AsyncMethod({ method: "SUBSCRIBE", response_body_string: true }) then
-			print "Failed to send SUBSCRIBE request: "; eventRegister.GetFailureReason()
-			stop
-		else
-			' put the request in the list 
-			sonos.xferObjects.push(eventRegister)
-		end if
+			'  Add the headers for renewing, we only need 2, SID and Timeout
+			' avTransportSID: "",renderingSID 
+			eventRegister.AddHeader("SID", device.avTransportSID)
+			eventRegister.AddHeader("Timeout", "Second-7200")
 
-		' Set up the Transfer Object for Rendering Control
-		eventRegister2 = CreateObject("roUrlTransfer")
-		eventRegister2.SetMinimumTransferRate( 2000, 1 )
-		eventRegister2.SetPort( sonos.msgPort )
+			' Set up the request data so we get http return we know where it came from
+			sonosReqData=CreateObject("roAssociativeArray")
+			sonosReqData["type"]="RenewRegisterForAVTransportEvent"
+			sonosReqData["dest"]=device.baseURL
+			eventRegister.SetUserData(sonosReqData)
 
-		' Set the URL for the AVTransport Events
-		sURL2=device.baseURL+"/MediaRenderer/RenderingControl/Event"
-		eventRegister2.SetUrl(sURL2)
+			' Start the renew request
+			if not eventRegister.AsyncMethod({ method: "SUBSCRIBE", response_body_string: true }) then
+				print "Failed to send SUBSCRIBE request: "; eventRegister.GetFailureReason()
+				stop
+			else
+				' put the request in the list 
+				sonos.xferObjects.push(eventRegister)
+			end if
 
-		'  Add the headers for renewing, we only need 2, SID and Timeout
-		' avTransportSID: "",renderingSID 
-		eventRegister2.AddHeader("SID", device.renderingSID)
-		eventRegister2.AddHeader("Timeout", "Second-7200")
+			' Set up the Transfer Object for Rendering Control
+			eventRegister2 = CreateObject("roUrlTransfer")
+			eventRegister2.SetMinimumTransferRate( 2000, 1 )
+			eventRegister2.SetPort( sonos.msgPort )
 
-		' Set up the request data so we get http return we know where it came from
-		sonosReqData2=CreateObject("roAssociativeArray")
-		sonosReqData2["type"]="RenewRegisterForRenderingControlEvent"
-		sonosReqData2["dest"]=device.baseURL
-		eventRegister2.SetUserData(sonosReqData2)
+			' Set the URL for the AVTransport Events
+			sURL2=device.baseURL+"/MediaRenderer/RenderingControl/Event"
+			eventRegister2.SetUrl(sURL2)
 
-		' Start the renew request
-		if not eventRegister2.AsyncMethod({ method: "SUBSCRIBE", response_body_string: true }) then
-			print "Failed to send SUBSCRIBE request: "; eventRegister2.GetFailureReason()
-			stop
-		else
-			' put the request in the list 
-			sonos.xferObjects.push(eventRegister2)
-		end if
+			'  Add the headers for renewing, we only need 2, SID and Timeout
+			' avTransportSID: "",renderingSID 
+			eventRegister2.AddHeader("SID", device.renderingSID)
+			eventRegister2.AddHeader("Timeout", "Second-7200")
+
+			' Set up the request data so we get http return we know where it came from
+			sonosReqData2=CreateObject("roAssociativeArray")
+			sonosReqData2["type"]="RenewRegisterForRenderingControlEvent"
+			sonosReqData2["dest"]=device.baseURL
+			eventRegister2.SetUserData(sonosReqData2)
+
+			' Start the renew request
+			if not eventRegister2.AsyncMethod({ method: "SUBSCRIBE", response_body_string: true }) then
+				print "Failed to send SUBSCRIBE request: "; eventRegister2.GetFailureReason()
+				stop
+			else
+				' put the request in the list 
+				sonos.xferObjects.push(eventRegister2)
+			end if
+
+			else
+			    print "player ";device.modelNumber;" is not desired by this presentation"
+			end if
 	end for
 
 end Function
@@ -2505,8 +2533,10 @@ End Sub
 
 Sub OnAVTransportEvent(userdata as Object, e as Object)
 	s = userData.sonos
-    'print e.GetRequestHeaders()
-    'print e.GetRequestBodyString()
+    
+	print "+++ OnAVTransportEvent:"
+    print e.GetRequestHeaders()
+    print e.GetRequestBodyString()
 
 	sonosDevice=userData.SonosDevice
     'TIMING print "AV Transport Event [";sonosDevice.modelNumber;"] at: ";s.st.GetLocalDateTime()
@@ -2530,12 +2560,13 @@ Sub OnAVTransportEvent(userdata as Object, e as Object)
 	transportState = event.instanceid.transportstate@val
 	if (transportState <> invalid) then 
 		updateDeviceVariable(s, sonosDevice, "TransportState", transportState)
+		print "Transport event from ";sonosDevice.modelNumber;" TransportState: [";transportstate;"] "
 	end if
 
 	AVTransportURI = event.instanceid.AVTransportURI@val
 	if (AVTransportURI <> invalid) then 
 		updateDeviceVariable(s, sonosDevice, "AVTransportURI", AVTransportURI)
-  	    print "AVTransportURI: [";AVTransportURI;"] "
+		print "Transport event from ";sonosDevice.modelNumber;" AVTransportURI: [";AVTransportURI;"] "
 		nr=CheckForeignPlayback(s)
 		if nr=true
 		    sendPluginEvent(s,"ForeignTransportStateURI")
@@ -2545,11 +2576,13 @@ Sub OnAVTransportEvent(userdata as Object, e as Object)
 	CurrentPlayMode = event.instanceid.CurrentPlayMode@val
 	if (CurrentPlayMode <> invalid) then 
 		updateDeviceVariable(s, sonosDevice, "CurrentPlayMode", CurrentPlayMode)
+		print "Transport event from ";sonosDevice.modelNumber;" CurrentPlayMode: [";currentPlayMode;"] "
 	end if
 
 	SleepTimerGeneration = event.instanceid.rSleepTimerGeneration@val
 	if (SleepTimerGeneration <> invalid) then 
 		updateDeviceVariable(s, sonosDevice, "SleepTimerGeneration", SleepTimerGeneration)
+		print "Transport event from ";sonosDevice.modelNumber;" SleepTimerGeneration: [";SleepTimerGeneration;"] "
 	end if
 
 	' Send a plugin message to indicate at least one of the transport state variables has changed
@@ -2572,6 +2605,12 @@ Function CheckForeignPlayback(s as Object) as object
 	master=GetDeviceByPlayerModel(s.sonosDevices, s.masterDevice)
 	if master<>invalid
 		AVTransportURI=master.AVTransportURI
+
+		if AVTransportURI=""
+		  print "+++ AVTransportURI is empty - assuming local content"
+		  return true
+		end if
+
 		netConfig = CreateObject("roNetworkConfiguration", 0)
 		currentNet = netConfig.GetCurrentConfig()
 		myIP=currentNet.ip4_address
@@ -2592,6 +2631,9 @@ Sub OnRenderingControlEvent(userdata as Object, e as Object)
 	s = userData.sonos
     'TIMING print "Rendering Control Event at: ";s.st.GetLocalDateTime()
     'print e.GetRequestHeaders()
+	print "+++ OnRenderingControlEvent:"
+    print e.GetRequestHeaders()
+    print e.GetRequestBodyString()
 
     sonosDevice=userData.SonosDevice    
     x=e.GetRequestBodyString()
@@ -2615,10 +2657,10 @@ Sub OnRenderingControlEvent(userdata as Object, e as Object)
 			v=x@val
 			if c="Master"
 				updateDeviceVariable(s, sonosDevice, "Volume", v)
-				'print "+++ Master volume changed (channel: ";c;")"
+				print "+++ Master volume changed (channel: ";c;")"
 				changed = true
 			else
-				'print "+++ Other volume changed (channel: ";c;")"
+				print "+++ Other volume changed (channel: ";c;")"
 			end if
 		end if	
 		if name="Mute"
@@ -2626,10 +2668,10 @@ Sub OnRenderingControlEvent(userdata as Object, e as Object)
 			v=x@val
 			if c="Master"
 				updateDeviceVariable(s, sonosDevice, "Mute", v)
-				'print "+++ Master muted (channel: ";c;")"
+				print "+++ Master muted (channel: ";c;")"
 				changed = true
 			else
-				'print "+++ Other muted (channel: ";c;")"
+				print "+++ Other muted (channel: ";c;")"
 			end if
 		end if	
     end for
@@ -3316,3 +3358,4 @@ end sub
 		
 
 
+' release  2.18
