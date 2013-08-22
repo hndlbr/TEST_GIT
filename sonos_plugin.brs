@@ -157,6 +157,17 @@ Function sonos_ProcessEvent(event As Object) as boolean
 			m.timer2.SetDateTime(timeout)
 			m.timer2.Start()
 
+			for each device in m.sonosDevices
+			    if device.alive=true
+			        ' mark it as false - an alive should come by and mark it as true again'
+			        device.alive=false
+			    end if
+			    if device.alive=false
+			        print "+++ alive timer expired - device [";device.modelNumber;"] not seen and is deleted"
+			        deletePlayerByUUID(m,device.uuid)
+			    end if
+			end for
+
 			print "***************************************************  Alive timer fired"
 			print "***************************************************  Alive timer fired"
 			print "***************************************************  Alive timer fired"
@@ -180,6 +191,8 @@ Function sonos_ProcessEvent(event As Object) as boolean
 	return retval
 
 End Function
+
+
 
 
 Sub isSonosDevicePresent(s as object , devType as string ) as boolean
