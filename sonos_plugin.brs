@@ -1192,7 +1192,7 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 end Function
 
 
-function setSonosMasterDevice(sonos,devType) as string
+function setSonosMasterDevice(sonos as object,devType as string) as string
 	if devType="sall"
 	    ' pick a random device'
 	    for each device in sonos.sonosDevices
