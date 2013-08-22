@@ -794,7 +794,7 @@ Sub newSonosDevice(device as Object) as Object
 	sonosDevice.softwareVersion=lcase(device.deviceXML.device.softwareVersion.getText())
 	sonosDevice.bootseq=device.bootseq
 	sonosDevice.desired=false
-	sonosDevice.alive=yes
+	sonosDevice.alive=true
 
 	print "device HHID:       ["+device.hhid+"]"
 	print "device UUID:       ["+device.uuid+"]"
