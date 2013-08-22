@@ -149,11 +149,22 @@ Function sonos_ProcessEvent(event As Object) as boolean
 			retval = true
 		end if
 	    if (event.GetSourceIdentity() = "Alive") then
-	        print "Alive timer fired"
+			print "***************************************************  Alive timer fired"
+			print "***************************************************  Alive timer fired"
+			print "***************************************************  Alive timer fired"
+			print "***************************************************  Alive timer fired"
+			print "***************************************************  Alive timer fired"
+			print "***************************************************  Alive timer fired"
+			print "***************************************************  Alive timer fired"
+			print "***************************************************  Alive timer fired"
+			print "***************************************************  Alive timer fired"
+			print "***************************************************  Alive timer fired"
+			print "***************************************************  Alive timer fired"
+			print "***************************************************  Alive timer fired"
+			print "***************************************************  Alive timer fired"
+			print "***************************************************  Alive timer fired"
 
 	        retval=true
-
-
 		end if
 
 	end if
