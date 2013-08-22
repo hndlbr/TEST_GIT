@@ -196,7 +196,9 @@ Sub FindAllSonosDevices(s as Object)
 End Sub
 
 Sub PrintAllSonosDevices(s as Object) 
-    print "-- siteHHID:        "s.hhid
+    print "-- siteHHID:        ";s.hhid
+    print "-- master:          ";s.masterDevice
+
 	devices = s.devices
 	for each device in s.sonosDevices
 		print "++ device model:    "+device.modelNumber
@@ -1198,7 +1200,7 @@ function setSonosMasterDevice(sonos as object,devType as string) as string
 	    for each device in sonos.sonosDevices
 	        sonos.masterDevice = device.modelNumber
 	        return sonos.masterDevice 
-	    next
+	    end for
 	else
 	    sonos.masterDevice = devType
 	    return sonos.masterDevice 
