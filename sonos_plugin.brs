@@ -827,13 +827,15 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 				endif
 			end for
 
-			desired = false
-			for i = 0 to sonos.desiredDevices.count() - 1
-				if (devType = sonos.desiredDevices[i]) then
-					'print "Found device ";devType;" in list of desired devices"
-					desired = true
-				end if
-			end for
+
+			desired=isModelDesired(sonos, devType)
+''			desired = false
+''			for i = 0 to sonos.desiredDevices.count() - 1
+''				if (devType = sonos.desiredDevices[i]) then
+''					'print "Found device ";devType;" in list of desired devices"
+''					desired = true
+''				end if
+''			end for
 
 			if (sonosDevice = invalid) or (not desired) then
 				print "No device of that type on this network or it is NOT Desired"
