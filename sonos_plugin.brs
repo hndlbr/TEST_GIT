@@ -32,7 +32,16 @@ Function newSonos(msgPort As Object, userVariables As Object, bsp as Object)
 	s.timer.SetPort(msgPort) 
 	s.timer.SetDate(-1, -1, -1) 
 	s.timer.SetTime(-1, 25, 0, 0) 
+	s.timer.SetSourceIdentity("GENA")
 	s.timer.Start()
+
+	' Create timer to see if players have gone away
+	s.timer2=CreateObject("roTimer")  
+	s.timer2.SetPort(msgPort) 
+	s.timer2.SetDate(-1, -1, -1) 
+	s.timer2.SetTime(-1, -1 , 0, 0) 
+	s.timer2.SetSourceIdentity("Alive")
+	s.timer2.Start()
 
 	s.st=CreateObject("roSystemTime")
 	'TIMING print "Sonos Plugin created at: ";s.st.GetLocalDateTime()
@@ -129,11 +138,24 @@ Function sonos_ProcessEvent(event As Object) as boolean
 	else if type(event) = "roHttpEvent" then
 		'print "roHttp event received in Sonos processing"
 	else if type(event) = "roTimerEvent" then
-		if (event.GetSourceIdentity() = m.timer.GetIdentity()) then
+''		if (event.GetSourceIdentity() = m.timer.GetIdentity()) then
+''			print "renewing for registering events"
+''			SonosRenewRegisterForEvents(m)
+''			retval = true
+''		end if
+	    if (event.GetSourceIdentity() = "GENA") then
 			print "renewing for registering events"
 			SonosRenewRegisterForEvents(m)
 			retval = true
 		end if
+	    if (event.GetSourceIdentity() = "Alive") then
+	        print "Alive timer fired"
+
+	        retval=true
+
+
+		end if
+
 	end if
 
 	return retval
@@ -354,6 +376,9 @@ Sub OnFound(response as String)
 				else ' must be a new device
 				    print "Received ssdp:alive, querying device..."
 				    SendXMLQuery(m.s, response)
+
+				    ' get the UDN - if we have that already, delete it'
+
 				end if ' sonosDevice '
 			end if 'rootDeviceFound '
 		end if ' aliveFound'
@@ -643,6 +668,9 @@ Sub UPNPDiscoverer_ProcessDeviceXML(ev as Object)
 						updateUserVar(s.userVariables,SonosDevice.modelNumber+"Version",SonosDevice.softwareVersion)
 						updateUserVar(s.userVariables,SonosDevice.modelNumber+"HHID",SonosDevice.hhid)
 
+						' do the RDM ping'
+						xfer=rdmPingAsync(s.mp,sonosDevice.baseURL,s.hhid) 
+						s.postObjects.push(xfer)
 
 						' if this device was previously skipped on boot, we need to reboot'
 						skippedString=model+"Skipped"
@@ -1080,7 +1108,8 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 					sonos.desiredDevices.push(devType)
 				end if	
 			else if command = "setmasterdevice" then
-				sonos.masterDevice = devType
+			    'sonos.masterDevice = devType
+				setSonosMasterDevice(sonos,devType)
 			else if command = "addplayertogroup" then
 				print "Trying to add ";devType;" to playing group"
 				found = false
@@ -1161,6 +1190,21 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 
 	return retval
 end Function
+
+
+function setSonosMasterDevice(sonos,devType) as string
+	if devType="sall"
+	    ' pick a random device'
+	    for each device in sonos.sonosDevices
+	        sonos.masterDevice = device.modelNumber
+	        return sonos.masterDevice 
+	    next
+	else
+	    sonos.masterDevice = devType
+	    return sonos.masterDevice 
+	end if
+	return invalid
+end sub
 
 sub SonosGetVolume(mp as object, connectedPlayerIP as string) as object
 
