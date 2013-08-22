@@ -32,19 +32,18 @@ Function newSonos(msgPort As Object, userVariables As Object, bsp as Object)
 	s.timer.SetPort(msgPort) 
 	s.timer.SetDate(-1, -1, -1) 
 	s.timer.SetTime(-1, 25, 0, 0) 
-	's.timer.SetSourceIdentity("GENA")
 	s.timer.Start()
-
-	' Create timer to see if players have gone away
-	s.timer2=CreateObject("roTimer")  
-	s.timer2.SetPort(msgPort) 
-	s.timer2.SetDate(-1, -1, -1) 
-	s.timer2.SetTime(-1, -1 , 0, 0) 
-	's.timer2.SetSourceIdentity("Alive")
-	s.timer2.Start()
 
 	s.st=CreateObject("roSystemTime")
 	'TIMING print "Sonos Plugin created at: ";s.st.GetLocalDateTime()
+
+	' Create timer to see if players have gone away
+	s.timer2=CreateObject("roTimer")  
+	s.timer2.SetPort(mp)
+	timeout=s.st.GetLocalDateTime()
+	timeout.AddSeconds(30)
+	s.timer2.SetDateTime(timeout)
+	s.timer2.Start()
 
 
 	' Need to remove once all instances of this are taken out of the Sonos code
@@ -144,6 +143,11 @@ Function sonos_ProcessEvent(event As Object) as boolean
 			retval = true
 		end if
 		if (event.GetSourceIdentity() = m.timer2.GetIdentity()) then
+			timeout=m.s.st.GetLocalDateTime()
+			timeout.AddSeconds(30)
+			m.s.timer2.SetDateTime(timeout)
+			m.s.timer2.Start()
+
 			print "***************************************************  Alive timer fired"
 			print "***************************************************  Alive timer fired"
 			print "***************************************************  Alive timer fired"
