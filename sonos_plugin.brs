@@ -143,10 +143,10 @@ Function sonos_ProcessEvent(event As Object) as boolean
 			retval = true
 		end if
 		if (event.GetSourceIdentity() = m.timer2.GetIdentity()) then
-			timeout=m.s.st.GetLocalDateTime()
+			timeout=m.st.GetLocalDateTime()
 			timeout.AddSeconds(30)
-			m.s.timer2.SetDateTime(timeout)
-			m.s.timer2.Start()
+			m.timer2.SetDateTime(timeout)
+			m.timer2.Start()
 
 			print "***************************************************  Alive timer fired"
 			print "***************************************************  Alive timer fired"
