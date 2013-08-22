@@ -387,7 +387,7 @@ Sub OnFound(response as String)
 		        if (sonosDevice <> invalid) then
 					print "Received ssdp:alive, device already in list "; responseBaseURL;" hhid: ";hhid;" old bootseq: "sonosDevice.bootseq;" new bootseq: ";bootseq
 
-					sonosDevice.alive=yes
+					sonosDevice.alive=true
 					sonosDevice.hhid=hhid
 					updateUserVar(m.s.userVariables,SonosDevice.modelNumber+"HHID",SonosDevice.hhid)
 					xfer=rdmPingAsync(m.s.mp,SonosDevice.baseURL,hhid) 
