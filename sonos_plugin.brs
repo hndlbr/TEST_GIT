@@ -497,8 +497,8 @@ function deletePlayerByUUID(s as object, uuid as String) as object
 		s.sonosDevices.delete(deviceNumToDelete)
 
 		' Indicate the player is no longer present
-		if (s.userVariables[s.sonosDevices[deviceNumToDelete].modelNumber] <> invalid) then
-			s.userVariables[s.sonosDevices[deviceNumToDelete].modelNumber].currentValue$ = "notpresent"
+		if (s.userVariables[modelBeingDeleted] <> invalid) then
+			s.userVariables[modelBeingDeleted].currentValue$ = "notpresent"
 		end if
 		print "current master is: ";s.masterDevice
 		if modelBeingDeleted=s.masterDevice
