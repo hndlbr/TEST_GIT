@@ -773,7 +773,10 @@ Sub UPNPDiscoverer_ProcessDeviceXML(ev as Object)
 					end if ' desired=true'
 				else
 					print "Player ";model;" already exists in device list"
-					sonosDevice.alive=true
+					sonosDevice=GetDeviceByPlayerModel(s.sonosDevices, model)
+					if sonosDevice<>invalid
+					    sonosDevice.alive=true
+					end if
 				end if
 			end if
 			deviceList.delete(i)
