@@ -123,7 +123,7 @@ sub setDebugPrintBehavior(s as object)
        s.debugPrintEvents=false
        s.debugPrintLearnTiming=false
     end if
-end if
+end sub
 
 Function sonos_ProcessEvent(event As Object) as boolean
 
