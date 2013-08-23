@@ -875,7 +875,7 @@ Function CheckGroupValid(sonosDevices as Object, masterDevice as object) as obje
 	' not grouped'
 	for i = 0 to sonosDevices.count() - 1
 		if (sonosDevices[i].modelNumber <> masterDevice.modelNumber) then
-		    'print "+++ comparing [";sonosDevices[i].AVTransportURI;"] to [";masterString;"]"
+		    print "CheckGroupValid: +++ comparing [";sonosDevices[i].AVTransportURI;"] to [";masterString;"]"
 		    if sonosDevices[i].AVTransportURI<>masterString
 		        print "+++ NOT Grouped!"
 		        return false
@@ -1077,9 +1077,11 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 				else
 					MasterSonosDevice = invalid
 					for each device in sonos.sonosDevices
-					    print "comparing [";device.modelNumber;"] to [";sonos.masterDevice;"]"
-						if device.modelNumber = sonos.masterDevice
-						    MasterSonosDevice=device
+					    if MasterSonosDevice=invalid
+						    print "comparing [";device.modelNumber;"] to [";sonos.masterDevice;"]"
+							if device.modelNumber = sonos.masterDevice
+							    MasterSonosDevice=device
+							endif
 						endif
 					end for
 					if MasterSonosDevice = invalid then
