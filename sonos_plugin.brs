@@ -1077,12 +1077,13 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 				else
 					MasterSonosDevice = invalid
 					for each device in sonos.sonosDevices
+					    print "comparing ";device.modelNumber;" to ";sonos.masterDevice
 						if device.modelNumber = sonos.masterDevice
 						    masterDevice=device
 						endif
 					end for
 					if MasterSonosDevice = invalid then
-						print "No  master device of that type on this network"
+						print "No  master device on this network"
 					else
 						groupValid=CheckGroupValid(sonosDevices, MasterSonosDevice)
 						if groupValid=false then
