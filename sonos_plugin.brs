@@ -182,8 +182,7 @@ Function sonos_ProcessEvent(event As Object) as boolean
 			    if device.alive=true
 			        ' mark it as false - an alive should come by and mark it as true again'
 			        device.alive=false
-			    end if
-			    if device.alive=false
+			    else if device.alive=false
 			        deletePlayerByUUID(m,device.uuid)
 			        print "+++ alive timer expired - device [";device.modelNumber;"] not seen and is deleted"
 			        print "+++ alive timer expired - device [";device.modelNumber;"] not seen and is deleted"
@@ -492,7 +491,7 @@ function deletePlayerByUUID(s as object, uuid as String) as object
 		i = i + 1
 	end while
 	if (found) then
-		print "Deleting Player"+s.sonosDevices[deviceNumToDelete].modelNumber+"with uuid: " + uuidString
+		print "Deleting Player"+s.sonosDevices[deviceNumToDelete].modelNumber+"with uuid: " + uuid
 		' Indicate the player is no longer present
 		if (s.userVariables[m.s.sonosDevices[deviceNumToDelete].modelNumber] <> invalid) then
 			s.userVariables[m.s.sonosDevices[deviceNumToDelete].modelNumber].currentValue$ = "notpresent"
