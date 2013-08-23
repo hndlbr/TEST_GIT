@@ -1061,7 +1061,7 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 						endif
 					end for
 					
-					groupValid=CheckGroupValid(sonosDevices, MasterSonosDevice)
+					groupValid=CheckGroupValid(sonos.sonosDevices, MasterSonosDevice)
 					if groupValid=false then
                         print "grouping devices"					
 						if MasterSonosDevice = invalid then
@@ -1087,7 +1087,7 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 					if MasterSonosDevice = invalid then
 						print "No master device on this network"
 					else
-						groupValid=CheckGroupValid(sonosDevices, MasterSonosDevice)
+						groupValid=CheckGroupValid(sonos.sonosDevices, MasterSonosDevice)
 						if groupValid=false then
 							print "Grouping all devices - devType: ";devType
 							if (sonos.masterDevice <> "") then
