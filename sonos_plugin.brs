@@ -789,9 +789,8 @@ end Sub
 
 
 Function isModelDesired(s as object, model as string)
-
 	for each modelNumber in s.desiredDevices
-	    print "+++ checking if ";model;" equals ";modelNumber
+''	    print "+++ checking if ";model;" equals ";modelNumber
 	    if model = modelNumber
 	        return true
 	    end if
@@ -1076,9 +1075,9 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 						postNextCommandInQueue(sonos, sonosDevice.baseURL)				
 					end if
 				else
-					print "Grouping all devices"
+					print "Grouping all devices - devType: ";devType
 					if (sonos.masterDevice <> "") then
-						print "Number of device in playing group is: ";sonos.playingGroup.count()
+						print "Number of device in playing group is: ";sonos.playingGroup.count();" and master device is: ";sonos.masterDevice
 						for i = 0 to sonos.playingGroup.count() - 1
 							print "Comparing ";sonos.playingGroup[i];" to ";sonos.masterDevice
 							if (sonos.playingGroup[i] <> sonos.masterDevice) then
