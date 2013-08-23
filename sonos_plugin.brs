@@ -2242,7 +2242,7 @@ Function HandleSonosXferEvent(msg as object, sonos as object) as boolean
 			print "Message.getInt() = ";msg.getInt(); "reqData:";reqData;"  IP:"; connectedPlayerIP
 			if (msg.getInt() = 1) then
 ''				print "HTTP return code: "; eventCode; " request type: ";reqData;" from ";connectedPlayerIP;" at: ";sonos.st.GetLocalDateTime()
-				print "HTTP return code: "; eventCode; " request type: ";reqData;" from ";connectedPlayerIP;
+				print "HTTP return code: "; eventCode; " request type: ";reqData;" from ";connectedPlayerIP
 				if (eventCode = 200) then 
 					if reqData="GetVolume" then
 						processSonosVolumeResponse(msg,connectedPlayerIP,sonos)
