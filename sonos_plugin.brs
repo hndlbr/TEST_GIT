@@ -1281,9 +1281,13 @@ function setSonosMasterDevice(sonos as object,devType as string) as string
 	if devType="sall"
 	    ' pick a random device'
 	    for each device in sonos.sonosDevices
-	        sonos.masterDevice = device.modelNumber
-	        print "+++ setting master device to: ";sonos.masterDevice
-	        return sonos.masterDevice 
+
+	        desired=isModelDesired(device.modelNumber)
+	        if desired=true
+		        sonos.masterDevice = device.modelNumber
+		        print "+++ setting master device to: ";sonos.masterDevice
+		        return sonos.masterDevice
+	        end if 
 	    end for
 	else
 	    sonos.masterDevice = devType
