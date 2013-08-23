@@ -375,7 +375,7 @@ Sub OnFound(response as String)
 	    'print "@@@@@@@@@@@@@ 200 response: ";response
 		SendXMLQuery(m.s, response)
 	else if left(response, 6) = "NOTIFY" then
-	    print "@@@@@@@@@@@@@ NOTIFY respose: ";response
+	    'print "@@@@@@@@@@@@@ NOTIFY respose: ";response
 		'print "Received NOTIFY event"
 		hhid=GetHouseholdFromUPNPMessage(response)
 		bootseq=GetBootSeqFromUPNPMessage(response)
@@ -492,11 +492,15 @@ function deletePlayerByUUID(s as object, uuid as String) as object
 		i = i + 1
 	end while
 	if (found) then
-		print "Deleting Player"+s.sonosDevices[deviceNumToDelete].modelNumber+"with uuid: " + uuid
+		print "!!! Deleting Player"+s.sonosDevices[deviceNumToDelete].modelNumber+"with uuid: " + uuid
 		' Indicate the player is no longer present
 		if (s.userVariables[s.sonosDevices[deviceNumToDelete].modelNumber] <> invalid) then
 			s.userVariables[s.sonosDevices[deviceNumToDelete].modelNumber].currentValue$ = "notpresent"
 		end if
+		if s.sonosDevices[deviceNumToDelete].modelNumber=s.masterDevice
+ 		    setSonosMasterDevice(sonos,s.masterDevice)
+ 		end if
+
 		s.sonosDevices.delete(deviceNumToDelete)
 		return true
 	else
