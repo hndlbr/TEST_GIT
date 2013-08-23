@@ -493,6 +493,8 @@ function deletePlayerByUUID(s as object, uuid as String) as object
 	end while
 	if (found) then
 		print "!!! Deleting Player"+s.sonosDevices[deviceNumToDelete].modelNumber+"with uuid: " + uuid
+		s.sonosDevices.delete(deviceNumToDelete)
+
 		' Indicate the player is no longer present
 		if (s.userVariables[s.sonosDevices[deviceNumToDelete].modelNumber] <> invalid) then
 			s.userVariables[s.sonosDevices[deviceNumToDelete].modelNumber].currentValue$ = "notpresent"
@@ -501,7 +503,6 @@ function deletePlayerByUUID(s as object, uuid as String) as object
  		    setSonosMasterDevice(s,"sall")
  		end if
 
-		s.sonosDevices.delete(deviceNumToDelete)
 		return true
 	else
 		print "matching uuid not in list: ";uuid
