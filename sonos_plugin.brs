@@ -179,6 +179,7 @@ Function sonos_ProcessEvent(event As Object) as boolean
 			m.timer2.Start()
 
 			for each device in m.sonosDevices
+			    FindAllSonosDevices(m)
 			    if device.alive=true
 			        ' mark it as false - an alive should come by and mark it as true again'
 			        device.alive=false
