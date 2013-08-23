@@ -102,6 +102,23 @@ Function newSonos(msgPort As Object, userVariables As Object, bsp as Object)
         print "siteHHID user variable does not exist"
     end if
 
+    if s.userVariables["debugPrint"] <> invalid
+	    debugPrintString=s.userVariables["debugPrint"].currentValue$
+		r2 = CreateObject("roRegex", "!", "i")
+		fields=r2.split(debugPrintString)
+		for each f in fields
+		   if f="events"
+	           s.debugPrintEvents=true
+		   else if f="learn_timing"
+		       s.debugPrintLearnTiming=true
+		   end if
+		end for
+    else
+       s.debugPrintEvents=false
+       s.debugPrintLearnTiming=false
+    end if
+
+
 	return s
 End Function
 
@@ -426,8 +443,8 @@ Sub OnFound(response as String)
 					uuidEnd=instr(uuidStart,response,"::")
 					uuidString=mid(response,uuidStart,uuidEnd-uuidStart)
 					'print "uuid: "+uuidString
-					found = false
-					i = 0
+''					found = false
+''					i = 0
 ''					numdevices = m.s.sonosDevices.count()
 ''					while (not found) and (i < numdevices)  
 ''						if (uuidString=m.s.sonosDevices[i].uuid) then
@@ -460,6 +477,9 @@ End Sub
 
 
 function deletePlayerByUUID(s as object, uuid as String) as object
+
+	found = false
+	i = 0
 
 	numdevices = s.sonosDevices.count()
 	while (not found) and (i < numdevices)  
@@ -2646,9 +2666,11 @@ End Sub
 Sub OnAVTransportEvent(userdata as Object, e as Object)
 	s = userData.sonos
     
-	print "+++ OnAVTransportEvent:"
-    print e.GetRequestHeaders()
-    print e.GetRequestBodyString()
+	if s.debugPrintEvents=true
+		print "+++ OnAVTransportEvent:"
+	    print e.GetRequestHeaders()
+	    print e.GetRequestBodyString()
+    end if
 
 	sonosDevice=userData.SonosDevice
     'TIMING print "AV Transport Event [";sonosDevice.modelNumber;"] at: ";s.st.GetLocalDateTime()
@@ -2673,6 +2695,13 @@ Sub OnAVTransportEvent(userdata as Object, e as Object)
 	if (transportState <> invalid) then 
 		updateDeviceVariable(s, sonosDevice, "TransportState", transportState)
 		print "Transport event from ";sonosDevice.modelNumber;" TransportState: [";transportstate;"] "
+
+		if transportState="PLAYING"
+		    if s.debugPrintLearnTiming=true
+
+
+		    end if
+		end if
 	end if
 
 	AVTransportURI = event.instanceid.AVTransportURI@val
@@ -2743,9 +2772,11 @@ Sub OnRenderingControlEvent(userdata as Object, e as Object)
 	s = userData.sonos
     'TIMING print "Rendering Control Event at: ";s.st.GetLocalDateTime()
     'print e.GetRequestHeaders()
+   	if s.debugPrintEvents=true
 	print "+++ OnRenderingControlEvent:"
-    print e.GetRequestHeaders()
-    print e.GetRequestBodyString()
+	    print e.GetRequestHeaders()
+	    print e.GetRequestBodyString()
+    end if
 
     sonosDevice=userData.SonosDevice    
     x=e.GetRequestBodyString()
