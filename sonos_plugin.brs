@@ -1075,36 +1075,17 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 						postNextCommandInQueue(sonos, sonosDevice.baseURL)				
 					end if
 				else
-					MasterSonosDevice = invalid
-					for each device in sonos.sonosDevices
-					    if MasterSonosDevice=invalid
-						    print "comparing [";device.modelNumber;"] to [";sonos.masterDevice;"]"
-							if device.modelNumber = sonos.masterDevice
-							    MasterSonosDevice=device
-							endif
-						endif
-					end for
-					if MasterSonosDevice = invalid then
-						print "No master device on this network"
-					else
-						groupValid=CheckGroupValid(sonos.sonosDevices, MasterSonosDevice)
-						if groupValid=false then
-							print "Grouping all devices - devType: ";devType
-							if (sonos.masterDevice <> "") then
-								print "Number of device in playing group is: ";sonos.playingGroup.count();" and master device is: ";sonos.masterDevice
-								for i = 0 to sonos.playingGroup.count() - 1
-									print "Comparing ";sonos.playingGroup[i];" to ";sonos.masterDevice
-									if (sonos.playingGroup[i] <> sonos.masterDevice) then
-										print "Sending plugin message:";"sonos!"+sonos.playingGroup[i]+"!group!"+sonos.masterDevice
-										sendPluginMessage(sonos, "sonos!"+sonos.playingGroup[i]+"!group!"+sonos.masterDevice)
-									end if
-								end for
+					print "Grouping all devices"
+					if (sonos.masterDevice <> "") then
+						print "Number of device in playing group is: ";sonos.playingGroup.count()
+						for i = 0 to sonos.playingGroup.count() - 1
+							print "Comparing ";sonos.playingGroup[i];" to ";sonos.masterDevice
+							if (sonos.playingGroup[i] <> sonos.masterDevice) then
+								print "Sending plugin message:";"sonos!"+sonos.playingGroup[i]+"!group!"+sonos.masterDevice
+								sendPluginMessage(sonos, "sonos!"+sonos.playingGroup[i]+"!group!"+sonos.masterDevice)
 							end if
-						else 
-	                        print "devices grouped - taking no action"
-							postNextCommandInQueue(sonos, sonosDevice.baseURL)				
-						end if ' groupValid'
-					end if ' master device valid'
+						end for
+					end if
 				end if
 			else if command = "play" then
 				xfer = SonosPlaySong(sonos.mp, sonosDevice.baseURL)
