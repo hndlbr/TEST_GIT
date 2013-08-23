@@ -498,7 +498,7 @@ function deletePlayerByUUID(s as object, uuid as String) as object
 			s.userVariables[s.sonosDevices[deviceNumToDelete].modelNumber].currentValue$ = "notpresent"
 		end if
 		if s.sonosDevices[deviceNumToDelete].modelNumber=s.masterDevice
- 		    setSonosMasterDevice(sonos,s.masterDevice)
+ 		    setSonosMasterDevice(s,"sall")
  		end if
 
 		s.sonosDevices.delete(deviceNumToDelete)
