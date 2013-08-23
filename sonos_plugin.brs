@@ -101,7 +101,13 @@ Function newSonos(msgPort As Object, userVariables As Object, bsp as Object)
     else
         print "siteHHID user variable does not exist"
     end if
+    setDebugPrintBehavior(s)
 
+	return s
+End Function
+
+
+sub setDebugPrintBehavior(s as object)
     if s.userVariables["debugPrint"] <> invalid
 	    debugPrintString=s.userVariables["debugPrint"].currentValue$
 		r2 = CreateObject("roRegex", "!", "i")
@@ -117,11 +123,7 @@ Function newSonos(msgPort As Object, userVariables As Object, bsp as Object)
        s.debugPrintEvents=false
        s.debugPrintLearnTiming=false
     end if
-
-
-	return s
-End Function
-
+end if
 
 Function sonos_ProcessEvent(event As Object) as boolean
 
@@ -654,6 +656,7 @@ function DeterminePlayerStatus(s as Object, sonosDevice as object)
 	siteHHID="unknown"
 
 	' refresh the masterDevice from user variable - is this the right way?  What's the cannonical location for this value?
+	'FIXME - should wrap this if we are going to keep this function
 	s.masterDevice=s.userVariables["masterDevice"].currentValue$ 
 
 
@@ -1286,12 +1289,18 @@ function setSonosMasterDevice(sonos as object,devType as string) as string
 	        if desired=true
 		        sonos.masterDevice = device.modelNumber
 		        print "+++ setting master device to: ";sonos.masterDevice
+				if (sonos.userVariables["masterDevice"] <> invalid) then
+					sonos.userVariables["masterDevice"].currentValue$ = sonos.masterDevice
+				end if	
 		        return sonos.masterDevice
 	        end if 
 	    end for
 	else
 	    sonos.masterDevice = devType
         print "+++ setting master device to: ";sonos.masterDevice
+		if (sonos.userVariables["masterDevice"] <> invalid) then
+			sonos.userVariables["masterDevice"].currentValue$ = sonos.masterDevice
+		end if	
 	    return sonos.masterDevice 
 	end if
 	return invalid
