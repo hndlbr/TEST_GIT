@@ -485,8 +485,7 @@ function deletePlayerByUUID(s as object, uuid as String) as object
 
 	numdevices = s.sonosDevices.count()
 	while (not found) and (i < numdevices)  
-		if (uuidString=s.sonosDevices[i].uuid) then
-		  print "found player to delete "+s.sonosDevices[i].modelNumber+"with uuid: " + uuidString 
+		if (uuid=s.sonosDevices[i].uuid) then
 		  found = true
 		  deviceNumToDelete = i
 		end if
@@ -501,7 +500,7 @@ function deletePlayerByUUID(s as object, uuid as String) as object
 		s.sonosDevices.delete(deviceNumToDelete)
 		return true
 	else
-		print "matching uuid not in list: ";uuid	
+		print "matching uuid not in list: ";uuid
 	end if		
 
 end function
