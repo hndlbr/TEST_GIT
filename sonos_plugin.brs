@@ -857,9 +857,8 @@ Sub newSonosDevice(device as Object) as Object
 	sonosDevice.desired=false
 	sonosDevice.alive=true
 
-	print "device HHID:       ["+device.hhid+"]"
-	print "device UDN:        ["+device.UDN+"]"
-	print "device UUID:       ["+device.uuid+"]"
+	print "device HHID:       ["+SonosDevice.hhid+"]"
+	print "device UDN:        ["+SonosDevice.UDN+"]"
 	print "software Version:  ["+sonosDevice.softwareVersion+"]"
 	print "boot sequence:     ["+sonosDevice.bootseq+"]"
 
