@@ -184,7 +184,7 @@ Function sonos_ProcessEvent(event As Object) as boolean
 			        ' mark it as false - an alive should come by and mark it as true again'
 			        device.alive=false
 			    else if device.alive=false
-			        deletePlayerByUUID(m,device.uuid)
+			        deletePlayerByUDN(m,device.uuid)
 			        print "+++ alive timer expired - device [";device.modelNumber;"] not seen and is deleted"
 			        print "+++ alive timer expired - device [";device.modelNumber;"] not seen and is deleted"
 			        print "+++ alive timer expired - device [";device.modelNumber;"] not seen and is deleted"
@@ -381,11 +381,15 @@ Sub OnFound(response as String)
 		bootseq=GetBootSeqFromUPNPMessage(response)
 		responseLocation = GetLocationFromUPNPMessage(response)
 		responseBaseURL = GetBaseURLFromLocation(responseLocation)
+		UDN = GetUDNfromUPNPMessage(response)
 		sonosDevice = invalid
 		for i = 0 to m.s.sonosDevices.count() - 1
   			if m.s.sonosDevices[i].baseURL = responseBaseURL then
-				sonosDevice = m.s.sonosDevices[i]
-				sonosDeviceIndex = i				
+  			    if m.s.sonosDevices[i].UDN = UDN
+  			        ' must match both baseURL and UDN to be considered the same device'
+					sonosDevice = m.s.sonosDevices[i]
+					sonosDeviceIndex = i			
+				end if 	
 			endif
 		end for
 
@@ -428,7 +432,16 @@ Sub OnFound(response as String)
 				    print "Received ssdp:alive, querying device..."
 				    SendXMLQuery(m.s, response)
 
-				    ' get the UDN - if we have that already, delete it'
+				    ' get the UDN - if we have that already, delete it - it means it's IP address changed out from under us!
+				    deviceUDN = GetDeviceByUDN(m.s.sonosDevices, UDN)
+				    if deviceUDN <> invalid
+		                deleted=deletePlayerByUDN(m.s,UDN)
+		                if deleted=true
+							print "+++ detected UIP address change and deleted player with uuid: ";UDN
+						else
+							print "+++ Got byebye but player is not in list:";response	
+						end if		
+				    end if
 
 
 				end if ' sonosDevice '
@@ -440,11 +453,11 @@ Sub OnFound(response as String)
 			rootDeviceString = instr(1,response,"NT: upnp:rootdevice")
 			if(rootDeviceString) then
    			    print "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&  Received ssdp:byebye ";responseLocation
-				uuidStart=instr(1,response,"USN: uuid:")
-				if (uuidStart) then 
-					uuidStart=uuidStart+10
-					uuidEnd=instr(uuidStart,response,"::")
-					uuidString=mid(response,uuidStart,uuidEnd-uuidStart)
+				'uuidStart=instr(1,response,"USN: uuid:")
+				'if (uuidStart) then 
+				''	uuidStart=uuidStart+10
+				''	uuidEnd=instr(uuidStart,response,"::")
+				''	uuidString=mid(response,uuidStart,uuidEnd-uuidStart)
 					'print "uuid: "+uuidString
 ''					found = false
 ''					i = 0
@@ -464,9 +477,9 @@ Sub OnFound(response as String)
 ''							m.s.userVariables[m.s.sonosDevices[deviceNumToDelete].modelNumber].currentValue$ = "notpresent"
 ''						end if
 ''						m.s.sonosDevices.delete(deviceNumToDelete)
-	                deleted=deletePlayerByUUID(m.s,uuidString)
+	                deleted=deletePlayerByUDN(m.s,UDN)
 	                if deleted=true
-						print "+++ deleted player with uuid: ",uuidString
+						print "+++ got goodbye and deleted player with uuid: ";UDN
 					else
 						print "+++ Got byebye but player is not in list:";response	
 					end if		
@@ -479,7 +492,19 @@ Sub OnFound(response as String)
 End Sub
 
 
-function deletePlayerByUUID(s as object, uuid as String) as object
+function GetUDNfromUPNPMessage(response as string) as String
+	uuidString=""
+	uuidStart=instr(1,response,"USN: uuid:")
+	if (uuidStart) then 
+		uuidStart=uuidStart+10
+		uuidEnd=instr(uuidStart,response,"::")
+		uuidString=mid(response,uuidStart,uuidEnd-uuidStart)
+	end if
+	return uuidString
+end function
+
+
+function deletePlayerByUDN(s as object, uuid as String) as object
 
 	found = false
 	i = 0
@@ -833,6 +858,7 @@ Sub newSonosDevice(device as Object) as Object
 	sonosDevice.alive=true
 
 	print "device HHID:       ["+device.hhid+"]"
+	print "device UDN:        ["+device.UDN+"]"
 	print "device UUID:       ["+device.uuid+"]"
 	print "software Version:  ["+sonosDevice.softwareVersion+"]"
 	print "boot sequence:     ["+sonosDevice.bootseq+"]"
@@ -840,7 +866,7 @@ Sub newSonosDevice(device as Object) as Object
 	return sonosDevice
 end Sub
 
-Sub GetPlayerModelByBaseIP(sonosDevices as Object, IP as string) as string
+function GetPlayerModelByBaseIP(sonosDevices as Object, IP as string) as string
 	
 	returnModel = ""
 	for i = 0 to sonosDevices.count() - 1
@@ -850,10 +876,10 @@ Sub GetPlayerModelByBaseIP(sonosDevices as Object, IP as string) as string
 	end for
 
 	return returnModel
-end sub
+end function
 
 
-Sub GetBaseIPByPlayerModel(sonosDevices as Object, modelNumber as string) as string
+Function GetBaseIPByPlayerModel(sonosDevices as Object, modelNumber as string) as string
 	
 	newIP = ""
 	for i = 0 to sonosDevices.count() - 1
@@ -863,9 +889,9 @@ Sub GetBaseIPByPlayerModel(sonosDevices as Object, modelNumber as string) as str
 	end for
 
 	return newIP
-end sub
+end function
 
-Sub GetDeviceByPlayerModel(sonosDevices as Object, modelNumber as string) as object
+Function GetDeviceByPlayerModel(sonosDevices as Object, modelNumber as string) as object
 	
 	device = invalid
 	for i = 0 to sonosDevices.count() - 1
@@ -875,8 +901,18 @@ Sub GetDeviceByPlayerModel(sonosDevices as Object, modelNumber as string) as obj
 	end for
 	return device
 
-end sub
+end function
 
+function GetDeviceByUDN(sonosDevices as Object, UDN as string) as object
+	
+	device = invalid
+	for i = 0 to sonosDevices.count() - 1
+		if (sonosDevices[i].UDN = UDN) then
+			device = sonosDevices[i]
+		end if
+	end for
+	return device
+end function
 
 
 Function CheckGroupValid(sonosDevices as Object, masterDevice as object) as object
