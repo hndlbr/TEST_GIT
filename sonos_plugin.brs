@@ -375,7 +375,7 @@ Sub OnFound(response as String)
 	    'print "@@@@@@@@@@@@@ 200 response: ";response
 		SendXMLQuery(m.s, response)
 	else if left(response, 6) = "NOTIFY" then
-	    'print "@@@@@@@@@@@@@ NOTIFY respose: ";response
+	    print "@@@@@@@@@@@@@ NOTIFY respose: ";response
 		'print "Received NOTIFY event"
 		hhid=GetHouseholdFromUPNPMessage(response)
 		bootseq=GetBootSeqFromUPNPMessage(response)
@@ -429,6 +429,7 @@ Sub OnFound(response as String)
 				    SendXMLQuery(m.s, response)
 
 				    ' get the UDN - if we have that already, delete it'
+
 
 				end if ' sonosDevice '
 			end if 'rootDeviceFound '
@@ -2564,6 +2565,31 @@ Function SonosRegisterForEvents(sonos as Object, mp as Object,device as Object) 
 		print "Failed to send SUBSCRIBE request: "; eventRegister2.GetFailureReason()
 		stop
 	end if
+
+    sonosReqData3=CreateObject("roAssociativeArray")
+	sonosReqData3["type"]="RegisterForZoneGroupTopology"
+	sonosReqData3["dest"]=device.baseURL
+
+	eventRegister3 = CreateObject("roUrlTransfer")
+	eventRegister3.SetMinimumTransferRate( 2000, 1 )
+	eventRegister3.SetPort( mp )
+	sURL3=device.baseURL+"/MediaRenderer/RenderingControl/Event"
+	sHeader3="<http://"+ipAddress+":111"+sRC+">"
+	' print "Setting Sonos at ["+sURL2+"] to use callback at ["+sHeader2+"]"
+	eventRegister3.SetUrl(sURL2)
+	eventRegister3.AddHeader("Callback", sHeader2)
+	eventRegister3.AddHeader("NT", "upnp:event")
+	eventRegister3.AddHeader("Timeout", "Second-7200")
+  
+	eventRegister3.SetUserData(sonosReqData2)
+	sonos.xferObjects.push(eventRegister3)
+
+	if not eventRegister3.AsyncMethod({ method: "SUBSCRIBE", response_body_string: true }) then
+		print "Failed to send SUBSCRIBE request: "; eventRegister3.GetFailureReason()
+		stop
+	end if
+
+
 end Function
 
 
