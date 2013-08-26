@@ -483,7 +483,7 @@ Sub OnFound(response as String)
 					else
 						print "+++ Got byebye but player is not in list:";response	
 					end if		
-				end if
+				'end if
 			end if
 		end if ' byebyeFound'
   end if
