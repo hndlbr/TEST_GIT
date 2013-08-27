@@ -1388,6 +1388,7 @@ sub SonosGetVolume(mp as object, connectedPlayerIP as string) as object
 end sub
 
 
+
 Sub SonosSetVolume(mp as object, connectedPlayerIP as string, volume as integer) as object
 
 	soapTransfer = CreateObject("roUrlTransfer")
