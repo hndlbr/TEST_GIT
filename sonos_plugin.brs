@@ -402,15 +402,18 @@ Sub OnFound(response as String)
 					print "Received ssdp:alive, device already in list "; responseBaseURL;" hhid: ";hhid;" old bootseq: "sonosDevice.bootseq;" new bootseq: ";bootseq
 
 					sonosDevice.alive=true
-					sonosDevice.hhid=hhid
+					'sonosDevice.hhid=hhid
 					updateUserVar(m.s.userVariables,SonosDevice.modelNumber+"HHID",SonosDevice.hhid)
 					xfer=rdmPingAsync(m.s.mp,SonosDevice.baseURL,hhid) 
 					m.s.postObjects.push(xfer)
 
 					' if this device is in our list but is in factory reset we need to reboot'
-					if SonosDevice.hhid="" then
-					    print "device has no hhid - rebooting!"					
-					    RebootSystem()
+					print "SonosDevice.hhid: ";SonosDevice.hhid
+					if SonosDevice.hhid<>"" then
+					    if hhid=""
+						    print "device previously had hhid=";SonosDevice.hhid;" but now has no hhid - rebooting!"					
+						    RebootSystem()
+					    end if
 					end if
 
 					' if it's bootseq is different we need to punt and treat it as new
