@@ -184,13 +184,8 @@ Function sonos_ProcessEvent(event As Object) as boolean
 			        ' mark it as false - an alive should come by and mark it as true again'
 			        device.alive=false
 			    else if device.alive=false
-			        deletePlayerByUDN(m,device.uuid)
-			        print "+++ alive timer expired - device [";device.modelNumber;"] not seen and is deleted"
-			        print "+++ alive timer expired - device [";device.modelNumber;"] not seen and is deleted"
-			        print "+++ alive timer expired - device [";device.modelNumber;"] not seen and is deleted"
-			        print "+++ alive timer expired - device [";device.modelNumber;"] not seen and is deleted"
-			        print "+++ alive timer expired - device [";device.modelNumber;"] not seen and is deleted"
-			        print "+++ alive timer expired - device [";device.modelNumber;"] not seen and is deleted"
+			        deletePlayerByUDN(m,device.UDN)
+			        print "+++ alive timer expired - device [";device.modelNumber;" - ";device.UDN;"] not seen and is deleted"
 			    end if
 			end for
 	        retval=true
@@ -514,7 +509,7 @@ function deletePlayerByUDN(s as object, uuid as String) as object
 
 	numdevices = s.sonosDevices.count()
 	while (not found) and (i < numdevices)  
-		if (uuid=s.sonosDevices[i].uuid) then
+		if (uuid=s.sonosDevices[i].UDN) then
 		  found = true
 		  deviceNumToDelete = i
 		end if
@@ -547,6 +542,7 @@ Sub SendXMLQuery(s as object, response as string)
 	Query.hhid = GetHouseholdFromUPNPMessage(response)
 	Query.bootseq = GetBootSeqFromUPNPMessage(response)
 	Query.uuid = "none"
+	Query.UDN = "none"
 	Query.location = GetLocationFromUPNPMessage(response)
 	Query.transfer = CreateObject("roURLTransfer")
 	Query.transfer.SetURL(Query.location)
@@ -1171,9 +1167,9 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
  				xfer = SonosApplyRDMDefaultSettings(sonos.mp, sonosDevice.baseURL)
  				sonos.xferObjects.push(xfer)
 			else if command = "setrdmvalues" then
-				print "Setting all of the RDM default values"
-				xfer=SonosSetRDMDefaultsAsync(sonos.mp, sonosDevice.baseURL, sonos)
-				sonos.postObjects.push(xfer)
+				print "Deprecated - no longer using SonosSetRDMDefaultsAsync for setting all of the RDM default values"
+				'xfer=SonosSetRDMDefaultsAsync(sonos.mp, sonosDevice.baseURL, sonos)
+				'sonos.postObjects.push(xfer)
 				'SonosSetRDMDefaults(sonos.mp, sonosDevice.baseURL, sonos)
 			else if command = "getrdm" then
 				xfer = SonosGetRDM(sonos.mp, sonosDevice.baseURL)
