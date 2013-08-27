@@ -3034,6 +3034,7 @@ Function rdmHouseholdSetupAsync(mp as object,connectedPlayerIP as string, hhid a
 	v.hhid=hhid
 	v.name=name
 	v.icon=icon
+	v.wto="60"
 	v.reboot=str(reboot)
 	v.reboot=v.reboot.trim()
 	b = postFormDataAsync(mp,connectedPlayerIP,sURL,v,"rdmHouseholdSetup")
