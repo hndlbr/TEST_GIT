@@ -129,8 +129,6 @@ Function sonos_ProcessEvent(event As Object) as boolean
 
 	retval = false
 
-	stop
-
 	if type(event) = "roAssociativeArray" then
         if type(event["EventType"]) = "roString"
              if (event["EventType"] = "SEND_PLUGIN_MESSAGE") then
