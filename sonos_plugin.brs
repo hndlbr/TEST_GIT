@@ -571,6 +571,7 @@ end function
 function addPlayerToDesiredListByModel(s as object, model as String,updateUserVar as boolean) as object
 	print "addPlayerToDesiredListByModel ";model
 	for each device in s.sonosDevices
+	    print "comparing [";model;"] to [";device.modelNumber;"]"
 	    if model=device.modelNumber
 	        device.desired=true
 			s.desiredDevices.push(model)
