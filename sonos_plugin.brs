@@ -1295,7 +1295,7 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 					'sonos.desiredDevices.push(devType)
 				else if (detail = "no") then
 					print "Removing ";devType;" from list of desired devices"
-					deletePlayerFromDeisredListByModel(sonos, devType,false
+					deletePlayerFromDeisredListByModel(sonos, devType,false)
 				end if	
 			else if command = "setmasterdevice" then
 			    'sonos.masterDevice = devType
