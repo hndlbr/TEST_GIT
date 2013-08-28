@@ -817,7 +817,7 @@ Sub UPNPDiscoverer_ProcessDeviceXML(ev as Object)
 				baseURL = GetBaseURLFromLocation(deviceList[i].location)
 				model = GetPlayerModelByBaseIP(s.sonosDevices, baseURL)			
 				model = lcase(model)
-				print "Found Sonos model ";model;" at baseURL ";baseURL;" by device XML"
+				print "Found Sonos Device at baseURL ";baseURL;" by device XML"
 
 				if (model = "") then
 					deviceList[i].deviceXML = deviceXML
@@ -884,7 +884,7 @@ end Sub
 
 Function isModelDesired(s as object, model as string)
 	for each modelNumber in s.desiredDevices
-''	    print "+++ checking if ";model;" equals ";modelNumber
+    print "+++ isModelDesired: checking if ";model;" equals ";modelNumber
 	    if model = modelNumber
 	        return true
 	    end if
