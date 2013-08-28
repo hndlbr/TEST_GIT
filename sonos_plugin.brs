@@ -568,10 +568,12 @@ function deletePlayerFromDeisredListByModel(s as object, model as String, update
 end function
 
 function addPlayerToDesiredListByModel(s as object, model as String,updateUserVar as boolean) as object
+	print "addPlayerToDesiredListByModel ";model
 	for each device in s.sonosDevices
 	    if model=device.modelNumber
 	        device.desired=true
 			s.desiredDevices.push(model)
+			print "pushed"
 			if updateUserVar=true
 				if (s.userVariables[model+"Desired"] <> invalid) then
 					s.userVariables[model+"Desired"].currentValue$ = "yes"
