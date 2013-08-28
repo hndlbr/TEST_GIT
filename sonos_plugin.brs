@@ -504,6 +504,7 @@ end function
 
 function deletePlayerByUDN(s as object, uuid as String) as object
 
+	print "+++ deletePlayerByUDN ";uuid
 	found = false
 	i = 0
 
