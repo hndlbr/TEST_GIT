@@ -536,6 +536,54 @@ function deletePlayerByUDN(s as object, uuid as String) as object
 
 end function
 
+
+function deletePlayerFromDeisredListByModel(s as object, model as String, updateUserVar as boolean) as object
+
+	found = false
+	i = 0
+
+	numdevices = s.desiredDevices.count()
+	while (not found) and (i < numdevices)  
+		if (model=s.sonosDevices[i].modelNumber) then
+		  found = true
+		  deviceNumToDelete = i
+		end if
+		i = i + 1
+	end while
+	if (found) then
+		print "!!! Deleting Desired Player "+modelBeingDeleted
+		s.desiredDevices.delete(deviceNumToDelete)
+
+		' Indicate the player is no longer desired
+		if updateUserVar=true
+			if (s.userVariables[modelBeingDeleted+"Desired"] <> invalid) then
+				s.userVariables[modelBeingDeleted+"Desired"].currentValue$ = "no"
+			end if
+		end if
+
+		return true
+	else
+		print "matching device not in desired list: ";model
+	end if		
+end function
+
+function addPlayerToDesiredListByModel(s as object, model as String,updateUserVar as boolean) as object
+	for each device in s.sonosDevices
+	    if model=device.modelNumber
+	        device.desired=true
+			s.desiredDevices.push(model)
+			if updateUserVar=true
+				if (s.userVariables[model+"Desired"] <> invalid) then
+					s.userVariables[model+"Desired"].currentValue$ = "yes"
+				end if
+			end if
+				return device
+	    end if
+	end for
+	return invalid
+end function
+
+
 Sub SendXMLQuery(s as object, response as string)
 	Query = {}
 	Query.response = response
@@ -763,10 +811,10 @@ Sub UPNPDiscoverer_ProcessDeviceXML(ev as Object)
 ''			if (instr(1, deviceMfg, "Sonos")) then
 			if (instr(1, deviceType, "urn:schemas-upnp-org:device:ZonePlayer:1")) then
 
-				print "Found Sonos device on device XML"
 				baseURL = GetBaseURLFromLocation(deviceList[i].location)
 				model = GetPlayerModelByBaseIP(s.sonosDevices, baseURL)			
 				model = lcase(model)
+				print "Found Sonos model ";model;" at baseURL ";baseURL;" by device XML"
 
 				if (model = "") then
 					deviceList[i].deviceXML = deviceXML
@@ -799,8 +847,17 @@ Sub UPNPDiscoverer_ProcessDeviceXML(ev as Object)
 
 						SonosRegisterForEvents(s, s.mp, SonosDevice)
 						s.sonosDevices.push(SonosDevice)
-					else
-					    print "+++ player model ";model;" is not in the desired list - ignoring"
+					else					    ' if it was previously skipped, we need to mark it as desired'
+					    skippedString=model+"Skipped"
+						if s.userVariables[skippedString] <> invalid then
+						    skipVal=s.userVariables[skippedString].currentValue$ 
+						    if skipVal="yes"
+						        print "+++ skipped player ";model;" - has been found, marking it as desired!"
+	        					addPlayerToDesiredListByModel(s, model,true)
+						    end if
+						else 
+						    print "+++ player model ";model;" is not in the desired list - ignoring"
+						end if
 						s.sonosDevices.push(SonosDevice)
 					end if ' desired=true'
 				else
@@ -1234,7 +1291,11 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 			else if command = "desired" then
 				if (detail = "yes") then
 					print "Adding ";devType;" to list of desired devices"
-					sonos.desiredDevices.push(devType)
+					addPlayerToDesiredListByModel(sonos, devType,false)
+					'sonos.desiredDevices.push(devType)
+				else if (detail = "no") then
+					print "Removing ";devType;" from list of desired devices"
+					deletePlayerFromDeisredListByModel(sonos, devType,false
 				end if	
 			else if command = "setmasterdevice" then
 			    'sonos.masterDevice = devType
@@ -2600,30 +2661,6 @@ Function SonosRegisterForEvents(sonos as Object, mp as Object,device as Object) 
 		print "Failed to send SUBSCRIBE request: "; eventRegister2.GetFailureReason()
 		stop
 	end if
-
-    sonosReqData3=CreateObject("roAssociativeArray")
-	sonosReqData3["type"]="RegisterForZoneGroupTopology"
-	sonosReqData3["dest"]=device.baseURL
-
-	eventRegister3 = CreateObject("roUrlTransfer")
-	eventRegister3.SetMinimumTransferRate( 2000, 1 )
-	eventRegister3.SetPort( mp )
-	sURL3=device.baseURL+"/MediaRenderer/RenderingControl/Event"
-	sHeader3="<http://"+ipAddress+":111"+sRC+">"
-	' print "Setting Sonos at ["+sURL2+"] to use callback at ["+sHeader2+"]"
-	eventRegister3.SetUrl(sURL2)
-	eventRegister3.AddHeader("Callback", sHeader2)
-	eventRegister3.AddHeader("NT", "upnp:event")
-	eventRegister3.AddHeader("Timeout", "Second-7200")
-  
-	eventRegister3.SetUserData(sonosReqData2)
-	sonos.xferObjects.push(eventRegister3)
-
-	if not eventRegister3.AsyncMethod({ method: "SUBSCRIBE", response_body_string: true }) then
-		print "Failed to send SUBSCRIBE request: "; eventRegister3.GetFailureReason()
-		stop
-	end if
-
 
 end Function
 
