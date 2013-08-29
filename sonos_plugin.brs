@@ -1730,7 +1730,7 @@ Sub SonosSetWifi(mp as object, connectedPlayerIP as string, setValue as string) 
 	soapTransfer.SetPort( mp )
 
 	sonosReqData=CreateObject("roAssociativeArray")
-	sonosReqData["type"]="SubCtrl"
+	sonosReqData["type"]="WifiCtrl"
 	sonosReqData["dest"]=connectedPlayerIP
 	soapTransfer.SetUserData(sonosReqData)
 
@@ -2350,13 +2350,15 @@ Function HandleSonosXferEvent(msg as object, sonos as object) as boolean
 				connectedPlayerIP = ""
 				reqData = ""
 			end if
-			print "Message.getInt() = ";msg.getInt(); "reqData:";reqData;"  IP:"; connectedPlayerIP
+			print "Message.getInt() = ";msg.getInt(); " reqData:";reqData;"  IP:"; connectedPlayerIP
 			if (msg.getInt() = 1) then
 ''				print "HTTP return code: "; eventCode; " request type: ";reqData;" from ";connectedPlayerIP;" at: ";sonos.st.GetLocalDateTime()
 				print "HTTP return code: "; eventCode; " request type: ";reqData;" from ";connectedPlayerIP
 				if (eventCode = 200) then 
 					if reqData="GetVolume" then
 						processSonosVolumeResponse(msg,connectedPlayerIP,sonos)
+					else if reqData="WifiCtrl" then
+					    print "WifiCtrl response received"
 					else if reqData="SetVolume" then
 						processSonosSetVolumeResponse(msg,connectedPlayerIP,sonos)
 					else if reqData="GetRDM" then
