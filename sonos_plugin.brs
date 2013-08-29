@@ -370,7 +370,7 @@ Sub OnFound(response as String)
 	    'print "@@@@@@@@@@@@@ 200 response: ";response
 		SendXMLQuery(m.s, response)
 	else if left(response, 6) = "NOTIFY" then
-	    print "@@@@@@@@@@@@@ NOTIFY respose: ";response
+	    'print "@@@@@@@@@@@@@ NOTIFY respose: ";response
 		'print "Received NOTIFY event"
 		hhid=GetHouseholdFromUPNPMessage(response)
 		bootseq=GetBootSeqFromUPNPMessage(response)
