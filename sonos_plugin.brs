@@ -1734,9 +1734,10 @@ Sub SonosSetWifi(mp as object, connectedPlayerIP as string, setValue as string) 
 	sonosReqData["dest"]=connectedPlayerIP
 	soapTransfer.SetUserData(sonosReqData)
 
-	soapTransfer.SetUrl( connectedPlayerIP + "/wifictrl?wifi="+ setValue)
+	sURL=connectedPlayerIP+"/wifictrl?wifi="+setValue
+	soapTransfer.SetUrl(sURL)
 
-	print "Executing SonosSetWifi: ";connectedPlayerIP
+	print "Executing SonosSetWifi: ";sURL
 	ok = soapTransfer.AsyncGetToString()
 	if not ok then
 		stop
