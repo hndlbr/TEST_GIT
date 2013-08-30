@@ -832,6 +832,8 @@ Sub UPNPDiscoverer_ProcessDeviceXML(ev as Object)
 					if desired=true
 					    SonosDevice.desired=true
 
+					    print "Sonos at ";baseURL;" is desired"
+
 						' Set the user variables
 						updateUserVar(s.userVariables,SonosDevice.modelNumber,"present")
 						updateUserVar(s.userVariables,SonosDevice.modelNumber+"Version",SonosDevice.softwareVersion)
@@ -854,6 +856,8 @@ Sub UPNPDiscoverer_ProcessDeviceXML(ev as Object)
 						SonosRegisterForEvents(s, s.mp, SonosDevice)
 						s.sonosDevices.push(SonosDevice)
 					else					    ' if it was previously skipped, we need to mark it as desired'
+					    print "Sonos at ";baseURL;" is NOT desired - checking if we had skipped it before"
+
 					    skippedString=model+"Skipped"
 						if s.userVariables[skippedString] <> invalid then
 						    skipVal=s.userVariables[skippedString].currentValue$ 
