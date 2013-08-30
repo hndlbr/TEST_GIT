@@ -860,6 +860,7 @@ Sub UPNPDiscoverer_ProcessDeviceXML(ev as Object)
 						    if skipVal="yes"
 						        print "+++ skipped player ";model;" - has been found, marking it as desired!"
 	        					addPlayerToDesiredListByModel(s, model,true)
+	        					SonosDevice.desired=true
 						    end if
 						else 
 						    print "+++ player model ";model;" is not in the desired list - ignoring"
