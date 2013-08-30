@@ -863,10 +863,8 @@ Sub UPNPDiscoverer_ProcessDeviceXML(ev as Object)
 						if s.userVariables[skippedString] <> invalid then
 						    skipVal=s.userVariables[skippedString].currentValue$ 
 						    if skipVal="yes"
-						        print "+++ skipped player ";model;" - has been found, marking it as desired!"
-	        					addPlayerToDesiredListByModel(s, model,true)
-	        					SonosDevice.desired=true
-	        					sendPluginMessage(s, "sonos!"+model+"!sethhid")
+						        print "+++ skipped player ";model;" - has been found, rebooting!"
+						        RebootSystem()
 						    end if
 						else 
 						    print "+++ player model ";model;" is not in the desired list - ignoring"
