@@ -545,9 +545,11 @@ function deletePlayerFromDeisredListByModel(s as object, model as String, update
 
 	numdevices = s.desiredDevices.count()
 	while (not found) and (i < numdevices)  
-		if (model=s.sonosDevices[i].modelNumber) then
-		  found = true
-		  deviceNumToDelete = i
+	    if s.sonosDevices[i].modelNumber<>invalid
+			if (model=s.sonosDevices[i].modelNumber) then
+			  found = true
+			  deviceNumToDelete = i
+			end if
 		end if
 		i = i + 1
 	end while
