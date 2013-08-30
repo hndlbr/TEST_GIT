@@ -874,7 +874,11 @@ Sub UPNPDiscoverer_ProcessDeviceXML(ev as Object)
 					    desired=isModelDesired(s,model)
 						if desired=true
 							    SonosDevice.desired=true
+							    print "Player ";model;" is DESIRED"
+					    else
+					        print "Player ";model;" is not desired"
 					    end if
+
 					end if
 				end if
 			end if
