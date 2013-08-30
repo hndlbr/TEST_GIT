@@ -868,13 +868,13 @@ Sub UPNPDiscoverer_ProcessDeviceXML(ev as Object)
 					end if ' desired=true'
 				else
 					print "Player ";model;" already exists in device list"
-					desired=isModelDesired(s,model)
-					if desired=true
-					    SonosDevice.desired=true
-					end if
 					sonosDevice=GetDeviceByPlayerModel(s.sonosDevices, model)
 					if sonosDevice<>invalid
 					    sonosDevice.alive=true
+					    desired=isModelDesired(s,model)
+						if desired=true
+							    SonosDevice.desired=true
+					    end if
 					end if
 				end if
 			end if
