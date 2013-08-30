@@ -862,7 +862,7 @@ Sub UPNPDiscoverer_ProcessDeviceXML(ev as Object)
 	        					addPlayerToDesiredListByModel(s, model,true)
 	        					SonosDevice.desired=true
 	        					' regroup the players'
-	        					sendPluginMessage(sonos, "sonos!sall!group")
+	        					sendPluginMessage(s, "sonos!sall!group")
 						    end if
 						else 
 						    print "+++ player model ";model;" is not in the desired list - ignoring"
@@ -1178,7 +1178,6 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 							MasterSonosDevice = device			
 						endif
 					end for
-					
 					groupValid=CheckGroupValid(sonos.sonosDevices, MasterSonosDevice)
 					if groupValid=false then
                         print "grouping devices"					
