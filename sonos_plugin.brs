@@ -827,7 +827,8 @@ Sub UPNPDiscoverer_ProcessDeviceXML(ev as Object)
 					model = deviceXML.device.modelNumber.getText()
 					model = lcase(model)
 					
-					desired=isModelDesired(s,model)
+					' note that the presentation has not populated the desired array yet'
+					desired=isModelDesiredByUservar(s,model)
 					SonosDevice = newSonosDevice(deviceList[i])
 					if desired=true
 					    SonosDevice.desired=true
@@ -877,7 +878,7 @@ Sub UPNPDiscoverer_ProcessDeviceXML(ev as Object)
 					sonosDevice=GetDeviceByPlayerModel(s.sonosDevices, model)
 					if sonosDevice<>invalid
 					    sonosDevice.alive=true
-					    desired=isModelDesired(s,model)
+					    desired=isModelDesiredByUservar(s,model)
 						if desired=true
 							    SonosDevice.desired=true
 							    print "Player ";model;" is DESIRED"
@@ -906,6 +907,16 @@ Function isModelDesired(s as object, model as string)
 	        return true
 	    end if
 	end for
+	return false
+end Function
+
+
+Function isModelDesiredByUservar(s as object, model as string)
+	if s.userVariables[model+"Desired"] <> invalid then
+	    if s.userVariables[model+"Desired"].currentValue$ = "yes"
+	        return true
+	    end if
+	end if
 	return false
 end Function
 
