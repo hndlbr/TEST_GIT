@@ -861,6 +861,8 @@ Sub UPNPDiscoverer_ProcessDeviceXML(ev as Object)
 						        print "+++ skipped player ";model;" - has been found, marking it as desired!"
 	        					addPlayerToDesiredListByModel(s, model,true)
 	        					SonosDevice.desired=true
+	        					' regroup the players'
+	        					sendPluginMessage(sonos, "sonos!sall!group")
 						    end if
 						else 
 						    print "+++ player model ";model;" is not in the desired list - ignoring"
