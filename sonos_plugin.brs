@@ -545,7 +545,7 @@ function deletePlayerFromDeisredListByModel(s as object, model as String, update
 
 	numdevices = s.desiredDevices.count()
 	while (not found) and (i < numdevices)  
-	    if s.sonosDevices[i].modelNumber<>invalid
+	    if s.sonosDevices[i]<>invalid
 			if (model=s.sonosDevices[i].modelNumber) then
 			  found = true
 			  deviceNumToDelete = i
@@ -851,6 +851,7 @@ Sub UPNPDiscoverer_ProcessDeviceXML(ev as Object)
 						if s.userVariables[skippedString] <> invalid then
 						    skipVal=s.userVariables[skippedString].currentValue$ 
 						    if skipVal="yes"
+						        updateUserVar(s.userVariables,skippedString, "no")
 						        print "+++ skipped player ";model;" - rebooting!"
 						        RebootSystem()
 						    end if
@@ -865,6 +866,7 @@ Sub UPNPDiscoverer_ProcessDeviceXML(ev as Object)
 						if s.userVariables[skippedString] <> invalid then
 						    skipVal=s.userVariables[skippedString].currentValue$ 
 						    if skipVal="yes"
+						        updateUserVar(s.userVariables,skippedString, "no")
 						        print "+++ skipped player ";model;" - has been found, rebooting!"
 						        RebootSystem()
 						    end if
