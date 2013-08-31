@@ -1074,7 +1074,9 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 				endif
 			end for
 
-			desired=isModelDesired(sonos, devType)
+			'' deprecated using the array for this - too hard to keep in sync and I don't think it buys us anything
+''			desired=isModelDesired(sonos, devType)
+			desired=isModelDesiredByUservar(sonos, devType)
 ''			desired = false
 ''			for i = 0 to sonos.desiredDevices.count() - 1
 ''				if (devType = sonos.desiredDevices[i]) then
