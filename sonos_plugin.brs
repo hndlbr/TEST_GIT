@@ -849,6 +849,14 @@ Sub UPNPDiscoverer_ProcessDeviceXML(ev as Object)
 						updateUserVar(s.userVariables,SonosDevice.modelNumber+"Version",SonosDevice.softwareVersion)
 						updateUserVar(s.userVariables,SonosDevice.modelNumber+"HHID",SonosDevice.hhid)
 
+						' check if it's too old for us to use
+						sv=val(sonosDevice.softwareVersion)
+						if sv<22
+						    msgString="Sonos device "+SonosDevice.modelNumber+" requires manual update to a version <22.0.x to be used"
+						    updateUserVar(m.s.userVariables,"manualUpdateMessage",msgString)
+						    print "+++ HALTING presentation - ";msgString
+						end if
+
 						' do the RDM ping'
 						xfer=rdmPingAsync(s.mp,sonosDevice.baseURL,s.hhid) 
 						s.postObjects.push(xfer)
