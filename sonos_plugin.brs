@@ -425,6 +425,13 @@ Sub OnFound(response as String)
 					updateUserVar(m.s.userVariables,SonosDevice.modelNumber+"Version",SonosDevice.softwareVersion)
 					updateUserVar(m.s.userVariables,SonosDevice.modelNumber+"HHID",SonosDevice.hhid)
 
+					' check if it's too old for us to use
+					sv=val(sonosDevice.softwareVersion)
+					if sv<22
+					    msgString="Sonos device "+SonosDevice.modelNumber+" requires manual update to a version <22.0.x to be used"
+					    updateUserVar(m.s.userVariables,"manualUpdateMessage",msgString)
+					end if
+
 
 				else ' must be a new device
 				    print "Received ssdp:alive, querying device..."
@@ -950,6 +957,7 @@ Sub newSonosDevice(device as Object) as Object
 	print "device UDN:        ["+SonosDevice.UDN+"]"
 	print "software Version:  ["+sonosDevice.softwareVersion+"]"
 	print "boot sequence:     ["+sonosDevice.bootseq+"]"
+
 
 	return sonosDevice
 end Sub
