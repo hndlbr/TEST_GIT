@@ -853,7 +853,7 @@ Sub UPNPDiscoverer_ProcessDeviceXML(ev as Object)
 						sv=val(sonosDevice.softwareVersion)
 						if sv<22
 						    msgString="Sonos device "+SonosDevice.modelNumber+" requires manual update to a version <22.0.x to be used"
-						    updateUserVar(m.s.userVariables,"manualUpdateMessage",msgString)
+						    updateUserVar(s.userVariables,"manualUpdateMessage",msgString)
 						    print "+++ HALTING presentation - ";msgString
 						end if
 
