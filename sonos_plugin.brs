@@ -1209,38 +1209,14 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 				sonos.xferObjects.push(xfer)
 			else if command="group" then
 				if (devType <> "sall") then 
-					' print "Grouping players"
-					MasterSonosDevice = invalid
-					for each device in sonos.sonosDevices
-						if device.modelNumber = detail
-							MasterSonosDevice = device			
-						endif
-					end for
-					groupValid=CheckGroupValid(sonos.sonosDevices, MasterSonosDevice)
-					if groupValid=false then
-                        print "grouping devices"					
-						if MasterSonosDevice = invalid then
-							print "No  master device of that type on this network"
-						else
-							xfer = SonosSetGroup(sonos.mp, sonosDevice.baseURL, MasterSonosDevice.UDN)
-							sonos.xferObjects.push(xfer)						
-						endif
-					else
-                        print "devices grouped - taking no action"
-						postNextCommandInQueue(sonos, sonosDevice.baseURL)				
-					end if
-				else
-					print "Grouping all devices"
-					if (sonos.masterDevice <> "") then
-						print "Number of device in playing group is: ";sonos.playingGroup.count()
-						for i = 0 to sonos.playingGroup.count() - 1
-							print "Comparing ";sonos.playingGroup[i];" to ";sonos.masterDevice
-							if (sonos.playingGroup[i] <> sonos.masterDevice) then
-								print "Sending plugin message:";"sonos!"+sonos.playingGroup[i]+"!group!"+sonos.masterDevice
-								sendPluginMessage(sonos, "sonos!"+sonos.playingGroup[i]+"!group!"+sonos.masterDevice)
-							end if
-						end for
-					end if
+			        ' this groups a given device to the master we already know about'
+				    master=GetDeviceByPlayerModel(s.sonosDevices, s.masterDevice)
+				    if master<>invalid
+					    xfer = SonosSetGroup(sonos.mp, sonosDevice.baseURL, master.UDN)
+						sonos.xferObjects.push(xfer)
+					end if						
+				else ' sall - we just group them'
+                    SonosGroupAll(s)
 				end if
 			else if command = "play" then
 				xfer = SonosPlaySong(sonos.mp, sonosDevice.baseURL)
@@ -2181,6 +2157,24 @@ Sub SonosSetSPDIF(mp as object, connectedPlayerIP as string, sonosPlayerUDN as s
 
 	return songTransfer
 end Sub
+
+Sub SonosGroupAll(s as object) as object
+	master=GetDeviceByPlayerModel(s.sonosDevices, s.masterDevice)
+
+	for each device in s.sonosDevices
+	    if device.modelNumber<>s.masterDevice
+	        desired=isModelDesiredByUservar(s,device.modelNumber)
+	        if desired=true
+
+	            print "+++ comparing device URI [";device.AVTransportURI;"] to master URI [";master.AVTransportURI;"]"
+
+				xfer = SonosSetGroup(s.mp, device.baseURL, master.UDN)
+				s.xferObjects.push(xfer)						
+			end if
+	    end if
+	end for
+end sub
+
 
 Sub SonosSetGroup(mp as object, connectedPlayerIP as string, sonosPlayerUDN as string) as object
 
