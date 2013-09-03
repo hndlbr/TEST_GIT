@@ -1255,6 +1255,7 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
  				sonos.xferObjects.push(xfer)
 			else if command = "setrdmvalues" then
 				print "Deprecated - no longer using SonosSetRDMDefaultsAsync for setting all of the RDM default values"
+				postNextCommandInQueue(sonos, connectedPlayerIP)
 				'xfer=SonosSetRDMDefaultsAsync(sonos.mp, sonosDevice.baseURL, sonos)
 				'sonos.postObjects.push(xfer)
 				'SonosSetRDMDefaults(sonos.mp, sonosDevice.baseURL, sonos)
@@ -1270,6 +1271,8 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 				xfer = SonosSoftwareUpdate(sonos,sonos.mp, sonosDevice.baseURL, currentNet.ip4_address, detail)
 				if xfer<>invalid
 				    sonos.xferObjects.push(xfer)
+				else
+				     postNextCommandInQueue(sonos, connectedPlayerIP)
 				end if
 			else if command = "scan" then
 				FindAllSonosDevices(sonos)
@@ -2175,7 +2178,6 @@ Sub SonosGroupAll(s as object) as object
 	    if device.modelNumber<>s.masterDevice
 	        desired=isModelDesiredByUservar(s,device.modelNumber)
 	        if desired=true
-
 	            print "+++ comparing device URI [";device.AVTransportURI;"] to master URI [";masterString;"]"
 	            if device.AVTransportURI<>masterString
 	                print "+++ grouping device ";device.modelNumber;" with master ";s.masterDevice
@@ -2471,6 +2473,9 @@ Function HandleSonosXferEvent(msg as object, sonos as object) as boolean
 					end if
 				end if		
 
+				' pop the next queued up message, if any'
+				postNextCommandInQueue(sonos, connectedPlayerIP)
+
 				' delete this transfer object from the transfer object list
 				sonos.postObjects.Delete(i)
 				found = true
@@ -2508,6 +2513,8 @@ sub postNextCommandInQueue(sonos as object, connectedPlayerIP as string)
 		x = x + 1
 	end while
 end sub
+
+
 
 
 
