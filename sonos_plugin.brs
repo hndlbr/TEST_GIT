@@ -1216,7 +1216,7 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 						sonos.xferObjects.push(xfer)
 					end if						
 				else ' sall - we just group them'
-                    SonosGroupAll(s)
+                    SonosGroupAll(sonos)
 				end if
 			else if command = "play" then
 				xfer = SonosPlaySong(sonos.mp, sonosDevice.baseURL)
