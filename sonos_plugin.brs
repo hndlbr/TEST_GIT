@@ -1209,68 +1209,38 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 				sonos.xferObjects.push(xfer)
 			else if command="group" then
 				if (devType <> "sall") then 
-					print "Group command - player ";devType
+					' print "Grouping players"
 					MasterSonosDevice = invalid
 					for each device in sonos.sonosDevices
 						if device.modelNumber = detail
 							MasterSonosDevice = device			
 						endif
 					end for
-
-					'groupValid=CheckGroupValid(sonos.sonosDevices, MasterSonosDevice)
-					'if groupValid=false then
-                    ''    print "grouping devices"					
-					''	if MasterSonosDevice = invalid then
-					''		print "No  master device of that type on this network"
-					''	else
+					groupValid=CheckGroupValid(sonos.sonosDevices, MasterSonosDevice)
+					if groupValid=false then
+                        print "grouping devices"					
+						if MasterSonosDevice = invalid then
+							print "No  master device of that type on this network"
+						else
 							xfer = SonosSetGroup(sonos.mp, sonosDevice.baseURL, MasterSonosDevice.UDN)
 							sonos.xferObjects.push(xfer)						
-					''	endif
-					'else
+						endif
+					else
                         print "devices grouped - taking no action"
 						postNextCommandInQueue(sonos, sonosDevice.baseURL)				
-''					end if
+					end if
 				else
 					print "Grouping all devices"
-					MasterSonosDevice = invalid
-					for each device in sonos.sonosDevices
-						if device.modelNumber = sonos.masterDevice
-							MasterSonosDevice = device			
-						endif
-					end for
-
-					groupValid=CheckGroupValid(sonos.sonosDevices, MasterSonosDevice)
-					if groupValid=true then
-					    print "already grouped"
-						postNextCommandInQueue(sonos, sonosDevice.baseURL)				
-					else
-						if (sonos.masterDevice <> "") then
-							print "Number of device in playing group is: ";sonos.playingGroup.count()
-							for i = 0 to sonos.playingGroup.count() - 1
-								print "Comparing ";sonos.playingGroup[i];" to ";sonos.masterDevice
-								if (sonos.playingGroup[i] <> sonos.masterDevice) then
-								    xfer = SonosSetGroup(sonos.mp,sonos.playingGroup[i].baseURL, MasterSonosDevice.UDN)
-									sonos.xferObjects.push(xfer)	
-								end if
-							end for
-						else
-						    print "+++ no master device!"
-						    ' need to repick one... how to handle this error?'
-						end if
-
+					if (sonos.masterDevice <> "") then
+						print "Number of device in playing group is: ";sonos.playingGroup.count()
+						for i = 0 to sonos.playingGroup.count() - 1
+							print "Comparing ";sonos.playingGroup[i];" to ";sonos.masterDevice
+							if (sonos.playingGroup[i] <> sonos.masterDevice) then
+								print "Sending plugin message:";"sonos!"+sonos.playingGroup[i]+"!group!"+sonos.masterDevice
+								sendPluginMessage(sonos, "sonos!"+sonos.playingGroup[i]+"!group!"+sonos.masterDevice)
+							end if
+						end for
 					end if
-
-					'if (sonos.masterDevice <> "") then
-					''	print "Number of device in playing group is: ";sonos.playingGroup.count()
-					''	for i = 0 to sonos.playingGroup.count() - 1
-					''		print "Comparing ";sonos.playingGroup[i];" to ";sonos.masterDevice
-					''		if (sonos.playingGroup[i] <> sonos.masterDevice) then
-					''			print "Sending plugin message:";"sonos!"+sonos.playingGroup[i]+"!group!"+sonos.masterDevice
-					''			sendPluginMessage(sonos, "sonos!"+sonos.playingGroup[i]+"!group!"+sonos.masterDevice)
-					''		end if
-					''	end for
-					'end if
-
 				end if
 			else if command = "play" then
 				xfer = SonosPlaySong(sonos.mp, sonosDevice.baseURL)
