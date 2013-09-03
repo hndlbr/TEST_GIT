@@ -1255,7 +1255,7 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
  				sonos.xferObjects.push(xfer)
 			else if command = "setrdmvalues" then
 				print "Deprecated - no longer using SonosSetRDMDefaultsAsync for setting all of the RDM default values"
-				postNextCommandInQueue(sonos, connectedPlayerIP)
+				postNextCommandInQueue(sonos, sonosDevice.baseURL)
 				'xfer=SonosSetRDMDefaultsAsync(sonos.mp, sonosDevice.baseURL, sonos)
 				'sonos.postObjects.push(xfer)
 				'SonosSetRDMDefaults(sonos.mp, sonosDevice.baseURL, sonos)
