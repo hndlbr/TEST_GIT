@@ -1359,8 +1359,8 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 			sonos.commandQ.push(commandToQ)	
 			print "+++ Queuing:";command +" " + devType + " " + detail + " " +sonosDevice.baseURL		
 
-			for each c in sonos.commandToQ
-			    print "   +++ ";commandToQ.IP;" - ";commandToQ.msg
+			for each c in sonos.commandQ
+			    print "   +++ ";commandQ.IP;" - ";commandQ.msg
 			next
 
 		end if
