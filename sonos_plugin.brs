@@ -425,14 +425,6 @@ Sub OnFound(response as String)
 					updateUserVar(m.s.userVariables,SonosDevice.modelNumber+"Version",SonosDevice.softwareVersion)
 					updateUserVar(m.s.userVariables,SonosDevice.modelNumber+"HHID",SonosDevice.hhid)
 
-					' check if it's too old for us to use
-					sv=val(sonosDevice.softwareVersion)
-					if sv<22
-					    msgString="Sonos device "+SonosDevice.modelNumber+" requires manual update to a version <22.0.x to be used"
-					    updateUserVar(m.s.userVariables,"manualUpdateMessage",msgString)
-					end if
-
-
 				else ' must be a new device
 				    print "Received ssdp:alive, querying device..."
 				    SendXMLQuery(m.s, response)
@@ -851,10 +843,13 @@ Sub UPNPDiscoverer_ProcessDeviceXML(ev as Object)
 
 						' check if it's too old for us to use
 						sv=val(sonosDevice.softwareVersion)
+						print "player software is at verion ";sv
 						if sv<22
 						    msgString="Sonos device "+SonosDevice.modelNumber+" requires manual update to a version <22.0.x to be used"
 						    updateUserVar(s.userVariables,"manualUpdateMessage",msgString)
 						    print "+++ HALTING presentation - ";msgString
+						else
+						    print "player software is recent enough for use in this kiosk"
 						end if
 
 						' do the RDM ping'
