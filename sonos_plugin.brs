@@ -394,13 +394,15 @@ Sub OnFound(response as String)
 		    if(rootDeviceString) then
 		        print "************ alive found ************ [";responseBaseURL;"]"
 		        if (sonosDevice <> invalid) then
-					print "Received ssdp:alive, device already in list "; responseBaseURL;" hhid: ";hhid;" old bootseq: "sonosDevice.bootseq;" new bootseq: ";bootseq
+					print "Received ssdp:alive, device already in list "; responseBaseURL;" hhid: ";hhid;" old bootseq: "sonosDevice.bootseq;" new bootseq: ";bootseq;" version: ";sonosDevice.softwareVersion
 
 					sonosDevice.alive=true
 					'sonosDevice.hhid=hhid
 					updateUserVar(m.s.userVariables,SonosDevice.modelNumber+"HHID",SonosDevice.hhid)
 					xfer=rdmPingAsync(m.s.mp,SonosDevice.baseURL,hhid) 
 					m.s.postObjects.push(xfer)
+
+
 
 					' if this device is in our list but is in factory reset we need to reboot'
 					print "SonosDevice.hhid: ";SonosDevice.hhid
@@ -841,18 +843,6 @@ Sub UPNPDiscoverer_ProcessDeviceXML(ev as Object)
 						updateUserVar(s.userVariables,SonosDevice.modelNumber+"Version",SonosDevice.softwareVersion)
 						updateUserVar(s.userVariables,SonosDevice.modelNumber+"HHID",SonosDevice.hhid)
 
-						' check if it's too old for us to use
-						sv=val(sonosDevice.softwareVersion)
-						print "player software is at verion ";sv
-						if sv<22
-						    msgString="Sonos device "+SonosDevice.modelNumber+" requires manual update to a version <22.0.x to be used"
-						    updateUserVar(s.userVariables,"manualUpdateMessage",msgString)
-						    updateUserVar(s.userVariables,"requiresManualUpdate","yes")
-						    print "+++ HALTING presentation - ";msgString
-						else
-						    print "player software is recent enough for use in this kiosk"
-						end if
-
 						' do the RDM ping'
 						xfer=rdmPingAsync(s.mp,sonosDevice.baseURL,s.hhid) 
 						s.postObjects.push(xfer)
@@ -1002,6 +992,18 @@ Function GetDeviceByPlayerModel(sonosDevices as Object, modelNumber as string) a
 	return device
 
 end function
+
+Function GetDeviceByPlayerBaseURL(sonosDevices as Object, baseURL as string) as object
+	
+	device = invalid
+	for i = 0 to sonosDevices.count() - 1
+		if (sonosDevices[i].baseURL = baseURL) then
+			device = sonosDevices[i]
+		end if
+	end for
+	return device
+end function
+
 
 function GetDeviceByUDN(sonosDevices as Object, UDN as string) as object
 	
@@ -1284,7 +1286,9 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 				netConfig = CreateObject("roNetworkConfiguration", 0)
 				currentNet = netConfig.GetCurrentConfig()
 				xfer = SonosSoftwareUpdate(sonos.mp, sonosDevice.baseURL, currentNet.ip4_address, detail)
-				sonos.xferObjects.push(xfer)
+				if xfer<>invalid
+				    sonos.xferObjects.push(xfer)
+				end if
 			else if command = "scan" then
 				FindAllSonosDevices(sonos)
 				sendSelfUDP("scancomplete")
@@ -3370,6 +3374,25 @@ end Function
 Sub SonosSoftwareUpdate(mp as object, connectedPlayerIP as string, serverURL as string, version as string) as object
 
 	print "SonosSoftwareUpdate: "+connectedPlayerIP+" * "+serverURL+" * "+version
+
+	' check if it's too old for us to use
+	sonosDevice=GetDeviceByPlayerBaseURL(m.SonosDevices, connectedPlayerIP)
+	sv=val(sonosDevice.softwareVersion)
+	print "player software is at verion ";sv
+	if sv<22
+	    ' if it is factor reset we have to punt'
+	    if sonosDevice.hhid=""
+		    msgString="Sonos device "+SonosDevice.modelNumber+" requires an update or a Household ID"
+		    updateUserVar(s.userVariables,"manualUpdateMessage",msgString)
+		    updateUserVar(s.userVariables,"requiresManualUpdate","yes")
+		    print "+++ HALTING presentation - ";msgString
+		    return invalid
+	    else
+	        print "Sonos device "+SonosDevice.modelNumber+" is at version ";sonosDevice.softwareVersion;" but has an hhid, continuing..."
+	    end if
+	else
+	    print "player software is recent enough for use in this kiosk"
+	end if
 
 	reqString="<?xml version="+chr(34)+"1.0"+chr(34)+" encoding="+chr(34)+"utf-8"+chr(34)+"?>"
 	reqString=reqString+"<s:Envelope s:encodingStyle="+chr(34)
