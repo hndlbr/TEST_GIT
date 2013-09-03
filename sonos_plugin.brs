@@ -1357,7 +1357,12 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 			commandToQ.IP = sonosDevice.baseURL
 			commandToQ.msg = msg
 			sonos.commandQ.push(commandToQ)	
-			print "Queuing:";command +" " + devType + " " + detail + " " +sonosDevice.baseURL		
+			print "+++ Queuing:";command +" " + devType + " " + detail + " " +sonosDevice.baseURL		
+
+			for each c in sonos.commandToQ
+			    print "   +++ ";commandToQ.IP;" - ";commandToQ.msg
+			next
+
 		end if
 	else
 		' See if it is a Brightsign message
