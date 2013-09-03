@@ -3382,7 +3382,7 @@ Sub SonosSoftwareUpdate(s as object, mp as object, connectedPlayerIP as string, 
 	if sv<22
 	    ' if it is factor reset we have to punt'
 	    if sonosDevice.hhid=""
-		    msgString="Sonos device "+SonosDevice.modelNumber+" requires an update or a Household ID"
+		    msgString="Sonos device "+SonosDevice.modelNumber+" requires an update or a Household ID - please fix and reboot"
 		    updateUserVar(s.userVariables,"manualUpdateMessage",msgString)
 		    updateUserVar(s.userVariables,"requiresManualUpdate","yes")
 		    print "+++ HALTING presentation - ";msgString
