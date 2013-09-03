@@ -1285,7 +1285,7 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 			else if command = "software_upgrade" then
 				netConfig = CreateObject("roNetworkConfiguration", 0)
 				currentNet = netConfig.GetCurrentConfig()
-				xfer = SonosSoftwareUpdate(sonos.mp, sonosDevice.baseURL, currentNet.ip4_address, detail)
+				xfer = SonosSoftwareUpdate(sonosDevice,sonos.mp, sonosDevice.baseURL, currentNet.ip4_address, detail)
 				if xfer<>invalid
 				    sonos.xferObjects.push(xfer)
 				end if
@@ -3371,12 +3371,11 @@ Function SonosPlayerReboot(mp as object, connectedPlayerIP as string)
 end Function
 
 
-Sub SonosSoftwareUpdate(mp as object, connectedPlayerIP as string, serverURL as string, version as string) as object
+Sub SonosSoftwareUpdate(SonosDevice as object, mp as object, connectedPlayerIP as string, serverURL as string, version as string) as object
 
 	print "SonosSoftwareUpdate: "+connectedPlayerIP+" * "+serverURL+" * "+version
 
 	' check if it's too old for us to use
-	sonosDevice=GetDeviceByPlayerBaseURL(m.sonos.SonosDevices, connectedPlayerIP)
 	sv=val(sonosDevice.softwareVersion)
 	print "player software is at verion ";sv
 	if sv<22
