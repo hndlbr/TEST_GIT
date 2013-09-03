@@ -905,7 +905,7 @@ end Sub
 
 Function isModelDesired(s as object, model as string)
 	for each modelNumber in s.desiredDevices
-    print "+++ isModelDesired: checking if ";model;" equals ";modelNumber
+	    'print "+++ isModelDesired: checking if ";model;" equals ";modelNumber
 	    if model = modelNumber
 	        return true
 	    end if
@@ -1023,7 +1023,7 @@ Function CheckGroupValid(sonosDevices as Object, masterDevice as object) as obje
 	' not grouped'
 	for i = 0 to sonosDevices.count() - 1
 		if (sonosDevices[i].modelNumber <> masterDevice.modelNumber) then
-		    print "CheckGroupValid: +++ comparing [";sonosDevices[i].AVTransportURI;"] to [";masterString;"]"
+		    print "CheckGroupValid: +++ comparing device [";sonosDevices[i].AVTransportURI;"] to master [";masterString;"]"
 		    if sonosDevices[i].AVTransportURI<>masterString
 		        print "+++ NOT Grouped!"
 		        return false
