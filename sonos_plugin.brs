@@ -2474,7 +2474,9 @@ Function HandleSonosXferEvent(msg as object, sonos as object) as boolean
 				end if		
 
 				' pop the next queued up message, if any'
-				postNextCommandInQueue(sonos, connectedPlayerIP)
+				if connectedPlayerIP<>""
+				    postNextCommandInQueue(sonos, connectedPlayerIP)
+				end if
 
 				' delete this transfer object from the transfer object list
 				sonos.postObjects.Delete(i)
