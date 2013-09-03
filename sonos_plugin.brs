@@ -1285,7 +1285,7 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 			else if command = "software_upgrade" then
 				netConfig = CreateObject("roNetworkConfiguration", 0)
 				currentNet = netConfig.GetCurrentConfig()
-				xfer = SonosSoftwareUpdate(sonos.mp, sonosDevice.baseURL, currentNet.ip4_address, detail)
+				xfer = SonosSoftwareUpdate(sonos,sonos.mp, sonosDevice.baseURL, currentNet.ip4_address, detail)
 				if xfer<>invalid
 				    sonos.xferObjects.push(xfer)
 				end if
