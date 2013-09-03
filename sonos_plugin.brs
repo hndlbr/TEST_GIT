@@ -1249,11 +1249,13 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 							for i = 0 to sonos.playingGroup.count() - 1
 								print "Comparing ";sonos.playingGroup[i];" to ";sonos.masterDevice
 								if (sonos.playingGroup[i] <> sonos.masterDevice) then
-								    print "Grouping device ";sonos.playingGroup[i].modelNumber;" with master ";MasterSonosDevice
 								    xfer = SonosSetGroup(sonos.mp,sonos.playingGroup[i].baseURL, MasterSonosDevice.UDN)
 									sonos.xferObjects.push(xfer)	
 								end if
 							end for
+						else
+						    print "+++ no master device!"
+						    ' need to repick one... how to handle this error?'
 						end if
 
 					end if
