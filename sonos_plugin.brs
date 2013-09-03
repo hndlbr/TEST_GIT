@@ -2161,7 +2161,7 @@ end Sub
 Sub SonosGroupAll(s as object) as object
 	master=GetDeviceByPlayerModel(s.sonosDevices, s.masterDevice)
 	if master<>invalid
-  	    masterString="x-rincon:"+masterDevice.UDN
+  	    masterString="x-rincon:"+master.UDN
   	else 
   	    masterString="none"
   	end if
