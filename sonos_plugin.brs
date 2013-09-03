@@ -1018,7 +1018,13 @@ end function
 
 
 Function CheckGroupValid(sonosDevices as Object, masterDevice as object) as object
-	masterString="x-rincon:"+masterDevice.UDN
+
+	if masterDevice<>invalid
+  	    masterString="x-rincon:"+masterDevice.UDN
+  	else 
+  	    masterString="none"
+  	end if
+
 	' if any of the devices don't have their AVTransportURI set to the UDN of the master then they are 
 	' not grouped'
 	for i = 0 to sonosDevices.count() - 1
