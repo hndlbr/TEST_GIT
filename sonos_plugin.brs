@@ -3376,7 +3376,7 @@ Sub SonosSoftwareUpdate(mp as object, connectedPlayerIP as string, serverURL as 
 	print "SonosSoftwareUpdate: "+connectedPlayerIP+" * "+serverURL+" * "+version
 
 	' check if it's too old for us to use
-	sonosDevice=GetDeviceByPlayerBaseURL(m.SonosDevices, connectedPlayerIP)
+	sonosDevice=GetDeviceByPlayerBaseURL(m.sonos.SonosDevices, connectedPlayerIP)
 	sv=val(sonosDevice.softwareVersion)
 	print "player software is at verion ";sv
 	if sv<22
