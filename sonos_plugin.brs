@@ -2160,16 +2160,22 @@ end Sub
 
 Sub SonosGroupAll(s as object) as object
 	master=GetDeviceByPlayerModel(s.sonosDevices, s.masterDevice)
+	if master<>invalid
+  	    masterString="x-rincon:"+masterDevice.UDN
+  	else 
+  	    masterString="none"
+  	end if
 
 	for each device in s.sonosDevices
 	    if device.modelNumber<>s.masterDevice
 	        desired=isModelDesiredByUservar(s,device.modelNumber)
 	        if desired=true
 
-	            print "+++ comparing device URI [";device.AVTransportURI;"] to master URI [";master.AVTransportURI;"]"
-
-				xfer = SonosSetGroup(s.mp, device.baseURL, master.UDN)
-				s.xferObjects.push(xfer)						
+	            print "+++ comparing device URI [";device.AVTransportURI;"] to master URI [";masterString;"]"
+	            if device.AVTransportURI<>masterString
+					xfer = SonosSetGroup(s.mp, device.baseURL, master.UDN)
+					s.xferObjects.push(xfer)						
+				end if
 			end if
 	    end if
 	end for
