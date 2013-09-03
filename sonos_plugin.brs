@@ -1232,7 +1232,14 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 ''					end if
 				else
 					print "Grouping all devices"
-					groupValid=CheckGroupValid(sonos.sonosDevices, sonos.masterDevice)
+					MasterSonosDevice = invalid
+					for each device in sonos.sonosDevices
+						if device.modelNumber = sonos.masterDevice
+							MasterSonosDevice = device			
+						endif
+					end for
+
+					groupValid=CheckGroupValid(sonos.sonosDevices, MasterSonosDevice)
 					if groupValid=true then
 					    print "already grouped"
 						postNextCommandInQueue(sonos, sonosDevice.baseURL)				
