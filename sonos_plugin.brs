@@ -1208,14 +1208,15 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 				xfer = SonosSetSPDIF(sonos.mp, sonosDevice.baseURL, sonosDevice.UDN)
 				sonos.xferObjects.push(xfer)
 			else if command="group" then
-				MasterSonosDevice = invalid
-				for each device in sonos.sonosDevices
-					if device.modelNumber = detail
-						MasterSonosDevice = device			
-					endif
-				end for
 				if (devType <> "sall") then 
 					print "Group command - player ";devType
+					MasterSonosDevice = invalid
+					for each device in sonos.sonosDevices
+						if device.modelNumber = detail
+							MasterSonosDevice = device			
+						endif
+					end for
+
 					'groupValid=CheckGroupValid(sonos.sonosDevices, MasterSonosDevice)
 					'if groupValid=false then
                     ''    print "grouping devices"					
@@ -1231,7 +1232,7 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 ''					end if
 				else
 					print "Grouping all devices"
-					groupValid=CheckGroupValid(sonos.sonosDevices, MasterSonosDevice)
+					groupValid=CheckGroupValid(sonos.sonosDevices, sonos.masterDevice)
 					if groupValid=true then
 					    print "already grouped"
 						postNextCommandInQueue(sonos, sonosDevice.baseURL)				
