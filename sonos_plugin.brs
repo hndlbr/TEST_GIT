@@ -2173,8 +2173,11 @@ Sub SonosGroupAll(s as object) as object
 
 	            print "+++ comparing device URI [";device.AVTransportURI;"] to master URI [";masterString;"]"
 	            if device.AVTransportURI<>masterString
+	                print "+++ grouping device ";device.modelNumber;" with master ";s.masterDevice
 					xfer = SonosSetGroup(s.mp, device.baseURL, master.UDN)
 					s.xferObjects.push(xfer)						
+				else
+				    print "+++ device ";device.modelNumber;" is already grouped with master ";s.masterDevice
 				end if
 			end if
 	    end if
