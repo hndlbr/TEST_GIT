@@ -3075,6 +3075,7 @@ end Sub
 
 sub printAllDeviceTransportURI(sonos as object)
 	' debug code for comparing states in different scenarios'
+	print "printAllDeviceTransportURI - master: ";sonos.masterDevice
 	for each device in sonos.sonosDevices
 	    if device.desired=true
 	        l = len(device.AVTransportURI)
