@@ -2169,7 +2169,7 @@ end Sub
 Sub SonosGroupAll(s as object) as object
 
 	print "SonosGroupAll"
-	printAllDeviceTransportURI(sonos)
+	printAllDeviceTransportURI(s)
 
 	master=GetDeviceByPlayerModel(s.sonosDevices, s.masterDevice)
 	if master<>invalid
