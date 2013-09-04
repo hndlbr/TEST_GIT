@@ -3067,6 +3067,7 @@ Sub updateDeviceVariable(sonos as object, sonosDevice as object, variable as str
 		updateDeviceUserVariable(sonos, sonosDevice, variable, value)
 	end if
 
+	print "updateDeviceVariable"
 	printAllDeviceTransportURI(sonos)
 
 end Sub
