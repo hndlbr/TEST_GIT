@@ -2167,6 +2167,10 @@ Sub SonosSetSPDIF(mp as object, connectedPlayerIP as string, sonosPlayerUDN as s
 end Sub
 
 Sub SonosGroupAll(s as object) as object
+
+	print "SonosGroupAll"
+	printAllDeviceTransportURI(sonos)
+
 	master=GetDeviceByPlayerModel(s.sonosDevices, s.masterDevice)
 	if master<>invalid
   	    masterString="x-rincon:"+master.UDN
