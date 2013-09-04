@@ -18,7 +18,7 @@ Function newSonos(msgPort As Object, userVariables As Object, bsp as Object)
 
 	' Create the object to return and set it up
 	s = {}
-	s.version = 2.27
+	s.version = 2.28
 	s.msgPort = msgPort
 	s.userVariables = userVariables
 	s.bsp = bsp
@@ -3771,4 +3771,3 @@ function getPlayerNameByModel(model as object) as String
 end function		
 
 
-' release  2.27
