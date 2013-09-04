@@ -2940,6 +2940,10 @@ End Sub
 
 Function CheckForeignPlayback(s as Object) as object
 	' check if we're not playing something from our own IP
+
+	printAllDeviceTransportURI(sonos)
+
+
 	master=GetDeviceByPlayerModel(s.sonosDevices, s.masterDevice)
 	if master<>invalid
 		AVTransportURI=master.AVTransportURI
@@ -3059,15 +3063,25 @@ Sub updateDeviceVariable(sonos as object, sonosDevice as object, variable as str
 		updateDeviceUserVariable(sonos, sonosDevice, variable, value)
 	end if
 
+	printAllDeviceTransportURI(sonos)
+
+end Sub
+
+
+sub printAllDeviceTransportURI(sonos as object)
 	' debug code for comparing states in different scenarios'
 	for each device in sonos.sonosDevices
 	    if device.desired=true
-	        print "--- ";device.modelNumber;" AVTransportURI: ";device.AVTransportURI
+	        l = len(device.AVTransportURI)
+	        colon = instr(1,device.AVTransportURI,":")
+	        uri=right(device.AVTransportURI,l-colon)
+	        deviceUDN = GetDeviceByUDN(sonos.sonosDevices, uri)
+	        print "--- ";device.modelNumber;" AVTransportURI: ";device.AVTransportURI;" - ";deviceUDN
         end if
 	end for
+end sub
 
 
-end Sub
 
 Sub updateDeviceUserVariable(sonos as object, sonosDevice as object, variable as string, value as string)
 	' Update the uservariable for this device
