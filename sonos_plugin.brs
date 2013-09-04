@@ -1272,7 +1272,7 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 				if xfer<>invalid
 				    sonos.xferObjects.push(xfer)
 				else
-				     postNextCommandInQueue(sonos, connectedPlayerIP)
+				     postNextCommandInQueue(sonos, sonosDevice.baseURL)
 				end if
 			else if command = "scan" then
 				FindAllSonosDevices(sonos)
@@ -2172,6 +2172,8 @@ Sub SonosGroupAll(s as object) as object
 	printAllDeviceTransportURI(s)
 
 	master=GetDeviceByPlayerModel(s.sonosDevices, s.masterDevice)
+
+
 	if master<>invalid
   	    masterString="x-rincon:"+master.UDN
   	else 
@@ -2182,8 +2184,11 @@ Sub SonosGroupAll(s as object) as object
 	    if device.modelNumber<>s.masterDevice
 	        desired=isModelDesiredByUservar(s,device.modelNumber)
 	        if desired=true
-	            print "+++ comparing device URI [";device.AVTransportURI;"] to master URI [";masterString;"]"
-	            if device.AVTransportURI<>masterString
+	            l = len(device.AVTransportURI)
+	            colon = instr(1,device.AVTransportURI,":")
+	            uri=right(device.AVTransportURI,l-colon)
+	            print "+++ comparing device URI [";uri;"] to master URI [";master.UDN;"]"
+	            if uri<>master.UDN
 	                print "+++ grouping device ";device.modelNumber;" with master ";s.masterDevice
 					xfer = SonosSetGroup(s.mp, device.baseURL, master.UDN)
 					s.xferObjects.push(xfer)						
@@ -3437,7 +3442,8 @@ Sub SonosSoftwareUpdate(s as object, mp as object, connectedPlayerIP as string, 
 	if sv<22
 	    ' if it is factor reset we have to punt'
 	    if sonosDevice.hhid=""
-		    msgString="Sonos device "+SonosDevice.modelNumber+" requires an update or a Household ID - please fix and reboot"
+	        playerName=getPlayerNameByModel(SonosDevice.modelNumber)
+		    msgString="Sonos device "+playerName+" requires an update or a Household ID - please fix and reboot"
 		    updateUserVar(s.userVariables,"manualUpdateMessage",msgString)
 		    updateUserVar(s.userVariables,"requiresManualUpdate","yes")
 		    print "+++ HALTING presentation - ";msgString
@@ -3748,6 +3754,21 @@ sub setbuttonstate(sonos as object, state as string)
 	end if
 end sub	
 		
+
+function getPlayerNameByModel(model as object) as String
+	
+	print "getPlayerNameByModel [";model;"]"
+	if model="s1" then
+	    return "PLAY:1"
+	else if model="s3" then
+	    return "PLAY:3"
+    else if model="s5" then
+	    return "PLAY:5"
+    else if model="s9" then
+	    return "PLAY:9"
+	end if
+	return model
+end function		
 
 
 ' release  2.27
