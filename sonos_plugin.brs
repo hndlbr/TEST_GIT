@@ -2940,7 +2940,7 @@ End Sub
 
 Function CheckForeignPlayback(s as Object) as object
 	' check if we're not playing something from our own IP
-
+	print "CheckForeignPlayback"
 	printAllDeviceTransportURI(s)
 
 
@@ -3076,7 +3076,11 @@ sub printAllDeviceTransportURI(sonos as object)
 	        colon = instr(1,device.AVTransportURI,":")
 	        uri=right(device.AVTransportURI,l-colon)
 	        deviceUDN = GetDeviceByUDN(sonos.sonosDevices, uri)
-	        print "--- ";device.modelNumber;" AVTransportURI: ";device.AVTransportURI;" - ";deviceUDN
+	        if deviceUDN<>invalid
+	            print "--- ";device.modelNumber;" AVTransportURI: ";device.AVTransportURI;" - ";deviceUDN.modelNumber
+            else
+                print "--- ";device.modelNumber;" AVTransportURI: ";device.AVTransportURI
+	        end if
         end if
 	end for
 end sub
