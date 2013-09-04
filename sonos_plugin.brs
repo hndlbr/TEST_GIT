@@ -2941,7 +2941,7 @@ End Sub
 Function CheckForeignPlayback(s as Object) as object
 	' check if we're not playing something from our own IP
 
-	printAllDeviceTransportURI(sonos)
+	printAllDeviceTransportURI(s)
 
 
 	master=GetDeviceByPlayerModel(s.sonosDevices, s.masterDevice)
