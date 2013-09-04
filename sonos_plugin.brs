@@ -3059,6 +3059,14 @@ Sub updateDeviceVariable(sonos as object, sonosDevice as object, variable as str
 		updateDeviceUserVariable(sonos, sonosDevice, variable, value)
 	end if
 
+	' debug code for comparing states in different scenarios'
+	for each device in sonos.sonosDevices
+	    if device.desired=true
+	        print "--- ";device.modelNumber;" AVTransportURI: ";device.AVTransportURI
+        end if
+	end for
+
+
 end Sub
 
 Sub updateDeviceUserVariable(sonos as object, sonosDevice as object, variable as string, value as string)
