@@ -83,7 +83,7 @@ Function newSonos(msgPort As Object, userVariables As Object, bsp as Object)
 
 	' Variable for what is considered the master device
 	s.masterDevice = ""
-	s.masterDeviceLastTransportURI
+	s.masterDeviceLastTransportURI=""
 
 	' Keep track of all the devices that should be grouped for playing together
 	s.playingGroup = createObject("roArray",0, true)
