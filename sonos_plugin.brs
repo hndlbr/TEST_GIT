@@ -2507,6 +2507,14 @@ Function HandleSonosXferEvent(msg as object, sonos as object) as boolean
 end Function
 
 
+function processSonosSetGroupResponse(msg,connectedPlayerIP,sonos)
+
+	print "processSonosSetGroupResponse: from ";connectedPlayerIP
+	print msg
+
+
+end function
+
 sub postNextCommandInQueue(sonos as object, connectedPlayerIP as string)
 	' See how many commands we have the queue
 	numCmds = sonos.commandQ.count()
