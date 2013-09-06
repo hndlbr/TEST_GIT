@@ -1200,7 +1200,8 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 			else if command="playmp3" then
 				' print "Playing MP3"
 				'TIMING print "Playing MP3 on "+sonosDevice.modelNumber" at: ";sonos.st.GetLocalDateTime()
-				sonos.masterDeviceLastTransportURI,detail
+				sonos.masterDeviceLastTransportURI=detail
+				print "setting master AVTransportURI to [";detail;"]"
 				netConfig = CreateObject("roNetworkConfiguration", 0)
 				currentNet = netConfig.GetCurrentConfig()
 				xfer = SonosSetSong(sonos.mp, currentNet.ip4_address, sonosDevice.baseURL, detail)
