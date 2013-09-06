@@ -2964,7 +2964,7 @@ End Sub
 
 
 Function CheckForeignPlayback(s as Object, modelNumber as string, AVTransportURI as String) as object
-	' check if we're not playing something from our own IP
+
 	print "CheckForeignPlayback - device: ";modelNumber;" - ";AVTransportURI
 
 	desired=isModelDesiredByUservar(s,modelNumber)
@@ -2975,13 +2975,20 @@ Function CheckForeignPlayback(s as Object, modelNumber as string, AVTransportURI
 
 	printAllDeviceTransportURI(s)
 
+	if master="none" then
+	    print "+++ master device is not yet set"
+	    return false
+	end if
 	master=GetDeviceByPlayerModel(s.sonosDevices, s.masterDevice)
-	device=GetDeviceByPlayerModel(s.sonosDevices, modelNumber)
-
 	if (master=invalid) then
 	    print "+++ unable to find device for master";s.masterDevice
 	    return false
 	end if
+
+
+
+	device=GetDeviceByPlayerModel(s.sonosDevices, modelNumber)
+
 
 	if (device=invalid) then
 	    print "+++ unable to find device for model";modelNumber
