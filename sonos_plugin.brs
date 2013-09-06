@@ -82,7 +82,7 @@ Function newSonos(msgPort As Object, userVariables As Object, bsp as Object)
 	s.desiredDevices = createObject("roArray",0, true)
 
 	' Variable for what is considered the master device
-	s.masterDevice = ""
+	s.masterDevice = "none"
 	s.masterDeviceLastTransportURI=""
 
 	' Keep track of all the devices that should be grouped for playing together
@@ -1213,6 +1213,7 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 			else if command="group" then
 				if (devType <> "sall") then 
 			        ' this groups a given device to the master we already know about'
+			        print "+++ grouping all players to master ";s.masterDevice
 				    master=GetDeviceByPlayerModel(s.sonosDevices, s.masterDevice)
 				    if master<>invalid
 					    xfer = SonosSetGroup(sonos.mp, sonosDevice.baseURL, master.UDN)
