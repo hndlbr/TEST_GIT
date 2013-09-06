@@ -849,7 +849,6 @@ Sub UPNPDiscoverer_ProcessDeviceXML(ev as Object)
 					    end for
 				    end if
 
-					' note that the presentation has not populated the desired array yet'
 					desired=isModelDesiredByUservar(s,model)
 					SonosDevice = newSonosDevice(deviceList[i])
 					if desired=true
