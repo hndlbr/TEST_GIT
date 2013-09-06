@@ -2960,6 +2960,7 @@ Function CheckForeignPlayback(s as Object, modelNumber as string, AVTransportURI
 
 	desired=isModelDesiredByUservar(s,modelNumber)
     if desired=false then
+        print "+++ got unexpected messages from ";modelNumber;" which is NOT desired"
         return false
     end if
 
@@ -2969,6 +2970,7 @@ Function CheckForeignPlayback(s as Object, modelNumber as string, AVTransportURI
 	device=GetDeviceByPlayerModel(s.sonosDevices, modelNumber)
 
 	if (master=invalid) or (device=invalid) then
+	    print "+++ unable to find devices for master or model"
 	    return false
 	end if
 
