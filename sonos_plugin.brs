@@ -184,13 +184,15 @@ Function sonos_ProcessEvent(event As Object) as boolean
 
 			for each device in m.sonosDevices
 			    FindAllSonosDevices(m)
-			    if device.alive=true
+			    if device.alive=true then
 			        ' mark it as false - an alive should come by and mark it as true again'
 			        device.alive=false
-			    else if device.alive=false
+			    else if device.alive=false then
 			        deletePlayerByUDN(m,device.UDN)
 			        model=device.modelNumber
-			        m.deletedDevices.push(model)
+			        if device.desired=true then
+			            m.deletedDevices.push(model)
+			        end if
 			        print "+++ alive timer expired - device [";device.modelNumber;" - ";device.UDN;"] not seen and is deleted"
 			    end if
 			end for
@@ -839,9 +841,9 @@ Sub UPNPDiscoverer_ProcessDeviceXML(ev as Object)
 				    ' check to see if we don't already have one and if it's one we already deleted and if so, we need to reboot
 					d=GetDeviceByPlayerModel(s.sonosDevices, model)
 					if d=invalid then 
-					    for each m in s.deletedDevices
-					        if m=sonosDevice.modelNumber
-					            print "********************* previously deleted player ";m;" detected - rebooting"
+					    for each deletedModel in s.deletedDevices
+					        if deletedModel=model
+					            print "********************* previously deleted player ";model;" detected - rebooting"
 					            RebootSystem()
 					        end if
 					    end for
@@ -854,7 +856,6 @@ Sub UPNPDiscoverer_ProcessDeviceXML(ev as Object)
 					    SonosDevice.desired=true
 
 					    print "Sonos at ";baseURL;" is desired"
-
 
 						' Set the user variables
 						updateUserVar(s.userVariables,SonosDevice.modelNumber,"present")
