@@ -2969,8 +2969,13 @@ Function CheckForeignPlayback(s as Object, modelNumber as string, AVTransportURI
 	master=GetDeviceByPlayerModel(s.sonosDevices, s.masterDevice)
 	device=GetDeviceByPlayerModel(s.sonosDevices, modelNumber)
 
-	if (master=invalid) or (device=invalid) then
-	    print "+++ unable to find devices for master or model"
+	if (master=invalid) then
+	    print "+++ unable to find device for master";s.masterDevice
+	    return false
+	end if
+
+	if (device=invalid) then
+	    print "+++ unable to find device for model";modelNumber
 	    return false
 	end if
 
