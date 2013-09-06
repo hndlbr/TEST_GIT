@@ -81,6 +81,9 @@ Function newSonos(msgPort As Object, userVariables As Object, bsp as Object)
 	' Create an array to hold the desired devices
 	s.desiredDevices = createObject("roArray",0, true)
 
+	' Create the arrary to hold the deleted devices
+	s.deletedDevices = CreateObject("roArray",1, True)
+
 	' Variable for what is considered the master device
 	s.masterDevice = "none"
 	s.masterDeviceLastTransportURI=""
@@ -186,6 +189,8 @@ Function sonos_ProcessEvent(event As Object) as boolean
 			        device.alive=false
 			    else if device.alive=false
 			        deletePlayerByUDN(m,device.UDN)
+			        model=device.modelNumber
+			        m.deletedDevices.push(model)
 			        print "+++ alive timer expired - device [";device.modelNumber;" - ";device.UDN;"] not seen and is deleted"
 			    end if
 			end for
@@ -838,6 +843,14 @@ Sub UPNPDiscoverer_ProcessDeviceXML(ev as Object)
 					    SonosDevice.desired=true
 
 					    print "Sonos at ";baseURL;" is desired"
+
+					    ' check to see if it's one we already deleted and if so, we need to reboot
+					    for each model in s.deletedDevices
+					        if model=sonosDevice.modelNumber
+					            print "********************* previously deleted player ";model;" detected - rebooting"
+					            RebootSystem()
+					        end if
+					    end for
 
 						' Set the user variables
 						updateUserVar(s.userVariables,SonosDevice.modelNumber,"present")
