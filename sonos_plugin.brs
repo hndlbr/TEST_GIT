@@ -2997,7 +2997,12 @@ Function CheckForeignPlayback(s as Object, modelNumber as string, AVTransportURI
 
     ' otherwise, make sure it's pointed at the master
     print "+++ comparing device URI [";AVTransportURI;"] to master URI [";master.UDN;"]"
-    if AVTransportURI=master.UDN then
+    l = len(AVTransportURI)
+    colon = instr(1,AVTransportURI,":")
+    uri=right(AVTransportURI,l-colon)
+    print "+++ comparing device URI [";uri;"] to master URI [";master.UDN;"]"
+
+    if uri=master.UDN then
         print "+++ master AVTransportURI matches master - local content"
         return false
 	else
