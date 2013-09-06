@@ -2975,7 +2975,7 @@ Function CheckForeignPlayback(s as Object, modelNumber as string, AVTransportURI
 
 	printAllDeviceTransportURI(s)
 
-	if master="none" then
+	if s.masterDevice="none" then
 	    print "+++ master device is not yet set"
 	    return false
 	end if
