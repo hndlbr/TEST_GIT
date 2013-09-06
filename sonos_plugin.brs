@@ -836,12 +836,12 @@ Sub UPNPDiscoverer_ProcessDeviceXML(ev as Object)
 					model = deviceXML.device.modelNumber.getText()
 					model = lcase(model)
 					
-				    ' check to see if it's one we already deleted and if so, we need to reboot
+				    ' check to see if we don't already have one and if it's one we already deleted and if so, we need to reboot
 					d=GetDeviceByPlayerModel(s.sonosDevices, model)
 					if d=invalid then 
-					    for each model in s.deletedDevices
-					        if model=sonosDevice.modelNumber
-					            print "********************* previously deleted player ";model;" detected - rebooting"
+					    for each m in s.deletedDevices
+					        if m=sonosDevice.modelNumber
+					            print "********************* previously deleted player ";m;" detected - rebooting"
 					            RebootSystem()
 					        end if
 					    end for
