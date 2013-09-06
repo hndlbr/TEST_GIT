@@ -836,6 +836,17 @@ Sub UPNPDiscoverer_ProcessDeviceXML(ev as Object)
 					model = deviceXML.device.modelNumber.getText()
 					model = lcase(model)
 					
+				    ' check to see if it's one we already deleted and if so, we need to reboot
+					d=GetDeviceByPlayerModel(s.sonosDevices, model)
+					if sonosDevice=invalid then 
+					    for each model in s.deletedDevices
+					        if model=sonosDevice.modelNumber
+					            print "********************* previously deleted player ";model;" detected - rebooting"
+					            RebootSystem()
+					        end if
+					    end for
+				    end if
+
 					' note that the presentation has not populated the desired array yet'
 					desired=isModelDesiredByUservar(s,model)
 					SonosDevice = newSonosDevice(deviceList[i])
@@ -844,13 +855,6 @@ Sub UPNPDiscoverer_ProcessDeviceXML(ev as Object)
 
 					    print "Sonos at ";baseURL;" is desired"
 
-					    ' check to see if it's one we already deleted and if so, we need to reboot
-					    for each model in s.deletedDevices
-					        if model=sonosDevice.modelNumber
-					            print "********************* previously deleted player ";model;" detected - rebooting"
-					            RebootSystem()
-					        end if
-					    end for
 
 						' Set the user variables
 						updateUserVar(s.userVariables,SonosDevice.modelNumber,"present")
