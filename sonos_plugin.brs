@@ -838,7 +838,7 @@ Sub UPNPDiscoverer_ProcessDeviceXML(ev as Object)
 					
 				    ' check to see if it's one we already deleted and if so, we need to reboot
 					d=GetDeviceByPlayerModel(s.sonosDevices, model)
-					if sonosDevice=invalid then 
+					if d=invalid then 
 					    for each model in s.deletedDevices
 					        if model=sonosDevice.modelNumber
 					            print "********************* previously deleted player ";model;" detected - rebooting"
