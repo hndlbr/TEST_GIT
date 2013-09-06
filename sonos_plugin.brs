@@ -2957,42 +2957,48 @@ End Sub
 Function CheckForeignPlayback(s as Object, modelNumber as string, AVTransportURI as String) as object
 	' check if we're not playing something from our own IP
 	print "CheckForeignPlayback - device: ";modelNumber;" - ";AVTransportURI
+
+	desired=isModelDesiredByUservar(s,modelNumber)
+    if desired=false then
+        return false
+    end if
+
 	printAllDeviceTransportURI(s)
+
 	master=GetDeviceByPlayerModel(s.sonosDevices, s.masterDevice)
 	device=GetDeviceByPlayerModel(s.sonosDevices, modelNumber)
 
 	if (master=invalid) or (device=invalid) then
-	    return invalid
+	    return false
 	end if
 
 	if master.AVTransportURI="" then
 	    print "+++ master AVTransportURI is empty - assuming local content"
-	    return true
+	    return false
 	end if
 
 	' if it's the master, check if it's the URI we set it to
     if device.modelNumber=s.masterDevice then
-
-    's.masterDeviceLastTransportURI
-
+        if s.masterDeviceLastTransportURI=AVTransportURI then
+            print "+++ master AVTransportURI matches what we set it to - local content"
+            return true
+        else 
+            print "+++ master AVTransportURI does NOT match what we set it to - foreign content"
+            return false
+        end if
     end if
 
+    ' otherwise, make sure it's pointed at the master
+    print "+++ comparing device URI [";AVTransportURI;"] to master URI [";master.UDN;"]"
+    if AVTransportURI=master.UDN then
+        print "+++ master AVTransportURI matches master - local content"
+        return false
+	else
+        print "+++ master AVTransportURI does NOT match master - foreign content"
+	    return true
+	end if
 
-	        'desired=isModelDesiredByUservar(s,device.modelNumber)
-	        'if desired=true then
-	        ''    l = len(device.AVTransportURI)
-	        ''    colon = instr(1,device.AVTransportURI,":")
-	        ''    uri=right(device.AVTransportURI,l-colon)
-	        ''    print "+++ comparing device URI [";uri;"] to master URI [";master.UDN;"]"
-	        ''    if uri<>master.UDN then
-	        ''        print "+++ grouping device ";device.modelNumber;" with master ";s.masterDevice
-		''			xfer = SonosSetGroup(s.mp, device.baseURL, master.UDN)
-	''				s.xferObjects.push(xfer)						
-''				else'
-				   '' print "+++ device ";device.modelNumber;" is already grouped with master ";s.masterDevice
-				'end if
-			'end if
-	    'end if
+
 	return true
 
 end Function
