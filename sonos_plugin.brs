@@ -18,7 +18,9 @@ Function newSonos(msgPort As Object, userVariables As Object, bsp as Object)
 
 	' Create the object to return and set it up
 	s = {}
-	s.version = 2.28
+
+	s.version = "2.30-pre1"
+
 	s.msgPort = msgPort
 	s.userVariables = userVariables
 	s.bsp = bsp
@@ -106,6 +108,13 @@ Function newSonos(msgPort As Object, userVariables As Object, bsp as Object)
         print "siteHHID user variable does not exist"
     end if
     setDebugPrintBehavior(s)
+
+    print "***************************  Sonos plugin version ";s.version;"*************************** "
+    if s.userVariables["pluginVersion"] <> invalid
+	    updateUserVar(s.userVariables,"pluginVersion",s.version)
+    else
+        print "pluginVersion user variable does not exist"
+    end if
 
 	return s
 End Function
@@ -241,9 +250,10 @@ Sub FindAllSonosDevices(s as Object)
 End Sub
 
 Sub PrintAllSonosDevices(s as Object) 
+    print "***************************  Sonos plugin version ";s.version;"***************************"
     print "-- siteHHID:        ";s.hhid
     print "-- master:          ";s.masterDevice
-
+    print "__________________________________________________________________________________________"
 	devices = s.devices
 	for each device in s.sonosDevices
 		print "++ device model:    "+device.modelNumber
@@ -282,7 +292,7 @@ Sub PrintAllSonosDevices(s as Object)
 		if s.userVariables[device.modelNumber+"HHIDstatus"]<>invalid
 		   print "++ UV: HHIDStatus:  ";s.userVariables[device.modelNumber+"HHIDstatus"].currentvalue$
 		endif 
-		print "+++++++++++++++++++++++++++++++++++++++++"
+		print "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
 	end for
 End Sub
 
@@ -1433,7 +1443,7 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 end Function
 
 
-function setSonosMasterDevice(sonos as object,devType as string) as string
+function setSonosMasterDevice(sonos as object,devType as string) as object
 
 	print "*********************************************** setSonosMasterDevice ";devType
 	if devType="sall"
