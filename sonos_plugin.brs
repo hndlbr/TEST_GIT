@@ -876,15 +876,22 @@ Sub UPNPDiscoverer_ProcessDeviceXML(ev as Object)
 						s.postObjects.push(xfer)
 
 						' if this device was previously skipped on boot, we need to reboot'
-						skippedString=model+"Skipped"
-						if s.userVariables[skippedString] <> invalid then
-						    skipVal=s.userVariables[skippedString].currentValue$ 
-						    if skipVal="yes"
-						        updateUserVar(s.userVariables,skippedString, "no")
-						        print "+++ skipped player ";model;" - rebooting!"
-						        sleep(1000) 
-						        RebootSystem()
-						    end if
+						' but ONLY if we are in a state where we are all the way up and running'
+						' if we are still booting up and configuring, we need to let that run it's course
+						runningState="unknown"
+						if s.userVariables["runningState"] <> invalid then
+						    runningState=s.userVariables["runningState"].currentValue$
+						end if
+						if runningState="running" then
+							skippedString=model+"Skipped"
+							if s.userVariables[skippedString] <> invalid then
+							    skipVal=s.userVariables[skippedString].currentValue$ 
+							    if skipVal="yes"
+							        updateUserVar(s.userVariables,skippedString, "no")
+							        print "+++ skipped player ";model;" - rebooting!"
+							        RebootSystem()
+							    end if
+							end if
 						end if
 
 						SonosRegisterForEvents(s, s.mp, SonosDevice)
@@ -898,7 +905,6 @@ Sub UPNPDiscoverer_ProcessDeviceXML(ev as Object)
 						    if skipVal="yes"
 						        updateUserVar(s.userVariables,skippedString, "no")
 						        print "+++ skipped player ";model;" - has been found, rebooting!"
-						        sleep(1000)
 						        RebootSystem()
 						    end if
 						else 
