@@ -871,6 +871,7 @@ Sub UPNPDiscoverer_ProcessDeviceXML(ev as Object)
 						updateUserVar(s.userVariables,SonosDevice.modelNumber+"Version",SonosDevice.softwareVersion)
 						updateUserVar(s.userVariables,SonosDevice.modelNumber+"HHID",SonosDevice.hhid)
 
+
 						' do the RDM ping'
 						xfer=rdmPingAsync(s.mp,sonosDevice.baseURL,s.hhid) 
 						s.postObjects.push(xfer)
