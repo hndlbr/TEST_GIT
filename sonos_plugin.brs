@@ -19,7 +19,7 @@ Function newSonos(msgPort As Object, userVariables As Object, bsp as Object)
 	' Create the object to return and set it up
 	s = {}
 
-	s.version = "2.30-pre1"
+	s.version = "2.30"
 
 	s.msgPort = msgPort
 	s.userVariables = userVariables
@@ -882,6 +882,7 @@ Sub UPNPDiscoverer_ProcessDeviceXML(ev as Object)
 						    if skipVal="yes"
 						        updateUserVar(s.userVariables,skippedString, "no")
 						        print "+++ skipped player ";model;" - rebooting!"
+						        sleep(1000) 
 						        RebootSystem()
 						    end if
 						end if
@@ -897,6 +898,7 @@ Sub UPNPDiscoverer_ProcessDeviceXML(ev as Object)
 						    if skipVal="yes"
 						        updateUserVar(s.userVariables,skippedString, "no")
 						        print "+++ skipped player ";model;" - has been found, rebooting!"
+						        sleep(1000)
 						        RebootSystem()
 						    end if
 						else 
