@@ -900,19 +900,28 @@ Sub UPNPDiscoverer_ProcessDeviceXML(ev as Object)
 
 						SonosRegisterForEvents(s, s.mp, SonosDevice)
 						s.sonosDevices.push(SonosDevice)
-					else					    ' if it was previously skipped, we need to mark it as desired'
+					else					    
+					    ' if it was previously skipped, we need to mark it as desired'
+						' but ONLY if we are in a state where we are all the way up and running'
+						' if we are still booting up and configuring, we need to let that run it's course
 					    print "Sonos at ";baseURL;" is NOT desired - checking if we had skipped it before"
 
-					    skippedString=model+"Skipped"
-						if s.userVariables[skippedString] <> invalid then
-						    skipVal=s.userVariables[skippedString].currentValue$ 
-						    if skipVal="yes"
-						        updateUserVar(s.userVariables,skippedString, "no")
-						        print "+++ skipped player ";model;" - has been found, rebooting!"
-						        RebootSystem()
-						    end if
-						else 
-						    print "+++ player model ";model;" is not in the desired list - ignoring"
+					    runningState="unknown"
+						if s.userVariables["runningState"] <> invalid then
+						    runningState=s.userVariables["runningState"].currentValue$
+						end if
+						skippedString=model+"Skipped"
+						if runningState="running" then
+							if s.userVariables[skippedString] <> invalid then
+							    skipVal=s.userVariables[skippedString].currentValue$ 
+							    if skipVal="yes"
+							        updateUserVar(s.userVariables,skippedString, "no")
+							        print "+++ skipped player ";model;" - has been found, rebooting!"
+							        RebootSystem()
+							    end if
+							else 
+							    print "+++ player model ";model;" is not in the desired list - ignoring"
+							end if
 						end if
 						s.sonosDevices.push(SonosDevice)
 					end if ' desired=true'
