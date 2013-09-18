@@ -602,7 +602,7 @@ function addPlayerToDesiredListByModel(s as object, model as String,updateUserVa
 ''	    print "comparing [";model;"] to [";device.modelNumber;"]"
 	    if model=device.modelNumber then
 	        device.desired=true
-			if updateUserVar=true then
+			if (updateUserVar) then
 				if (s.userVariables[model+"Desired"] <> invalid) then
 					s.userVariables[model+"Desired"].currentValue$ = "yes"
 				end if
