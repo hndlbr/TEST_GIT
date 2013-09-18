@@ -600,14 +600,14 @@ function addPlayerToDesiredListByModel(s as object, model as String,updateUserVa
 	' we mark the device as desired but on startup this list does not yet exist
 	for each device in s.sonosDevices
 ''	    print "comparing [";model;"] to [";device.modelNumber;"]"
-	    if model=device.modelNumber
+	    if model=device.modelNumber then
 	        device.desired=true
-			if updateUserVar=true
+			if updateUserVar=true then
 				if (s.userVariables[model+"Desired"] <> invalid) then
 					s.userVariables[model+"Desired"].currentValue$ = "yes"
 				end if
 			end if
-				return device
+			return device
 	    end if
 	end for
 	return invalid
