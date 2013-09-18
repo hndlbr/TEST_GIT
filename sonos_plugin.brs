@@ -19,7 +19,7 @@ Function newSonos(msgPort As Object, userVariables As Object, bsp as Object)
 	' Create the object to return and set it up
 	s = {}
 
-	s.version = "2.30"
+	s.version = "2.32"
 
 	s.msgPort = msgPort
 	s.userVariables = userVariables
@@ -115,6 +115,9 @@ Function newSonos(msgPort As Object, userVariables As Object, bsp as Object)
     else
         print "pluginVersion user variable does not exist"
     end if
+
+    ' make certain that we set the runningState to booting no matter what state we got left in'
+    updateUserVar(s.userVariables,"runningState", "booting")
 
 	return s
 End Function
