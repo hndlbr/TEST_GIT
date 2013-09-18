@@ -938,6 +938,9 @@ Sub UPNPDiscoverer_ProcessDeviceXML(ev as Object)
 					        print "Player ";model;" is not desired"
 					    end if
 
+					    ' NEW - booting with skipped players may put us here and we need to make sure the player is marked present'
+						updateUserVar(s.userVariables,SonosDevice.modelNumber,"present")
+
 					end if
 				end if
 			end if
