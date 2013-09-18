@@ -592,7 +592,7 @@ function deletePlayerFromDeisredListByModel(s as object, model as String, update
 	end if		
 end function
 
-function addPlayerToDesiredListByModel(s as object, model as String,updateUserVar as boolean) as object
+function addPlayerToDesiredListByModel(s as object, model as String, updateUserVarFlag as boolean) as object
 	print "addPlayerToDesiredListByModel ";model
 
 	s.desiredDevices.push(model)
@@ -602,7 +602,7 @@ function addPlayerToDesiredListByModel(s as object, model as String,updateUserVa
 ''	    print "comparing [";model;"] to [";device.modelNumber;"]"
 	    if model=device.modelNumber then
 	        device.desired=true
-			if (updateUserVar) then
+			if (updateUserVarFlag) then
 				if (s.userVariables[model+"Desired"] <> invalid) then
 					s.userVariables[model+"Desired"].currentValue$ = "yes"
 				end if
