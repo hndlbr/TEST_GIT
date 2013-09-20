@@ -560,7 +560,7 @@ function deletePlayerByUDN(s as object, uuid as String) as object
 end function
 
 
-function deletePlayerFromDeisredListByModel(s as object, model as String, updateUserVar as boolean) as object
+function deletePlayerFromDeisredListByModel(s as object, model as String, updateUserVarFlag as boolean) as object
 
 	found = false
 	i = 0
@@ -580,7 +580,7 @@ function deletePlayerFromDeisredListByModel(s as object, model as String, update
 		s.desiredDevices.delete(deviceNumToDelete)
 
 		' Indicate the player is no longer desired
-		if updateUserVar=true
+		if updateUserVarFlag=true
 			if (s.userVariables[modelBeingDeleted+"Desired"] <> invalid) then
 				s.userVariables[modelBeingDeleted+"Desired"].currentValue$ = "no"
 			end if
