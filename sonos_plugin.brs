@@ -19,7 +19,7 @@ Function newSonos(msgPort As Object, userVariables As Object, bsp as Object)
 	' Create the object to return and set it up
 	s = {}
 
-	s.version = "2.33"
+	s.version = "2.34"
 
 	s.msgPort = msgPort
 	s.userVariables = userVariables
