@@ -19,7 +19,7 @@ Function newSonos(msgPort As Object, userVariables As Object, bsp as Object)
 	' Create the object to return and set it up
 	s = {}
 
-	s.version = "2.35"
+	s.version = "2.34"
 
 	s.msgPort = msgPort
 	s.userVariables = userVariables
@@ -560,8 +560,7 @@ function deletePlayerByUDN(s as object, uuid as String) as object
 end function
 
 
-' DND180 needs updateUserVar to become updateUserVarFlag to avoid a crash -  fixed in 2.34 but decided to release a 3.25 without it to eliminate risk'
-function deletePlayerFromDeisredListByModel(s as object, model as String, updateUserVar as boolean) as object
+function deletePlayerFromDeisredListByModel(s as object, model as String, updateUserVarFlag as boolean) as object
 
 	found = false
 	i = 0
@@ -577,11 +576,11 @@ function deletePlayerFromDeisredListByModel(s as object, model as String, update
 		i = i + 1
 	end while
 	if (found) then
-		print "!!! Deleting Desired Player "+modelBeingDeleted
+		print "!!! Deleting Desired Player "+model
 		s.desiredDevices.delete(deviceNumToDelete)
 
 		' Indicate the player is no longer desired
-		if updateUserVar=true
+		if updateUserVarFlag=true
 			if (s.userVariables[modelBeingDeleted+"Desired"] <> invalid) then
 				s.userVariables[modelBeingDeleted+"Desired"].currentValue$ = "no"
 			end if
@@ -3244,6 +3243,7 @@ function escapeDecode(str as String) as String
 
 	return nstr
 end function
+
 
 
 Sub PrintXML(element As Object, depth As Integer)
