@@ -576,7 +576,7 @@ function deletePlayerFromDeisredListByModel(s as object, model as String, update
 		i = i + 1
 	end while
 	if (found) then
-		print "!!! Deleting Desired Player "+modelBeingDeleted
+		print "!!! Deleting Desired Player "+model
 		s.desiredDevices.delete(deviceNumToDelete)
 
 		' Indicate the player is no longer desired
