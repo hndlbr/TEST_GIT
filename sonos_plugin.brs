@@ -3245,6 +3245,7 @@ function escapeDecode(str as String) as String
 end function
 
 
+
 Sub PrintXML(element As Object, depth As Integer)
 	print tab(depth*3);"Name: ";element.GetName()
 	if not element.GetAttributes().IsEmpty() then
