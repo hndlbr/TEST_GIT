@@ -1,0 +1,150 @@
+
+The following are the user variables used in the Sonos TGT/BBY all in one display kiosk
+
+
+pluginVersion - string
+ - reflects the version of the plugin as defined in the newSonos() function
+ - set by the plugin
+ - intended to be read only
+
+sonosVersion - string  - REQUIRED
+ - the version of Sonos firmware desired to be used by the presentation
+ - the plugin will attempt to force all *desired* players to be at this version
+
+ButtonType - 'EUCapSense' or anything else - REQUIRED
+ - if set to 'EUCapSense' then the kiosk is using the EU Cap Sense button boards instead of buttons
+ - must be set to get EU button board behavior - default is normal GPIO
+
+s1Version - string
+s3Version - string
+s5Version - string
+ - the version of Sonos firmware detected on each player
+ - intended to be read only
+
+aliveTimeoutSeconds - default is 300 - REQUIRED
+ - the time in seconds between M-SEARCH probes
+ - failure to to get an alive message in reply to two consecutive M-SEARCH messages will 'forget' that player
+
+debugPrint - 'events' or 'learn_timing' or anything else
+ - allows you to turn on more detailed logging when desired
+
+
+s1desired - yes or no - REQUIRED
+s3desired - yes or no - REQUIRED
+s5desired - yes or no - REQUIRED
+ - used to indicate if the player type is desired to be in the presentation
+ - should be set in the default value in the presentation
+ - read by the plugin primarily by isModelDesiredByUservar()
+ - is set to 'no' if the player is not found on startup
+
+s1notFoundCounter - number - REQUIRED
+s3notFoundCounter - number - REQUIRED
+s5notFoundCounter - number - REQUIRED
+ - if the given player cannot be found within the time period, the value is incremented
+ - is reset to 0 if the player is found
+ - if reaches 10 then the player is skipped (see below)
+
+s1Skipped - yes or no - REQUIRED
+s3Skipped - yes or no - REQUIRED
+s5Skipped - yes or no - REQUIRED
+ - used to indicate if the player was skipped on startup because it could not be found
+ - should be set to 'no' as the default value in the presentation
+ - is set by the plugin
+
+s1 - 'present' or 'notpresent' - REQUIRED
+s3 - 'present' or 'notpresent' - REQUIRED
+s5 - 'present' or 'notpresent' - REQUIRED
+ - set by the plugin
+ - intended to be read only by the presentation 
+
+s1RoomName - typically 'PLAY:1' - REQUIRED
+s3RoomName - typically 'PLAY:3' - REQUIRED
+s5RoomName - typically 'PLAY:5' - REQUIRED
+ - set in the presentation
+ - defines the string to be used as the room name for the player in grouping
+
+
+runningState - 'booting' or 'running' - REQUIRED
+ - set by the presentation to reflect if we are still in the boot sequence or have reached normal running state
+ - used by the plugin, especially when skipped players are found
+ - found players on booting state are expected and normal
+ - found players on running state are abnormal and should trigger a reboot
+
+s1defaultvolume - number - REQUIRED
+s3defaultvolume - number - REQUIRED
+s5defaultvolume - number - REQUIRED
+ - default volumes for the players
+ - must be set in the presentation
+ - can be over-ridden locally using the local web page
+
+s1TransportState - string 
+s3TransportState - string 
+s5TransportState - string 
+ - optional
+ - intended to be read only by the presentation
+ - reflects the player transport state as last known by GENA events
+
+cursong - number - REQUIRED
+ - integer value, starts at 1 and increments to 3, then rolls back to 1
+ - reflects the song in the sequence
+
+curdevice - 's1' or 's3 or 's5' - REQUIRED
+ - is set to the model of the player currently selected by the play buttons 
+ - basically reflects which of the players is NOT muted
+
+s1HHID - string 
+s3HHID - string 
+s5HHID - string 
+ - reflects the HHID of the players as seen from the alive messages
+ - intended to be read only by the presentation 
+
+rdmwifi - deprecated and unused
+
+s1HHIDStatus - 'pending' or 'needsUpdate' or 'valid' - deprecated
+s3HHIDStatus - 'pending' or 'needsUpdate' or 'valid' - deprecated
+s5HHIDStatus - 'pending' or 'needsUpdate' or 'valid' - deprecated
+ - formerly used to track state of upldating HHID
+ - now HHID is forced to be derived from the serial number of the Brightsign player
+
+siteHHID - string
+ - set by the plug in
+ - intended to be read only by the presentation 
+
+s1AVTransportURI - string 
+s3AVTransportURI - string 
+s5AVTransportURI - string 
+ - reflects the AVTransportURI as last seen in a GENA event
+ - intended to be read only by the presentation 
+
+s1CurrentPlayMode - string
+s3CurrentPlayMode - string
+s5CurrentPlayMode - string
+ - reflects the Current Play mode as last seen in a GENA event
+ - intended to be read only by the presentation 
+ 
+
+s1SleepTimerGeneration - string
+s3SleepTimerGeneration - string
+s5SleepTimerGeneration - string
+ - reflects the value of the sleep timer as last seen in a GENA event
+ - intended to be read only by the presentation 
+
+LMDebounce - 'no' or 'yes' 
+ - defaults to no
+ - set after entering Learn More state 
+ - cleared after to 2 seconds by default in the presentation
+ - while set the presentation basically ignores that GPIO input, 'debouncing' the switch
+
+statusMessage - string
+ - set by the presentation
+ - used as a live text field to communicate the state of the boot process for the user
+
+requiresParameterReset - deprecated and unused 
+requiresManualUpdate - deprecated and unused
+ - we no longer use this since we don't support the scenario of tracking which players need updates
+ - we now display a message and ask for external updates
+
+manualUpdateMessage - string
+ - used by the plugin to signal detailed information to present to the user
+ - intended to be read only by the presentation 
+
