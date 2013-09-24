@@ -1,11 +1,10 @@
 
 The following are the user variables used in the Sonos TGT/BBY all in one display kiosk
 
-
 pluginVersion - string
  - reflects the version of the plugin as defined in the newSonos() function
  - set by the plugin
- - intended to be read only
+ - intended to be read only by the presentation
 
 sonosVersion - string  - REQUIRED
  - the version of Sonos firmware desired to be used by the presentation
@@ -19,15 +18,18 @@ s1Version - string
 s3Version - string
 s5Version - string
  - the version of Sonos firmware detected on each player
- - intended to be read only
+ - intended to be read only by the presentation
 
-aliveTimeoutSeconds - default is 300 - REQUIRED
+aliveTimeoutSeconds - default is 600 seconds 
  - the time in seconds between M-SEARCH probes
  - failure to to get an alive message in reply to two consecutive M-SEARCH messages will 'forget' that player
+ - if not present will be set to 600 seconds
 
-debugPrint - 'events' or 'learn_timing' or anything else
+debugPrint - 'events' or 'learn_timing' 
  - allows you to turn on more detailed logging when desired
-
+ - 'events' enables detailed debug prints of GENA payloads
+ - 'learn_timing' enables timing debug prints - may affect performance
+ - strings may be concatenated split with a semicolon to enable more than one
 
 s1desired - yes or no - REQUIRED
 s3desired - yes or no - REQUIRED
@@ -70,12 +72,15 @@ runningState - 'booting' or 'running' - REQUIRED
  - found players on booting state are expected and normal
  - found players on running state are abnormal and should trigger a reboot
 
-s1defaultvolume - number - REQUIRED
-s3defaultvolume - number - REQUIRED
-s5defaultvolume - number - REQUIRED
+
+s1defaultvolume - number
+s3defaultvolume - number
+s5defaultvolume - number
  - default volumes for the players
  - must be set in the presentation
  - can be over-ridden locally using the local web page
+ - if not present as a user variable it defaults to 15
+
 
 s1TransportState - string 
 s3TransportState - string 
@@ -87,10 +92,14 @@ s5TransportState - string
 cursong - number - REQUIRED
  - integer value, starts at 1 and increments to 3, then rolls back to 1
  - reflects the song in the sequence
+ - completely used in the presentation, not in the plugin
+
 
 curdevice - 's1' or 's3 or 's5' - REQUIRED
  - is set to the model of the player currently selected by the play buttons 
  - basically reflects which of the players is NOT muted
+ - completely used in the presentation, not in the plugin
+
 
 s1HHID - string 
 s3HHID - string 
@@ -98,23 +107,26 @@ s5HHID - string
  - reflects the HHID of the players as seen from the alive messages
  - intended to be read only by the presentation 
 
-rdmwifi - deprecated and unused
 
 s1HHIDStatus - 'pending' or 'needsUpdate' or 'valid' - deprecated
 s3HHIDStatus - 'pending' or 'needsUpdate' or 'valid' - deprecated
 s5HHIDStatus - 'pending' or 'needsUpdate' or 'valid' - deprecated
- - formerly used to track state of upldating HHID
+ - formerly used to track state of updating HHID
  - now HHID is forced to be derived from the serial number of the Brightsign player
+ - deprecated and should be removed in a future version
+
 
 siteHHID - string
- - set by the plug in
+ - set by the plug in based on the serial number of the Brightsign player
  - intended to be read only by the presentation 
+
 
 s1AVTransportURI - string 
 s3AVTransportURI - string 
 s5AVTransportURI - string 
  - reflects the AVTransportURI as last seen in a GENA event
  - intended to be read only by the presentation 
+
 
 s1CurrentPlayMode - string
 s3CurrentPlayMode - string
@@ -129,22 +141,31 @@ s5SleepTimerGeneration - string
  - reflects the value of the sleep timer as last seen in a GENA event
  - intended to be read only by the presentation 
 
+
 LMDebounce - 'no' or 'yes' 
  - defaults to no
  - set after entering Learn More state 
  - cleared after to 2 seconds by default in the presentation
  - while set the presentation basically ignores that GPIO input, 'debouncing' the switch
+ - completely used in the presentation, not in the plugin
 
 statusMessage - string
  - set by the presentation
  - used as a live text field to communicate the state of the boot process for the user
+ - completely used in the presentation, not in the plugin
 
 requiresParameterReset - deprecated and unused 
 requiresManualUpdate - deprecated and unused
  - we no longer use this since we don't support the scenario of tracking which players need updates
  - we now display a message and ask for external updates
+ - deprecated and should be removed in a future version
+
 
 manualUpdateMessage - string
  - used by the plugin to signal detailed information to present to the user
  - intended to be read only by the presentation 
+ - completely used in the presentation, not in the plugin
+
+rdmwifi 
+ - deprecated and should be removed in a future version
 
