@@ -19,7 +19,7 @@ Function newSonos(msgPort As Object, userVariables As Object, bsp as Object)
 	' Create the object to return and set it up
 	s = {}
 
-	s.version = "2.35"
+	s.version = "2.36"
 
 	s.msgPort = msgPort
 	s.userVariables = userVariables
@@ -1217,26 +1217,50 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 				else
 					volincrease=abs(val(detail))
 				end if
-				sonosDevice.volume = sonosDevice.volume + volincrease
-				if (sonosDevice.volume > 100) then
-					sonosDevice.volume = 100
+				if (devType <> "sall") then
+					sonosDevice.volume = sonosDevice.volume + volincrease
+					if (sonosDevice.volume > 100) then
+						sonosDevice.volume = 100
+					end if
+					'TIMING print "Sending Volume Up "+str(volincrease)+ " to "+str(sonosDevice.volume);" at: ";sonos.st.GetLocalDateTime()
+					xfer = SonosSetVolume(sonos.mp, sonosDevice.baseURL, sonosDevice.volume)
+					sonos.xferObjects.push(xfer)
+				else ' sall - increase volume on all devices
+					sonosDevices=sonos.sonosDevices
+					for each device in sonosDevices
+						device.volume = device.volume + volincrease
+						if (device.volume > 100) then
+							device.volume = 100
+						end if
+						xfer = SonosSetVolume(sonos.mp, device.baseURL, device.volume)
+						sonos.xferObjects.push(xfer)
+					end for
 				end if
-				'TIMING print "Sending Volume Up "+str(volincrease)+ " to "+str(sonosDevice.volume);" at: ";sonos.st.GetLocalDateTime()
-				xfer = SonosSetVolume(sonos.mp, sonosDevice.baseURL, sonosDevice.volume)
-				sonos.xferObjects.push(xfer)
 			else if command="voldown" then
 				if detail="" then
 					voldecrease = 1
 				else
 					voldecrease=abs(val(detail))
 				end if
-				sonosDevice.volume = sonosDevice.volume - voldecrease
-				if (sonosDevice.volume < 0) then
-					sonosDevice.volume = 0
+				if (devType <> "sall") then
+					sonosDevice.volume = sonosDevice.volume - voldecrease
+					if (sonosDevice.volume < 0) then
+						sonosDevice.volume = 0
+					end if
+					'TIMING print "Sending Volume Down "+str(voldecrease)+ " to "+str(sonosDevice.volume);" at: ";sonos.st.GetLocalDateTime()
+					xfer = SonosSetVolume(sonos.mp, sonosDevice.baseURL, sonosDevice.volume)
+					sonos.xferObjects.push(xfer)
+				else ' sall - increase volume on all devices
+					sonosDevices=sonos.sonosDevices
+					for each device in sonosDevices
+						device.volume = device.volume - voldecrease
+						if (device.volume < 0) then
+							device.volume = 0
+						end if
+						xfer = SonosSetVolume(sonos.mp, device.baseURL, device.volume)
+						sonos.xferObjects.push(xfer)
+					end for
 				end if
-				'TIMING print "Sending Volume Down "+str(voldecrease)+ " to "+str(sonosDevice.volume);" at: ";sonos.st.GetLocalDateTime()
-				xfer = SonosSetVolume(sonos.mp, sonosDevice.baseURL, sonosDevice.volume)
-				sonos.xferObjects.push(xfer)
 			else if command="setplaymode" then
 				SonosSetPlayMode(sonos, sonosDevice)
 			else if command="resetbasiceq" then
