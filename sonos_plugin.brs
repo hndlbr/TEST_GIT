@@ -19,7 +19,7 @@ Function newSonos(msgPort As Object, userVariables As Object, bsp as Object)
 	' Create the object to return and set it up
 	s = {}
 
-	s.version = "2.36"
+	s.version = "2.37"
 
 	s.msgPort = msgPort
 	s.userVariables = userVariables
@@ -279,6 +279,7 @@ Sub PrintAllSonosDevices(s as Object)
 		print "++ device t-state:  "+device.transportstate
 		print "++ device t-sid:    "+device.avTransportSID
 		print "++ device r-sid:    "+device.renderingSID
+		print "++ device ac-sid:   "+device.alarmClockSID
 		print "++ device hhid:     "+device.hhid
 		print "++ device uuid:     "+device.uuid
 		print "++ device software: "+device.softwareVersion
@@ -308,6 +309,7 @@ Sub PrintAllSonosDevicesState(s as Object)
 		print "++ device t-state:  "+device.transportstate
 		print "++ device t-sid:    "+device.avTransportSID
 		print "++ device r-sid:    "+device.renderingSID
+		print "++ device ac-sid:   "+device.alarmClockSID
 		print "++ transportState:  "+device.transportstate
 		print "++ AVtransportURI:  "+device.AVTransportURI
 		print "++ currentPlayMode: "+device.CurrentPlayMode
@@ -979,7 +981,7 @@ end Function
 
 
 Sub newSonosDevice(device as Object) as Object
-	sonosDevice = { baseURL: "", deviceXML: invalid, modelNumber: "", modelDescription: "", UDN: "", deviceType: "", hhid: "none", uuid: "", avTransportSID: "",renderingSID: "", softwareVersion: ""}
+	sonosDevice = { baseURL: "", deviceXML: invalid, modelNumber: "", modelDescription: "", UDN: "", deviceType: "", hhid: "none", uuid: "", avTransportSID: "", renderingSID: "", alarmClockSID: "", softwareVersion: ""}
 	sonosDevice.baseURL = GetBaseURLFromLocation(device.location)
 	sonosDevice.deviceXML = device.deviceXML
 	sonosDevice.modelNumber = lcase(device.deviceXML.device.modelNumber.getText())
@@ -993,6 +995,8 @@ Sub newSonosDevice(device as Object) as Object
 	sonosDevice.CurrentPlayMode = "NORMAL"
 	sonosDevice.AVTransportURI = "none"
 	sonosDevice.SleepTimerGeneration = 0
+	sonosDevice.AlarmListVersion = -1
+	sonosDevice.AlarmCheckNeeded = "yes"
 	sonosDevice.hhid=device.hhid
 	sonosDevice.uuid=device.uuid
 	sonosDevice.softwareVersion=lcase(device.deviceXML.device.softwareVersion.getText())
@@ -1181,7 +1185,7 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 					xfer = SonosSetMute(sonos.mp, sonosDevice.baseURL,1) 
 					sonos.xferObjects.push(xfer)
 				'else
-				    'print "+++ device already muted - ignorning command"
+				    'print "+++ device already muted - ignoring command"
 					'postNextCommandInQueue(sonos, sonosDevice.baseURL)
 				'end if
 			else if command="flush" then
@@ -1194,7 +1198,7 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 					xfer = SonosSetMute(sonos.mp, sonosDevice.baseURL,0) 
 					sonos.xferObjects.push(xfer)
 				'else
-				    'print "+++ device not muted - ignorning command"
+				    'print "+++ device not muted - ignoring command"
 					'postNextCommandInQueue(sonos, sonosDevice.baseURL)
 				'end if
 			else if command="volume" then
@@ -1273,6 +1277,15 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 			    ' parse the detail?
 			    timeout=""
 				SonosSetSleepTimer(sonos, sonosDevice,timeout)
+			else if command="checkalarm" then
+				if (devType <> "sall") then
+					SonosCheckAlarm(sonos, sonosDevice)
+				else
+					sonosDevices=sonos.sonosDevices
+					for each device in sonosDevices
+						SonosCheckAlarm(sonos, device)
+					end for
+				end if
 			else if command="playmp3" then
 				' print "Playing MP3"
 				'TIMING print "Playing MP3 on "+sonosDevice.modelNumber" at: ";sonos.st.GetLocalDateTime()
@@ -2008,7 +2021,6 @@ Sub SonosSetSleepTimer(sonos as object, sonosDevice as object, timeout as string
 end Sub
 
 
-
 Sub SonosResetBasicEQ(mp as object, connectedPlayerIP as string) as object
 
 	xmlString="<?xml version="+chr(34)+"1.0"+chr(34)+" encoding="+chr(34)+"utf-8"+chr(34)+" standalone="+chr(34)+"yes"+chr(34)
@@ -2048,7 +2060,6 @@ Sub SonosResetBasicEQ(mp as object, connectedPlayerIP as string) as object
 
 	return sTransfer
 end Sub
-
 
 
 Sub SonosGetSleepTimer(mp as object, connectedPlayerIP as string) as object
@@ -2091,7 +2102,101 @@ Sub SonosGetSleepTimer(mp as object, connectedPlayerIP as string) as object
 	return sTransfer
 end Sub
 
+Sub SonosCheckAlarm(sonos as object, sonosDevice as object)
 
+	if sonosDevice.AlarmCheckNeeded = "yes" then
+	
+		' Get Alarm List
+		connectedPlayerIP = sonosDevice.baseURL
+		mp = sonos.mp
+		
+		xmlString="<?xml version="+chr(34)+"1.0"+chr(34)+" encoding="+chr(34)+"utf-8"+chr(34)+" standalone="+chr(34)+"yes"+chr(34)
+		xmlString=xmlString+" ?><s:Envelope s:encodingStyle="+chr(34)
+		xmlString=xmlString+"http://schemas.xmlsoap.org/soap/encoding/"+chr(34)
+		xmlString=xmlString+" xmlns:s="+chr(34)+"http://schemas.xmlsoap.org/soap/envelope/"
+		xmlString=xmlString+chr(34)+"><s:Body><u:ListAlarms xmlns:u="+chr(34)
+		xmlString=xmlString+"urn:schemas-upnp-org:service:AlarmClock:1"+chr(34)
+		xmlString=xmlString+" /></s:Body></s:Envelope>"
+
+		sTransfer = CreateObject("roUrlTransfer")
+		sTransfer.SetMinimumTransferRate( 2000, 1 )
+		sTransfer.SetPort( mp )
+
+		sonosReqData=CreateObject("roAssociativeArray")
+		sonosReqData["type"]="ListAlarms"
+		sonosReqData["dest"]=connectedPlayerIP
+		sTransfer.SetUserData(sonosReqData)
+
+		sTransfer.SetUrl( connectedPlayerIP + "/AlarmClock/Control")
+		ok = sTransfer.addHeader("SOAPACTION", "urn:schemas-upnp-org:service:AlarmClock:1#ListAlarms")
+		if not ok then
+			stop
+		end if
+		ok = sTransfer.addHeader("Content-Type", "text/xml; charset="+ chr(34) + "utf-8" + chr(34))
+		if not ok then
+			stop
+		end if
+		
+		print "Executing ListAlarms: ";connectedPlayerIP
+		ok = sTransfer.AsyncPostFromString(xmlString)
+		if not ok then
+			stop
+		end if
+		sonos.xferObjects.push(sTransfer)
+
+		if sonos.masterDevice=sonosDevice.modelNumber then
+			sonosDevices=sonos.sonosDevices
+			for each device in sonosDevices
+				device.AlarmCheckNeeded = "no"
+			end for
+		else
+			sonosDevice.AlarmCheckNeeded = "no"
+		end if
+		
+	else
+		print "Alarm Check not needed, device: " + sonosDevice.modelNumber
+	end if
+
+end Sub
+
+Function SonosDestroyAlarm(mp as object, connectedPlayerIP as string, alarmId as string) as object
+
+	xmlString="<?xml version="+chr(34)+"1.0"+chr(34)+" encoding="+chr(34)+"utf-8"+chr(34)+" standalone="+chr(34)+"yes"+chr(34)
+	xmlString=xmlString+" ?><s:Envelope s:encodingStyle="+chr(34)
+	xmlString=xmlString+"http://schemas.xmlsoap.org/soap/encoding/"+chr(34)
+	xmlString=xmlString+" xmlns:s="+chr(34)+"http://schemas.xmlsoap.org/soap/envelope/"
+	xmlString=xmlString+chr(34)+"><s:Body><u:DestroyAlarm xmlns:u="+chr(34)
+	xmlString=xmlString+"urn:schemas-upnp-org:service:AlarmClock:1"+chr(34)
+	xmlString=xmlString+"><ID>"+alarmId+"</ID></u:DestroyAlarm></s:Body></s:Envelope>"
+
+	sTransfer = CreateObject("roUrlTransfer")
+	sTransfer.SetMinimumTransferRate( 2000, 1 )
+	sTransfer.SetPort( mp )
+
+	sonosReqData=CreateObject("roAssociativeArray")
+	sonosReqData["type"]="DestroyAlarm"
+	sonosReqData["dest"]=connectedPlayerIP
+	sTransfer.SetUserData(sonosReqData)
+
+	sTransfer.SetUrl( connectedPlayerIP + "/AlarmClock/Control")
+	ok = sTransfer.addHeader("SOAPACTION", "urn:schemas-upnp-org:service:AlarmClock:1#DestroyAlarm")
+	if not ok then
+		stop
+	end if
+	ok = sTransfer.addHeader("Content-Type", "text/xml; charset="+ chr(34) + "utf-8" + chr(34))
+	if not ok then
+		stop
+	end if
+	
+	print "Executing DestroyAlarm, ID: "+alarmId+", address: "+connectedPlayerIP
+	ok = sTransfer.AsyncPostFromString(xmlString)
+	if not ok then
+		stop
+	end if
+	
+	return sTransfer
+	
+end Function
 
 Sub SonosSetPlayMode(sonos as object, sonosDevice as object) 
 
@@ -2466,6 +2571,35 @@ Function processSonosGroupResponse(msg as object, connectedPlayerIP as string, s
 End Function
 
 
+Function processSonosAlarmCheck(msg as object, connectedPlayerIP as string, sonos as Object)
+
+	print "processSonosListAlarms from " + connectedPlayerIP
+
+	match="<CurrentAlarmList>"
+	pos1=instr(1,msg,match)
+	pos2=instr(pos1+len(match)+1,msg,"</CurrentAlarmList>")
+	if pos1 > 0 then
+		pos1=pos1+len(match)
+		s=mid(msg,pos1,pos2-pos1)
+		alStr = escapedecode(s)
+		print "CurrentAlarmList: " + alStr
+		
+		xml=CreateObject("roXMLElement")
+		xml.Parse(alStr)
+		
+		alarms = xml.GetNamedElements("Alarm")
+		for each x in xml.GetChildElements()
+			id = x@ID
+			if id <> invalid then
+				xfer = SonosDestroyAlarm(sonos.mp, connectedPlayerIP, id)
+				sonos.xferObjects.push(xfer)
+			end if
+		end for
+		
+	end if
+	
+end Function
+
 Function stripIP(baseURL as string) as string
 
 	match="//"
@@ -2521,13 +2655,19 @@ Function HandleSonosXferEvent(msg as object, sonos as object) as boolean
 						processSonosRDMResponse(msg,connectedPlayerIP,sonos)
 					else if reqData="GetMute" then
 						processSonosMuteResponse(msg,connectedPlayerIP,sonos)
+					else if reqData="ListAlarms" then
+						processSonosAlarmCheck(msg,connectedPlayerIP,sonos)
 				    else if reqData="RegisterForAVTransportEvent" then
 					    OnGenaSubscribeResponse(sonosReqData,msg, sonos)
 					else if reqData="RegisterForRenderingControlEvent" then
 					    OnGenaSubscribeResponse(sonosReqData,msg, sonos)
+					else if reqData="RegisterForAlarmClockEvent" then
+					    OnGenaSubscribeResponse(sonosReqData,msg, sonos)
 				    else if reqData="RenewRegisterForAVTransportEvent" then
 					    OnGenaRenewResponse(sonosReqData,msg, sonos)
 					else if reqData="RenewRegisterForRenderingControlEvent" then
+					    OnGenaRenewResponse(sonosReqData,msg, sonos)
+					else if reqData="RenewRegisterForAlarmClockEvent" then
 					    OnGenaRenewResponse(sonosReqData,msg, sonos)
 					end if
 				end if		
@@ -2778,9 +2918,12 @@ Function SonosRegisterForEvents(sonos as Object, mp as Object,device as Object) 
 	' SUBSCRIBE to events - requires 4.5.18 or later '
 	avtransport_event_handler = { name: "AVTransport", HandleEvent: OnAVTransportEvent, SonosDevice: device, sonos:sonos}
 	renderingcontrol_event_handler = { name: "RenderingControl", HandleEvent: OnRenderingControlEvent, SonosDevice: device, sonos:sonos}
+	' DND-10 we listen for alarm clock events so we can turn alarms off if they get set
+	alarmclock_event_handler = { name: "AlarmClock", HandleEvent: OnAlarmClockEvent, SonosDevice: device, sonos:sonos}
 
 	sAVT="/gena/avtransport/"+device.UDN
 	sRC ="/gena/renderingconrol/"+device.UDN
+	sACLK = "/gena/alarmclock/"+device.UDN
 
 	if not sonos.server.AddMethodToString({ method: "NOTIFY", url_path: sAVT, user_data: avtransport_event_handler }) then
 		print "FAILURE:  cannot register a local URL for Sonos avtransport notifications"
@@ -2788,6 +2931,10 @@ Function SonosRegisterForEvents(sonos as Object, mp as Object,device as Object) 
 
 	if not sonos.server.AddMethodToString({ method: "NOTIFY", url_path: sRC , user_data: renderingcontrol_event_handler }) then
 		print "FAILURE:  cannot register a local URL for Sonos rendering notifications"
+	end if
+
+	if not sonos.server.AddMethodToString({ method: "NOTIFY", url_path: sACLK , user_data: alarmclock_event_handler }) then
+		print "FAILURE:  cannot register a local URL for Sonos alarm clock notifications"
 	end if
 
 	sonosReqData=CreateObject("roAssociativeArray")
@@ -2841,6 +2988,29 @@ Function SonosRegisterForEvents(sonos as Object, mp as Object,device as Object) 
 		stop
 	end if
 
+	sonosReqData3=CreateObject("roAssociativeArray")
+	sonosReqData3["type"]="RegisterForAlarmClockEvent"
+	sonosReqData3["dest"]=device.baseURL
+
+	eventRegister3 = CreateObject("roUrlTransfer")
+	eventRegister3.SetMinimumTransferRate( 2000, 1 )
+	eventRegister3.SetPort( mp )
+	sURL3=device.baseURL+"/AlarmClock/Event"
+	sHeader3="<http://"+ipAddress+":111"+sACLK+">"
+	' print "Setting Sonos at ["+sURL3+"] to use callback at ["+sHeader3+"]"
+	eventRegister3.SetUrl(sURL3)
+	eventRegister3.AddHeader("Callback", sHeader3)
+	eventRegister3.AddHeader("NT", "upnp:event")
+	eventRegister3.AddHeader("Timeout", "Second-7200")
+  
+	eventRegister3.SetUserData(sonosReqData3)
+	sonos.xferObjects.push(eventRegister3)
+
+	if not eventRegister3.AsyncMethod({ method: "SUBSCRIBE", response_body_string: true }) then
+		print "Failed to send SUBSCRIBE request: "; eventRegister3.GetFailureReason()
+		stop
+	end if
+
 end Function
 
 
@@ -2864,6 +3034,8 @@ Sub OnGenaSubscribeResponse(userData as object,e as Object, s as object)
 				s.sonosDevices[i].avTransportSID = SID
 			else if (reqType = "RegisterForRenderingControlEvent") then
 				s.sonosDevices[i].renderingSID = SID
+			else if (reqType = "RegisterForAlarmClockEvent") then
+				s.sonosDevices[i].alarmClockSID = SID
 			end if
 		end if
 	end for
@@ -2886,7 +3058,6 @@ Function SonosRenewRegisterForEvents(sonos as Object)
 			eventRegister.SetUrl(sURL)
 
 			'  Add the headers for renewing, we only need 2, SID and Timeout
-			' avTransportSID: "",renderingSID 
 			eventRegister.AddHeader("SID", device.avTransportSID)
 			eventRegister.AddHeader("Timeout", "Second-7200")
 
@@ -2910,12 +3081,11 @@ Function SonosRenewRegisterForEvents(sonos as Object)
 			eventRegister2.SetMinimumTransferRate( 2000, 1 )
 			eventRegister2.SetPort( sonos.msgPort )
 
-			' Set the URL for the AVTransport Events
+			' Set the URL for the RenderingControl Events
 			sURL2=device.baseURL+"/MediaRenderer/RenderingControl/Event"
 			eventRegister2.SetUrl(sURL2)
 
 			'  Add the headers for renewing, we only need 2, SID and Timeout
-			' avTransportSID: "",renderingSID 
 			eventRegister2.AddHeader("SID", device.renderingSID)
 			eventRegister2.AddHeader("Timeout", "Second-7200")
 
@@ -2934,9 +3104,37 @@ Function SonosRenewRegisterForEvents(sonos as Object)
 				sonos.xferObjects.push(eventRegister2)
 			end if
 
+			' Set up the Transfer Object for Alarm Clock
+			eventRegister3 = CreateObject("roUrlTransfer")
+			eventRegister3.SetMinimumTransferRate( 2000, 1 )
+			eventRegister3.SetPort( sonos.msgPort )
+
+			' Set the URL for the AlarmClock Events
+			sURL3=device.baseURL+"/AlarmClock/Event"
+			eventRegister3.SetUrl(sURL3)
+
+			'  Add the headers for renewing, we only need 2, SID and Timeout
+			eventRegister3.AddHeader("SID", device.alarmClockSID)
+			eventRegister3.AddHeader("Timeout", "Second-7200")
+
+			' Set up the request data so we get http return we know where it came from
+			sonosReqData3=CreateObject("roAssociativeArray")
+			sonosReqData3["type"]="RenewRegisterForAlarmClockEvent"
+			sonosReqData3["dest"]=device.baseURL
+			eventRegister3.SetUserData(sonosReqData3)
+
+			' Start the renew request
+			if not eventRegister3.AsyncMethod({ method: "SUBSCRIBE", response_body_string: true }) then
+				print "Failed to send SUBSCRIBE request: "; eventRegister3.GetFailureReason()
+				stop
 			else
-			    print "player ";device.modelNumber;" is not desired by this presentation"
+				' put the request in the list 
+				sonos.xferObjects.push(eventRegister3)
 			end if
+
+		else
+			print "player ";device.modelNumber;" is not desired by this presentation"
+		end if
 	end for
 
 end Function
@@ -2952,10 +3150,12 @@ Sub OnGenaRenewResponse(userData as object,e as Object, s as object)
 
 	for i = 0 to s.sonosDevices.count() - 1
 		if (s.sonosDevices[i].baseURL = sonosPlayerBaseUrl) then
-			if (reqType = "RegisterForAVTransportEvent") then
+			if (reqType = "RenewRegisterForAVTransportEvent") then
 				s.sonosDevices[i].avTransportSID = SID
-			else if (reqType = "RegisterForRenderingControlEvent") then
+			else if (reqType = "RenewRegisterForRenderingControlEvent") then
 				s.sonosDevices[i].renderingSID = SID
+			else if (reqType = "RenewRegisterForAlarmClockEvent") then
+				s.sonosDevices[i].alarmClockSID = SID
 			end if
 		end if
 	end for
@@ -3060,8 +3260,6 @@ Function CheckForeignPlayback(s as Object, modelNumber as string, AVTransportURI
 	    print "+++ unable to find device for master";s.masterDevice
 	    return false
 	end if
-
-
 
 	device=GetDeviceByPlayerModel(s.sonosDevices, modelNumber)
 
@@ -3174,6 +3372,42 @@ Sub OnRenderingControlEvent(userdata as Object, e as Object)
     end if
 End Sub
 
+Sub OnAlarmClockEvent(userdata as Object, e as Object)
+	s = userData.sonos
+    'TIMING print "Alarm Clock Event at: ";s.st.GetLocalDateTime()
+    'print e.GetRequestHeaders()
+   	if s.debugPrintEvents=true
+	print "+++ OnAlarmClockEvent:"
+	    print e.GetRequestHeaders()
+	    print e.GetRequestBodyString()
+    end if
+
+    sonosDevice=userData.SonosDevice    
+
+    rsp=CreateObject("roXMLElement")
+	rsp.Parse(e.GetRequestBodyString())
+	
+	rx = CreateObject("roRegex", ":", "i")
+
+	changed = false
+    vals = rsp.GetNamedElements("e:property")
+    for each x in vals.GetChildElements()
+    	name=x.GetName()
+		if name="AlarmListVersion"
+			ver = x.GetText()
+			sec = rx.split(ver)
+			if sec.count() > 1 then
+				ver = sec[1]
+			end if
+			updateDeviceVariable(s, sonosDevice, "AlarmListVersion", ver)
+		end if	
+    end for
+
+    if not e.SendResponse(200) then
+		stop
+    end if
+End Sub
+
 Sub updateDeviceVariable(sonos as object, sonosDevice as object, variable as string, value as string)
 
 	if variable = "Volume" then
@@ -3200,6 +3434,15 @@ Sub updateDeviceVariable(sonos as object, sonosDevice as object, variable as str
 		print "SleepTimerGeneration at (";sonosDevice.modelNumber;") {"+sonosDevice.UDN+"} is ["+value+"]"
 		sonosDevice.SleepTimerGeneration = val(value)
 		updateDeviceUserVariable(sonos, sonosDevice, variable, value)
+	else if variable = "AlarmListVersion" then
+		print "AlarmListVersion at (";sonosDevice.modelNumber;") {"+sonosDevice.UDN+"} is ["+value+"]"
+		last = sonosDevice.AlarmListVersion
+		sonosDevice.AlarmListVersion = val(value)
+		if (last <> sonosDevice.AlarmListVersion) then
+			print "AlarmListVersionChanged, set "+sonosDevice.modelNumber+"AlarmCheckNeeded = yes"
+			sonosDevice.AlarmCheckNeeded = "yes"
+			updateDeviceUserVariable(sonos, sonosDevice, "AlarmCheckNeeded", "yes")
+		end if 
 	end if
 
 	print "updateDeviceVariable"
