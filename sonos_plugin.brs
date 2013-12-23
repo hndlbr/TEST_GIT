@@ -19,7 +19,22 @@ Function newSonos(msgPort As Object, userVariables As Object, bsp as Object)
 	' Create the object to return and set it up
 	s = {}
 
-	s.version = "2.37"
+	s.version = "2.38"
+
+	s.configVersion = "1.0"
+	registrySection = CreateObject("roRegistrySection", "networking")
+    if type(registrySection)="roRegistrySection" then
+		value$ = registrySection.Read("cfv")
+		if Len(value$) > 0 then
+			s.configVersion = value$
+		else
+			' If no time server, assume config 1.1
+			value$ = registrySection.Read("ts")
+			if type(value$)<>"roString" or value$.Len()=0 then
+				s.configVersion = "1.1"
+			end if
+		end if
+	end if
 
 	s.msgPort = msgPort
 	s.userVariables = userVariables
@@ -115,6 +130,19 @@ Function newSonos(msgPort As Object, userVariables As Object, bsp as Object)
     else
         print "pluginVersion user variable does not exist"
     end if
+
+    print "***************************  Sonos config version ";s.configVersion;"*************************** "
+    if s.userVariables["configVersion"] <> invalid
+	    updateUserVar(s.userVariables,"configVersion",s.configVersion)
+    else
+        print "configVersion user variable does not exist"
+    end if
+	
+	' set up infoString variable with version numbers, if default value = "versions"
+	if s.userVariables["infoString"] <> invalid and s.userVariables["infoString"].currentValue$ = "versions" then
+		info$ = s.version + " / " + s.configVersion
+		updateUserVar(s.userVariables,"infoString",info$)
+	end if
 
     ' make certain that we set the runningState to booting no matter what state we got left in'
     updateUserVar(s.userVariables,"runningState", "booting")
@@ -276,7 +304,6 @@ Sub PrintAllSonosDevices(s as Object)
 		print "++ device volume:   "+str(device.volume)
 		print "++ device rdm:      "+str(device.rdm)
 		print "++ device mute:     "+str(device.mute)
-		print "++ device t-state:  "+device.transportstate
 		print "++ device t-sid:    "+device.avTransportSID
 		print "++ device r-sid:    "+device.renderingSID
 		print "++ device ac-sid:   "+device.alarmClockSID
@@ -300,13 +327,43 @@ Sub PrintAllSonosDevices(s as Object)
 	end for
 End Sub
 
+Sub LogAllSonosDevices(s as Object)
+
+	devices = s.devices
+	diagId = "Sonos"
+	s.bsp.logging.WriteDiagnosticLogEntry(diagId, "Plugin Version " + s.version + ", Config Version " + s.configVersion)
+	for each device in s.sonosDevices
+		desired$ = " desired: "
+		if device.desired=true
+		    desired$ = desired$ + "true,"
+		else
+		    desired$ = desired$ + "false,"
+		end if 
+		alive$ = " alive: "
+		if device.alive=true
+		    alive$ = alive$ + "true,"
+		else
+		    alive$ = alive$ + "false,"
+		end if 
+		s.bsp.logging.WriteDiagnosticLogEntry(diagId, device.modelNumber + desired$ + alive$ + " software: " + device.softwareVersion + ", rdm: " + str(device.rdm) + ", bootseq: " + device.bootseq)
+		s.bsp.logging.WriteDiagnosticLogEntry(diagId, device.modelNumber + " URL: " + device.baseURL)
+		s.bsp.logging.WriteDiagnosticLogEntry(diagId, device.modelNumber + " UDN: " + device.UDN)
+		s.bsp.logging.WriteDiagnosticLogEntry(diagId, device.modelNumber + " type: " + device.deviceType)
+		s.bsp.logging.WriteDiagnosticLogEntry(diagId, device.modelNumber + " hhid: " + device.hhid + ", uuid: " + device.uuid)
+		s.bsp.logging.WriteDiagnosticLogEntry(diagId, device.modelNumber + " transportState: " + device.transportstate + ", playMode: " + device.CurrentPlayMode + ", volume: " + str(device.volume) + ", mute: " + str(device.mute))
+		s.bsp.logging.WriteDiagnosticLogEntry(diagId, device.modelNumber + " transport URI: " + device.AVTransportURI)
+		s.bsp.logging.WriteDiagnosticLogEntry(diagId, device.modelNumber + " transport sid: " + device.avTransportSID)
+		s.bsp.logging.WriteDiagnosticLogEntry(diagId, device.modelNumber + " render sid: " + device.renderingSID)
+		s.bsp.logging.WriteDiagnosticLogEntry(diagId, device.modelNumber + " alarmClock sid: " + device.alarmClockSID)
+	end for
+
+End Sub
 
 Sub PrintAllSonosDevicesState(s as Object) 
 	devices = s.devices
         print "-- master device:   ";s.masterDevice
 	for each device in s.sonosDevices
 		print "++ device model:    "+device.modelNumber
-		print "++ device t-state:  "+device.transportstate
 		print "++ device t-sid:    "+device.avTransportSID
 		print "++ device r-sid:    "+device.renderingSID
 		print "++ device ac-sid:   "+device.alarmClockSID
@@ -393,7 +450,7 @@ Sub OnFound(response as String)
 	    'print "@@@@@@@@@@@@@ 200 response: ";response
 		SendXMLQuery(m.s, response)
 	else if left(response, 6) = "NOTIFY" then
-	    'print "@@@@@@@@@@@@@ NOTIFY respose: ";response
+	    'print "@@@@@@@@@@@@@ NOTIFY response: ";response
 		'print "Received NOTIFY event"
 		hhid=GetHouseholdFromUPNPMessage(response)
 		bootseq=GetBootSeqFromUPNPMessage(response)
@@ -562,8 +619,7 @@ function deletePlayerByUDN(s as object, uuid as String) as object
 end function
 
 
-' DND180 needs updateUserVar to become updateUserVarFlag to avoid a crash -  fixed in 2.34 but decided to release a 3.25 without it to eliminate risk'
-function deletePlayerFromDeisredListByModel(s as object, model as String, updateUserVar as boolean) as object
+function deletePlayerFromDeisredListByModel(s as object, model as String, updateUserVarFlag as boolean) as object
 
 	found = false
 	i = 0
@@ -583,7 +639,7 @@ function deletePlayerFromDeisredListByModel(s as object, model as String, update
 		s.desiredDevices.delete(deviceNumToDelete)
 
 		' Indicate the player is no longer desired
-		if updateUserVar=true
+		if updateUserVarFlag=true
 			if (s.userVariables[modelBeingDeleted+"Desired"] <> invalid) then
 				s.userVariables[modelBeingDeleted+"Desired"].currentValue$ = "no"
 			end if
@@ -1114,6 +1170,7 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 
 	' Is this a sonos request
 	if match then
+		sonos.bsp.logging.WriteDiagnosticLogEntry("Sonos received plugin message", msg)
 		retval = true
 
 		' split the string
@@ -1372,12 +1429,14 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 				sendSelfUDP("scancomplete")
 			else if command = "list" then
 				PrintAllSonosDevices(sonos)
+				LogAllSonosDevices(sonos)
 			else if command = "reboot" then
 			    xfer=SonosPlayerReboot(sonos.mp, sonosDevice.baseURL)
 				sonos.xferObjects.push(xfer)
 			else if command = "checkhhid" then
 			    CheckPlayerHHIDs(sonos)
 			    PrintAllSonosDevices(sonos)
+				LogAllSonosDevices(sonos)
 			else if command = "rdmping" then
 			    xfer=rdmPingAsync(sonos.mp,sonosDevice.baseURL,sonos.hhid) 
 			    sonos.postObjects.push(xfer)
@@ -3231,6 +3290,9 @@ Sub OnAVTransportEvent(userdata as Object, e as Object)
 	end if
 
 	'PrintAllSonosDevicesState(userData.sonos)
+	diagId = "Sonos AVTransport event"
+	s.bsp.logging.WriteDiagnosticLogEntry(diagId, sonosDevice.modelNumber + " transportState: " + sonosDevice.transportstate + ", playMode: " + sonosDevice.CurrentPlayMode + ", sleepTimer: " + str(sonosDevice.SleepTimerGeneration))
+	s.bsp.logging.WriteDiagnosticLogEntry(diagId, sonosDevice.modelNumber + " transport URI: " + sonosDevice.AVTransportURI)
 
     if not e.SendResponse(200) then
 		stop
@@ -3366,6 +3428,8 @@ Sub OnRenderingControlEvent(userdata as Object, e as Object)
 	end if
 
 	'PrintAllSonosDevicesState(userData.sonos)
+	diagId = "Sonos Rendering event"
+	s.bsp.logging.WriteDiagnosticLogEntry(diagId, sonosDevice.modelNumber + " volume: " + str(sonosDevice.volume) + ", mute: " + str(sonosDevice.mute))
 
     if not e.SendResponse(200) then
 		stop
@@ -3402,6 +3466,9 @@ Sub OnAlarmClockEvent(userdata as Object, e as Object)
 			updateDeviceVariable(s, sonosDevice, "AlarmListVersion", ver)
 		end if	
     end for
+
+	diagId = "Sonos Alarm Clock event"
+	s.bsp.logging.WriteDiagnosticLogEntry(diagId, sonosDevice.modelNumber + " alarmCheckNeeded: " + sonosDevice.AlarmCheckNeeded)
 
     if not e.SendResponse(200) then
 		stop
