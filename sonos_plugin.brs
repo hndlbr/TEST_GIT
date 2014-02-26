@@ -19,7 +19,7 @@ Function newSonos(msgPort As Object, userVariables As Object, bsp as Object)
 	' Create the object to return and set it up
 	s = {}
 
-	s.version = "2.38"
+	s.version = "2.39"
 
 	s.configVersion = "1.0"
 	registrySection = CreateObject("roRegistrySection", "networking")
@@ -76,7 +76,8 @@ Function newSonos(msgPort As Object, userVariables As Object, bsp as Object)
 	s.server = CreateObject("roHttpServer", { port: 111 })
 	if (s.server = invalid) then
 		print "Unable to create server on port 111"
-		stop
+		'Need to reboot here - can't stop in the Init function
+		RebootSystem()
 	end if
 	s.server.SetPort(msgPort)
 
@@ -1353,7 +1354,7 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 				xfer = SonosSetSong(sonos.mp, currentNet.ip4_address, sonosDevice.baseURL, detail)
 				sonos.xferObjects.push(xfer)
 			else if command="spdif" then
-				' print "Swithching to SPDIF input"
+				' print "Switching to SPDIF input"
 				xfer = SonosSetSPDIF(sonos.mp, sonosDevice.baseURL, sonosDevice.UDN)
 				sonos.xferObjects.push(xfer)
 			else if command="group" then
@@ -1371,6 +1372,21 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 			else if command = "play" then
 				xfer = SonosPlaySong(sonos.mp, sonosDevice.baseURL)
 				sonos.xferObjects.push(xfer)
+			else if command = "subbond" then
+				' bond Sub to given device
+				if isModelDesiredByUservar(sonos, "sub") then
+					subDevice = GetDeviceByPlayerModel(sonos.sonosDevices, "sub")
+					if subDevice <> invalid then
+						xfer = SonosSubBond(sonos.mp, sonosDevice.baseURL, sonosDevice.UDN, subDevice.UDN)
+						sonos.xferObjects.push(xfer)
+					end if
+				end if
+			else if command = "subunbond" then
+				subDevice = GetDeviceByPlayerModel(sonos.sonosDevices, "sub")
+				if subDevice <> invalid then
+					xfer = SonosSubUnBond(sonos.mp, sonosDevice.baseURL, subDevice.UDN)
+					sonos.xferObjects.push(xfer)
+				end if
 			else if command = "subon" then
 				' print "Sub ON"
 				xfer = SonosSubCtrl(sonos.mp, sonosDevice.baseURL,1)
@@ -1974,6 +1990,98 @@ Sub SonosSubCtrl(mp as object, connectedPlayerIP as string, enableVal as integer
 
 	return soapTransfer
 end sub
+
+Sub SonosSubBond(mp as object, connectedPlayerIP as string, s9UDN as object, subUDN as object) as object
+    
+    soapTransfer = CreateObject("roUrlTransfer")
+    soapTransfer.SetMinimumTransferRate( 2000, 1 )
+    soapTransfer.SetPort( mp )
+
+    sonosReqData=CreateObject("roAssociativeArray")
+    sonosReqData["type"]="SubBond"
+    sonosReqData["dest"]=connectedPlayerIP
+    soapTransfer.SetUserData(sonosReqData)
+
+    subXML="<?xml version="+chr(34)+"1.0"+chr(34)+" encoding="
+	subXML=subXML+chr(34)+"utf-8"+chr(34)+"?>"
+    subXML=subXML+"<s:Envelope s:encodingStyle="+chr(34)
+    subXML=subXML+"http://schemas.xmlsoap.org/soap/encoding/"+chr(34)
+    subXML=subXML+" xmlns:s="+chr(34)+"http://schemas.xmlsoap.org/soap/envelope/"+chr(34)
+    subXML=subXML+"><s:Body><u:AddHTSatellite xmlns:u="+chr(34)
+    subXML=subXML+"urn:schemas-upnp-org:service:DeviceProperties:1"+chr(34)
+    subXML=subXML+"><HTSatChanMapSet>PLAYBAR_UDN:LF,RF;SUB_UDN:SW</HTSatChanMapSet></u:AddHTSatellite>"
+    subXML=subXML+"</s:Body></s:Envelope>"
+
+    soapTransfer.SetUrl( connectedPlayerIP + "/DeviceProperties/Control")
+    ok = soapTransfer.addHeader("SOAPACTION", "urn:schemas-upnp-org:service:DeviceProperties:1#AddHTSatellite")
+    if not ok then
+        stop
+    end if
+    ok = soapTransfer.addHeader("Content-Type", "text/xml; charset="+ chr(34) + "utf-8" + chr(34))
+    if not ok then
+        stop
+    end if
+
+    ' set the correct Playbar UDN in the request string
+    playbar_regex = CreateObject("roRegex", "PLAYBAR_UDN", "i")
+    subXML = playbar_regex.ReplaceAll(subXML, s9UDN)
+
+    sub_regex = CreateObject("roRegex", "SUB_UDN", "i")
+    reqString = sub_regex.ReplaceAll(subXML, subUDN)
+
+    print "Executing SubControl: ";connectedPlayerIP
+    ok = soapTransfer.AsyncPostFromString(reqString)
+    if not ok then
+        stop
+    end if
+
+    return soapTransfer
+
+end Sub
+
+Sub SonosSubUnbond(mp as object, connectedPlayerIP as string, subUDN as string) as object
+
+    soapTransfer = CreateObject("roUrlTransfer")
+    soapTransfer.SetMinimumTransferRate( 2000, 1 )
+    soapTransfer.SetPort( mp )
+
+    sonosReqData=CreateObject("roAssociativeArray")
+    sonosReqData["type"]="SubUnbond"
+    sonosReqData["dest"]=connectedPlayerIP
+    soapTransfer.SetUserData(sonosReqData)
+
+    subXML="<?xml version="+chr(34)+"1.0"+chr(34)+" encoding="
+	subXML=subXML+chr(34)+"utf-8"+chr(34)+"?>"
+    subXML=subXML+"<s:Envelope s:encodingStyle="+chr(34)
+    subXML=subXML+"http://schemas.xmlsoap.org/soap/encoding/"+chr(34)
+    subXML=subXML+" xmlns:s="+chr(34)+"http://schemas.xmlsoap.org/soap/envelope/"+chr(34)
+    subXML=subXML+"><s:Body><u:RemoveHTSatellite xmlns:u="+chr(34)
+    subXML=subXML+"urn:schemas-upnp-org:service:DeviceProperties:1"+chr(34)
+    subXML=subXML+"><SatRoomUUID>SUB_UDN</SatRoomUUID></u:RemoveHTSatellite>"
+    subXML=subXML+"</s:Body></s:Envelope>"
+
+    soapTransfer.SetUrl( connectedPlayerIP + "/DeviceProperties/Control")
+    ok = soapTransfer.addHeader("SOAPACTION", "urn:schemas-upnp-org:service:DeviceProperties:1#RemoveHTSatellite")
+    if not ok then
+        stop
+    end if
+    ok = soapTransfer.addHeader("Content-Type", "text/xml; charset="+ chr(34) + "utf-8" + chr(34))
+    if not ok then
+        stop
+    end if
+
+    sub_regex = CreateObject("roRegex", "SUB_UDN", "i")
+    reqString = sub_regex.ReplaceAll(subXML, subUDN)
+
+    print "Executing SubUnbond: ";connectedPlayerIP
+    ok = soapTransfer.AsyncPostFromString(reqString)
+    if not ok then
+        stop
+    end if
+
+    return soapTransfer
+
+end Sub
 
 
 Sub SonosSurroundCtrl(mp as object, connectedPlayerIP as string, enableVal as integer) as object
@@ -3878,7 +3986,7 @@ Sub SonosSoftwareUpdate(s as object, mp as object, connectedPlayerIP as string, 
 	' check if it's too old for us to use
 	sonosDevice=GetDeviceByPlayerBaseURL(s.SonosDevices, connectedPlayerIP)
 	sv=val(sonosDevice.softwareVersion)
-	print "player software is at verion ";sv
+	print "player software is at version ";sv
 	if sv<22
 	    ' if it is factor reset we have to punt'
 	    if sonosDevice.hhid=""
@@ -4206,6 +4314,8 @@ function getPlayerNameByModel(model as object) as String
 	    return "PLAY:5"
     else if model="s9" then
 	    return "PLAY:9"
+	else if model="sub" then
+		return "SUB"
 	end if
 	return model
 end function		
