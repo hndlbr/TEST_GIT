@@ -96,10 +96,7 @@ Function newSonos(msgPort As Object, userVariables As Object, bsp as Object)
 	' Create an array to hold commands that have come in when the device is busy processing other commands
 	s.commandQ = createObject("roArray",0, true)
 
-	' Create an array to hold the desired devices
-	s.desiredDevices = createObject("roArray",0, true)
-
-	' Create the arrary to hold the deleted devices
+	' Create the array to hold the deleted devices
 	s.deletedDevices = CreateObject("roArray",1, True)
 
 	' Variable for what is considered the master device
@@ -224,7 +221,6 @@ Function sonos_ProcessEvent(event As Object) as boolean
 			m.timer2.Start()
 
 			for each device in m.sonosDevices
-			    FindAllSonosDevices(m)
 			    if device.alive=true then
 			        ' mark it as false - an alive should come by and mark it as true again'
 			        device.alive=false
@@ -237,6 +233,8 @@ Function sonos_ProcessEvent(event As Object) as boolean
 			        print "+++ alive timer expired - device [";device.modelNumber;" - ";device.UDN;"] not seen and is deleted"
 			    end if
 			end for
+			' Now re-scan
+			FindAllSonosDevices(m)
 	        retval=true
 		end if
 
@@ -245,8 +243,6 @@ Function sonos_ProcessEvent(event As Object) as boolean
 	return retval
 
 End Function
-
-
 
 
 Sub isSonosDevicePresent(s as object , devType as string ) as boolean
@@ -270,14 +266,11 @@ End Sub
 
 
 Sub FindAllSonosDevices(s as Object) 
-	print "FindAllSonosDevices"
+	print "*** FindAllSonosDevices"
 
 	devices = s.devices
 	CreateUPnPDiscoverer(s.msgPort, OnFound, s)
 	s.disco.Discover("upnp:rootdevice")
-
-	' make sure we don't leak roDatagramSockets on multiple tries to find units
-	' disco.sock.SetUserData(invalid)
 
 End Sub
 
@@ -533,30 +526,6 @@ Sub OnFound(response as String)
 			rootDeviceString = instr(1,response,"NT: upnp:rootdevice")
 			if(rootDeviceString) then
    			    print "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&  Received ssdp:byebye ";responseLocation
-				'uuidStart=instr(1,response,"USN: uuid:")
-				'if (uuidStart) then 
-				''	uuidStart=uuidStart+10
-				''	uuidEnd=instr(uuidStart,response,"::")
-				''	uuidString=mid(response,uuidStart,uuidEnd-uuidStart)
-					'print "uuid: "+uuidString
-''					found = false
-''					i = 0
-''					numdevices = m.s.sonosDevices.count()
-''					while (not found) and (i < numdevices)  
-''						if (uuidString=m.s.sonosDevices[i].uuid) then
-''						  print "found player to delete "+m.s.sonosDevices[i].modelNumber+"with uuid: " + uuidString 
-''						  found = true
-''						  deviceNumToDelete = i
-''						end if
-''						i = i + 1
-''					end while
-''					if (found) then
-''						print "Deleting Player"+m.s.sonosDevices[deviceNumToDelete].modelNumber+"with uuid: " + uuidString
-''						' Indicate the player is no longer present
-''						if (m.s.userVariables[m.s.sonosDevices[deviceNumToDelete].modelNumber] <> invalid) then
-''							m.s.userVariables[m.s.sonosDevices[deviceNumToDelete].modelNumber].currentValue$ = "notpresent"
-''						end if
-''						m.s.sonosDevices.delete(deviceNumToDelete)
 	                deleted=deletePlayerByUDN(m.s,UDN)
 	                if deleted=true
 						print "+++ got goodbye and deleted player with uuid: ";UDN
@@ -617,60 +586,6 @@ function deletePlayerByUDN(s as object, uuid as String) as object
 		print "matching uuid not in list: ";uuid
 	end if		
 
-end function
-
-
-function deletePlayerFromDeisredListByModel(s as object, model as String, updateUserVarFlag as boolean) as object
-
-	found = false
-	i = 0
-
-	numdevices = s.desiredDevices.count()
-	while (not found) and (i < numdevices)  
-	    if s.sonosDevices[i]<>invalid
-			if (model=s.sonosDevices[i].modelNumber) then
-			  found = true
-			  deviceNumToDelete = i
-			end if
-		end if
-		i = i + 1
-	end while
-	if (found) then
-		print "!!! Deleting Desired Player "+modelBeingDeleted
-		s.desiredDevices.delete(deviceNumToDelete)
-
-		' Indicate the player is no longer desired
-		if updateUserVarFlag=true
-			if (s.userVariables[modelBeingDeleted+"Desired"] <> invalid) then
-				s.userVariables[modelBeingDeleted+"Desired"].currentValue$ = "no"
-			end if
-		end if
-
-		return true
-	else
-		print "matching device not in desired list: ";model
-	end if		
-end function
-
-function addPlayerToDesiredListByModel(s as object, model as String, updateUserVarFlag as boolean) as object
-	print "addPlayerToDesiredListByModel ";model
-
-	s.desiredDevices.push(model)
-
-	' we mark the device as desired but on startup this list does not yet exist
-	for each device in s.sonosDevices
-''	    print "comparing [";model;"] to [";device.modelNumber;"]"
-	    if model=device.modelNumber then
-	        device.desired=true
-			if (updateUserVarFlag) then
-				if (s.userVariables[model+"Desired"] <> invalid) then
-					s.userVariables[model+"Desired"].currentValue$ = "yes"
-				end if
-			end if
-			return device
-	    end if
-	end for
-	return invalid
 end function
 
 
@@ -756,8 +671,6 @@ Function GetBaseURLFromLocation(location as string) as string
 end Function
 
 
-
-
 function findMatchingValidHHID(s as object)
 	for each device in s.sonosDevices
       if (instr(1, device.hhid, "Sonos_RDM_")) then
@@ -779,31 +692,6 @@ function findMatchingValidHHID(s as object)
 end function
 
 
-'function DetermineSiteHHID(s as object)
-
-	' this function will scan a set of SonosDevices and return the HHID string that should be used for the site'
-
- ''     matchHHID=findMatchingValidHHID(s)
- ''     if matchHHID<>""
- ''       print "two devices have: ";matchHHID;" - using that as siteHHID"
- ''       return matchHHID
- ''     end if
-    
-	' if we get here we have no idea, so we'll just assume that any valid siteHHID is the right hhid by default
-''	for each device in s.sonosDevices
-''		if (instr(1, device.hhid, "Sonos_RDM_")) then
-''		    print "using ";device.hhid;" as the site HHID"
-''	        return device.hhid
-''	    end if
- ''   next
-''
- ''   ' if we get here, it means we basically have all factory reset players - so we'll make it up later!
-  ''  print "no devices have a valid RDM HHID"
-   '' return ""
-
-'end function
-
-
 sub CheckPlayerHHIDs(s as object) as boolean
 	' this function will check the players hhid against the site hhid, and if it does not match it will mark it as needsUpdate'
 	for each device in s.sonosDevices
@@ -816,60 +704,6 @@ sub CheckPlayerHHIDs(s as object) as boolean
 	end for
 end sub
 
-
-function DeterminePlayerStatus(s as Object, sonosDevice as object)
-
-	stop
-	' this function is deprecated and is still here only for refernce until we test the new approach'
-
-	siteHHID="unknown"
-
-	' refresh the masterDevice from user variable - is this the right way?  What's the cannonical location for this value?
-	'FIXME - should wrap this if we are going to keep this function
-	s.masterDevice=s.userVariables["masterDevice"].currentValue$ 
-
-
-	' master device processing'
-	if s.masterDevice=sonosDevice.modelNumber then
-
-	    ' check if it's in factory reset
-	    if SonosDevice.hhid=""
-	        updateUserVar(s.userVariables,SonosDevice.modelNumber+"HHIDStatus","needsUpdate")
-	        goto finish
-	    end if
-
-	    if (instr(1, SonosDevice.hhid, "Sonos_RDM_")) then
-	        siteHHID=SonosDevice.hhid
-	        updateUserVar(s.userVariables,SonosDevice.modelNumber+"HHIDStatus","valid")
-	        updateUserVar(s.userVariables,"siteHHID",siteHHID)
-	    else
-	        updateUserVar(s.userVariables,SonosDevice.modelNumber+"HHIDStatus","needsManualUpdate")
-	    end if
-	else ' not the master'
-	    siteHHID=s.userVariables["siteHHID"].currentValue$
-
-	    'if the siteHHID is not yet set we pretend we didn't find the player yet 
-	    if siteHHID="unknown"
-  	        updateUserVar(s.userVariables,SonosDevice.modelNumber+"HHIDStatus","pending")
-  	    else
-  	        if SonosDevice.hhid=siteHHID
-  	            'all good'
-  	            updateUserVar(s.userVariables,SonosDevice.modelNumber+"HHIDStatus","valid")
-  	        else
-  	            if SonosDevice.hhid=""
-  	            	 updateUserVar(s.userVariables,SonosDevice.modelNumber+"HHIDStatus","needsUpdate")
-  	            	 goto finish
-  	            else
-  	            	 updateUserVar(s.userVariables,SonosDevice.modelNumber+"HHIDStatus","needsManualUpdate")
-  	            	 goto finish
-  	            end if
-  	        end if
-  	    end if
-	end if
-
-	finish:
-	return true
-end Function
 
 Sub UPNPDiscoverer_ProcessDeviceXML(ev as Object)
 	'print "UPNPDiscoverer_ProcessDeviceXML"
@@ -1015,17 +849,6 @@ Sub UPNPDiscoverer_ProcessDeviceXML(ev as Object)
 end Sub	
 
 
-Function isModelDesired(s as object, model as string)
-	for each modelNumber in s.desiredDevices
-	    'print "+++ isModelDesired: checking if ";model;" equals ";modelNumber
-	    if model = modelNumber
-	        return true
-	    end if
-	end for
-	return false
-end Function
-
-
 Function isModelDesiredByUservar(s as object, model as string)
 	if s.userVariables[model+"Desired"] <> invalid then
 	    if s.userVariables[model+"Desired"].currentValue$ = "yes"
@@ -1034,7 +857,6 @@ Function isModelDesiredByUservar(s as object, model as string)
 	end if
 	return false
 end Function
-
 
 
 Sub newSonosDevice(device as Object) as Object
@@ -1209,16 +1031,7 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 				endif
 			end for
 
-			'' deprecated using the array for this - too hard to keep in sync and I don't think it buys us anything
-''			desired=isModelDesired(sonos, devType)
 			desired=isModelDesiredByUservar(sonos, devType)
-''			desired = false
-''			for i = 0 to sonos.desiredDevices.count() - 1
-''				if (devType = sonos.desiredDevices[i]) then
-''					'print "Found device ";devType;" in list of desired devices"
-''					desired = true
-''				end if
-''			end for
 
 			if (sonosDevice = invalid) or (not desired) then
 				print "No device of that type on this network or it is NOT Desired"
@@ -1236,16 +1049,12 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 			else
 				print "Executing:";command +" " + devType + " " + detail + " " + "No URL Specified"
 			end if
-			' TOTO: should consider putting xferobjects inside functions where they belong!'
+			' TODO: should consider putting xferobjects inside functions where they belong!'
 			if command="mute" then
 				'if sonosDevice.mute=0
 				    print "Sending mute"
 					xfer = SonosSetMute(sonos.mp, sonosDevice.baseURL,1) 
 					sonos.xferObjects.push(xfer)
-				'else
-				    'print "+++ device already muted - ignoring command"
-					'postNextCommandInQueue(sonos, sonosDevice.baseURL)
-				'end if
 			else if command="flush" then
 				' Flush all of the commands in the command Queue
 				print "Flushing Command Queue"
@@ -1419,12 +1228,6 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 			else if command = "rdmdefault" then
  				xfer = SonosApplyRDMDefaultSettings(sonos.mp, sonosDevice.baseURL)
  				sonos.xferObjects.push(xfer)
-			else if command = "setrdmvalues" then
-				print "Deprecated - no longer using SonosSetRDMDefaultsAsync for setting all of the RDM default values"
-				postNextCommandInQueue(sonos, sonosDevice.baseURL)
-				'xfer=SonosSetRDMDefaultsAsync(sonos.mp, sonosDevice.baseURL, sonos)
-				'sonos.postObjects.push(xfer)
-				'SonosSetRDMDefaults(sonos.mp, sonosDevice.baseURL, sonos)
 			else if command = "getrdm" then
 				xfer = SonosGetRDM(sonos.mp, sonosDevice.baseURL)
 				sonos.xferObjects.push(xfer)
@@ -1480,15 +1283,6 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 					sendSelfUDP(devType + ":present")
 				else
 					sendSelfUDP(devType + ":notpresent")
-				end if	
-			else if command = "desired" then
-				if (detail = "yes") then
-					print "Adding ";devType;" to list of desired devices"
-					addPlayerToDesiredListByModel(sonos, devType, false)
-					'sonos.desiredDevices.push(devType)
-				else if (detail = "no") then
-					print "Removing ";devType;" from list of desired devices"
-					deletePlayerFromDeisredListByModel(sonos, devType, false)
 				end if	
 			else if command = "setmasterdevice" then
 			    'sonos.masterDevice = devType
@@ -1587,8 +1381,6 @@ function setSonosMasterDevice(sonos as object,devType as string) as object
 	    ' pick a random device'
 	    for each device in sonos.sonosDevices
 
-            ' deprecated use of the desired array'
-''	        desired=isModelDesired(sonos,device.modelNumber)
 	        desired=isModelDesiredByUservar(sonos,device.modelNumber)
 	        if desired=true
 		        sonos.masterDevice = device.modelNumber
@@ -3760,129 +3552,6 @@ Function rdmHouseholdSetup(connectedPlayerIP as string, hhid as string, name as 
 end Function
 
 
-Function SonosSetRDMDefaultsAsync(mp as object, connectedPlayerIP as string, sonos as object) as object
-
-	r={}
-	' set all of the defaults that don't change
-	r["enable"]="1"
-	r["tosl"]= "1"
-	r["cavt"] = "1"
-	r["to"] = "0"
-	r.["vol:ZP100"] = "10"
-	r.["vol:ZP80"] = "10"
-	r.["vol:ZP90"] = "10"
-	r.["vol:ZP120"] = "10"
-	r.["wto"] = "60"
-
-	' Now set all of the RDM defaults that have user variables
-	' rdmwifi = off means that we want to turn off the wifi radio on the device.  To do this we set the post value to 1
-	if (sonos.userVariables["rdmwifi"] <> invalid) then
-		if (sonos.userVariables["rdmwifi"].currentvalue$ = "off") then
-			r["wifi"] = "1"
-		else
-			r["wifi"] = "0"
-		end if
-	else
-		r["wifi"] = "1"
-	end if
-	
-	' set the s5 default volume level
-	if (sonos.userVariables["s5defaultvolume"] <> invalid) then
-		r.["vol:S5"] = sonos.userVariables["s5defaultvolume"].currentvalue$
-	else
-		r.["vol:S5"]= "15"
-	end if
-
-	' set the s3 default volume level
-	if (sonos.userVariables["s3defaultvolume"] <> invalid) then
-		r.["vol:S3"] = sonos.userVariables["s3defaultvolume"].currentvalue$
-	else
-		r.["vol:S3"]="15"
-	end if
-
-	' set the s1 default volume level
-	if (sonos.userVariables["s1defaultvolume"] <> invalid) then
-		r.["vol:S1"] = sonos.userVariables["s1defaultvolume"].currentvalue$
-	else
-		r.["vol:S1"]="15"
-	end if
-
-	' set the s9 default volume level
-	if (sonos.userVariables["s9defaultvolume"] <> invalid) then
-		r.["vol:S9"] = sonos.userVariables["s9defaultvolume"].currentvalue$
-	else
-		r.["vol:S9"]="15"
-	end if
-	
-	sURL = "/rdm"
-	b = postFormDataAsync(mp,connectedPlayerIP,sURL,r,"SonosSetRDMDefaults")
-	return b
-end Function
-
-
-Sub SonosSetRDMDefaults(mp as object, connectedPlayerIP as string, sonos as object) as object
-	r={}
-	' set all of the defaults that don't change
-	r["enable"]="1"
-	r["tosl"]= "1"
-	r["cavt"] = "1"
-	r["to"] = "0"
-	r.["vol:ZP100"] = "10"
-	r.["vol:ZP80"] = "10"
-	r.["vol:ZP90"] = "10"
-	r.["vol:ZP120"] = "10"
-	r.["wto"] = "60"
-
-	' Now set all of the RDM defaults that have user variables
-	' rdmwifi = off means that we want to turn off the wifi radio on the device.  To do this we set the post value to 1
-	if (sonos.userVariables["rdmwifi"] <> invalid) then
-		if (sonos.userVariables["rdmwifi"].currentvalue$ = "off") then
-			r["wifi"] = "1"
-		else
-			r["wifi"] = "0"
-		end if
-	else
-		r["wifi"] = "1"
-	end if
-	
-	' set the s5 default volume level
-	if (sonos.userVariables["s5defaultvolume"] <> invalid) then
-		r.["vol:S5"] = sonos.userVariables["s5defaultvolume"].currentvalue$
-	else
-		r.["vol:S5"]= "15"
-	end if
-
-	' set the s3 default volume level
-	if (sonos.userVariables["s3defaultvolume"] <> invalid) then
-		r.["vol:S3"] = sonos.userVariables["s3defaultvolume"].currentvalue$
-	else
-		r.["vol:S3"]="15"
-	end if
-
-	' set the s1 default volume level
-	if (sonos.userVariables["s1defaultvolume"] <> invalid) then
-		r.["vol:S1"] = sonos.userVariables["s1defaultvolume"].currentvalue$
-	else
-		r.["vol:S1"]="15"
-	end if
-
-	' set the s9 default volume level
-	if (sonos.userVariables["s9defaultvolume"] <> invalid) then
-		r.["vol:S9"] = sonos.userVariables["s9defaultvolume"].currentvalue$
-	else
-		r.["vol:S9"]="15"
-	end if
-	
-	sURL = connectedPlayerIP + "/rdm"
-	good = postFormData(sURL,r)
-	if not good then
-	    print "ERROR from POST to RDM"
-''		stop
-	end if
-
-end sub	
-
-
 Function postFormDataAsync(mp as object, connectedPlayerIP as object, sURL as string, vars as Object, reqType as object) as Object
 	
 	targetURL=connectedPlayerIP+sURL
@@ -3912,8 +3581,6 @@ Function postFormDataAsync(mp as object, connectedPlayerIP as object, sURL as st
 	end if
 	return fTransfer
 end Function  
-
-
 
 
 Function postFormData(sURL as string, vars as Object) as Object
