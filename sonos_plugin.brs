@@ -1,4 +1,4 @@
-' Plug-in script for BA 3.7.0.6 and greater
+' Plug-in script for BA 3.8.0.26 and greater
 
 Function sonos_Initialize(msgPort As Object, userVariables As Object, bsp as Object)
 
@@ -19,7 +19,7 @@ Function newSonos(msgPort As Object, userVariables As Object, bsp as Object)
 	' Create the object to return and set it up
 	s = {}
 
-	s.version = "2.39"
+	s.version = "3.01"
 
 	s.configVersion = "1.0"
 	registrySection = CreateObject("roRegistrySection", "networking")
@@ -202,7 +202,7 @@ Function sonos_ProcessEvent(event As Object) as boolean
 		'print "*****  Got roUrlEvent in Sonos"	
 		retval = HandleSonosXferEvent(event, m)
 	else if type(event) = "roHttpEvent" then
-		'print "roHttp event received in Sonos processing"
+		'print "###### roHttpEvent received in Sonos, url: ";event.GetUrl()
 	else if type(event) = "roTimerEvent" then
 		if (event.GetSourceIdentity() = m.timer.GetIdentity()) then
 			print "renewing for registering events"
@@ -1060,10 +1060,9 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 			end if
 			' TODO: should consider putting xferobjects inside functions where they belong!'
 			if command="mute" then
-				'if sonosDevice.mute=0
-				    print "Sending mute"
-					xfer = SonosSetMute(sonos.mp, sonosDevice.baseURL,1) 
-					sonos.xferObjects.push(xfer)
+			    print "Sending mute"
+				xfer = SonosSetMute(sonos.mp, sonosDevice.baseURL,1) 
+				sonos.xferObjects.push(xfer)
 			else if command="flush" then
 				' Flush all of the commands in the command Queue
 				print "Flushing Command Queue"
@@ -2859,31 +2858,34 @@ End Function
 Function AddMP3(s as object, directory as string)
 
 	' Serve up two files to play....
-	s.server.AddGetFromFile({ url_path: "/misery.mp3", filename: "SD:/misery.mp3", content_type: "audio/mpeg" })
-	s.server.AddGetFromFile({ url_path: "/warning.mp3", filename: "SD:/warning.mp3", content_type: "audio/mpeg" })
+	's.server.AddGetFromFile({ url_path: "/misery.mp3", filename: "SD:/misery.mp3", content_type: "audio/mpeg" })
+	's.server.AddGetFromFile({ url_path: "/warning.mp3", filename: "SD:/warning.mp3", content_type: "audio/mpeg" })
 
 	'  add the files 
-	filepathmp3 = GetPoolFilePath(s.bsp.syncpoolfiles, "1.mp3")
-	s.server.AddGetFromFile({ url_path: "/1.mp3", filename: filepathmp3, content_type: "audio/mpeg" })
-	print "File path for 1.mp3 = ";filepathmp3
-	filepathmp3 = GetPoolFilePath(s.bsp.syncpoolfiles, "2.mp3")
-	s.server.AddGetFromFile({ url_path: "/2.mp3", filename: filepathmp3, content_type: "audio/mpeg" })
-	print "File path for 2.mp3 = ";filepathmp3
-	filepathmp3 = GetPoolFilePath(s.bsp.syncpoolfiles, "3.mp3")
-	s.server.AddGetFromFile({ url_path: "/3.mp3", filename: filepathmp3, content_type: "audio/mpeg" })
-	print "File path for 3.mp3 = ";filepathmp3
-	filepathmp3 = GetPoolFilePath(s.bsp.syncpoolfiles, "4.mp3")
-	s.server.AddGetFromFile({ url_path: "/4.mp3", filename: filepathmp3, content_type: "audio/mpeg" })
+	filepathmp3 = GetPoolFilePath(s.bsp.assetPoolFiles, "1.mp3")
+	if Len(filepathmp3) > 0 then
+		s.server.AddGetFromFile({ url_path: "/1.mp3", filename: filepathmp3, content_type: "audio/mpeg" })
+		print "File path for 1.mp3 = ";filepathmp3
+	end if
+	
+	filepathmp3 = GetPoolFilePath(s.bsp.assetPoolFiles, "2.mp3")
+	if Len(filepathmp3) > 0 then
+		s.server.AddGetFromFile({ url_path: "/2.mp3", filename: filepathmp3, content_type: "audio/mpeg" })
+		print "File path for 2.mp3 = ";filepathmp3
+	end if
+	
+	filepathmp3 = GetPoolFilePath(s.bsp.assetPoolFiles, "3.mp3")
+	if Len(filepathmp3) > 0 then
+		s.server.AddGetFromFile({ url_path: "/3.mp3", filename: filepathmp3, content_type: "audio/mpeg" })
+		print "File path for 3.mp3 = ";filepathmp3
+	end if
+	
+	filepathmp3 = GetPoolFilePath(s.bsp.assetPoolFiles, "4.mp3")
+	if Len(filepathmp3) > 0 then
+		s.server.AddGetFromFile({ url_path: "/4.mp3", filename: filepathmp3, content_type: "audio/mpeg" })
+		print "File path for 4.mp3 = ";filepathmp3
+	end if
 
-
-'	files = MatchFiles(directory, "*.mp3")
-'	print "File count in dir ";directory; files.Count()
-'	for each fileName in files
-'		transferObj = createObject("roURLTransfer")
-'		escapedUrlPath = directory + "/" + transferObj.escape(fileName)
-'		print "adding ";escapedUrlPath;" as available MP3 to server"
-'		s.server.AddGetFromFile({ url_path: escapedUrlPath, filename: "SD:" + directory + "/" + fileName, content_type: "audio/mpeg" })	
-'	end for
 End Function
 
 Function SonosRegisterForEvents(sonos as Object, mp as Object, device as Object) as Object
@@ -3906,21 +3908,21 @@ End Function
 Function AddAllSonosUpgradeImages(s as object, version as string)
 	
 	file18 = version + "-1-8.upd"
-	filepath18 = GetPoolFilePath(s.bsp.syncpoolfiles, file18)
+	filepath18 = GetPoolFilePath(s.bsp.assetPoolFiles, file18)
 	ok = s.server.AddGetFromFile({ url_path: "/" + file18, filename: filepath18, content_type: "application/octet-stream" })
 	if (not ok) then	
 		print "Unable to add ";file18;" upgrade file to server"
 	end if
 
 	file19 = version + "-1-9.upd"
-	filepath19 = GetPoolFilePath(s.bsp.syncpoolfiles, file19)
+	filepath19 = GetPoolFilePath(s.bsp.assetPoolFiles, file19)
 	ok = s.server.AddGetFromFile({ url_path: "/" + file19, filename: filepath19, content_type: "application/octet-stream" })
 	if (not ok) then
 		print "Unable to add ";file19;" upgrade file to server"
 	end if
 
 	file116 = version + "-1-16.upd"
-	filepath116 = GetPoolFilePath(s.bsp.syncpoolfiles, file116)
+	filepath116 = GetPoolFilePath(s.bsp.assetPoolFiles, file116)
 	ok = s.server.AddGetFromFile({ url_path: "/" + file116, filename: filepath116, content_type: "application/octet-stream" })
 	if (not ok) then
 		print "Unable to add ";file116;" upgrade file to server"
