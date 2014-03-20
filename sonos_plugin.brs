@@ -19,7 +19,7 @@ Function newSonos(msgPort As Object, userVariables As Object, bsp as Object)
 	' Create the object to return and set it up
 	s = {}
 
-	s.version = "3.01"
+	s.version = "3.05"
 
 	s.configVersion = "1.0"
 	registrySection = CreateObject("roRegistrySection", "networking")
@@ -1231,12 +1231,36 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 				CheckSonosTopology(sonos)
 			else if command = "subon" then
 				' print "Sub ON"
-				xfer = SonosSubCtrl(sonos.mp, sonosDevice.baseURL,1)
+				xfer = SonosSubCtrl(sonos.mp, sonosDevice.baseURL, "SubEnable", "1")
 				sonos.xferObjects.push(xfer)
 			else if command = "suboff" then
 				' print "Sub OFF"
-				xfer = SonosSubCtrl(sonos.mp, sonosDevice.baseURL,0)
+				xfer = SonosSubCtrl(sonos.mp, sonosDevice.baseURL, "SubEnable", "0")
 				sonos.xferObjects.push(xfer)
+			else if command = "subgain" then
+                subGainValue = getUserVariableValue(sonos, "subGain")
+                if subGainValue <> invalid then
+                    xfer = SonosSubCtrl(sonos.mp, sonosDevice.baseURL, "SubGain", subGainValue)
+                    sonos.xferObjects.push(xfer)
+                else
+                    postNextCommandInQueue(sonos, sonosDevice.baseURL)
+                end if
+			else if command = "subcrossover" then
+                subCrossoverValue = getUserVariableValue(sonos, "subCrossover")
+                if subCrossoverValue <> invalid then
+                    xfer = SonosSubCtrl(sonos.mp, sonosDevice.baseURL, "SubCrossover", subCrossoverValue)
+                    sonos.xferObjects.push(xfer)
+                else
+                    postNextCommandInQueue(sonos, sonosDevice.baseURL)
+                end if
+			else if command = "subpolarity" then
+                subPolarityValue = getUserVariableValue(sonos, "subPolarity")
+                if subPolarityValue <> invalid then
+                    xfer = SonosSubCtrl(sonos.mp, sonosDevice.baseURL, "SubPolarity", subPolarityValue)
+                    sonos.xferObjects.push(xfer)
+                else
+                    postNextCommandInQueue(sonos, sonosDevice.baseURL)
+                end if
 			else if command = "surroundon" then
 				' print "Surround ON"
 				xfer = SonosSurroundCtrl(sonos.mp, sonosDevice.baseURL,1)
@@ -1406,6 +1430,20 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 	return retval
 end Function
 
+function getUserVariableValue(sonos as object, varName as string) as object
+
+    varValue = invalid
+
+    if sonos.UserVariables[varName] <> invalid then
+        varValue = sonos.userVariables[varName].currentValue$
+        if varValue = "none" then
+            varValue = invalid
+        end if
+    end if
+
+    return varValue
+
+end function
 
 function setSonosMasterDevice(sonos as object,devType as string) as object
 
@@ -1822,8 +1860,31 @@ Sub SonosSetWifi(mp as object, connectedPlayerIP as string, setValue as string) 
 	return (soapTransfer)
 end Sub
 
+Function SonosCreateSetEQBody(key as string, value as string) as string
 
-Sub SonosSubCtrl(mp as object, connectedPlayerIP as string, enableVal as integer) as object
+	eqXML="<?xml version="+chr(34)+"1.0"+chr(34)+" encoding="+chr(34)+"utf-8"+chr(34)+"?>"
+	eqXML=eqXML+"<s:Envelope s:encodingStyle="+chr(34)
+	eqXML=eqXML+"http://schemas.xmlsoap.org/soap/encoding/"+chr(34)
+	eqXML=eqXML+" xmlns:s="+chr(34)+"http://schemas.xmlsoap.org/soap/envelope/"+chr(34)
+	eqXML=eqXML+"><s:Body><u:SetEQ xmlns:u="+chr(34)
+	eqXML=eqXML+"urn:schemas-upnp-org:service:RenderingControl:1"+chr(34)
+	eqXML=eqXML+"><InstanceID>0</InstanceID>"
+	eqXML=eqXML+"<EQType>EQ_KEY</EQType><DesiredValue>EQ_VALUE</DesiredValue></u:SetEQ>"
+    
+    
+	' set the correct key in the request string
+	key_regex = CreateObject("roRegex", "EQ_KEY", "i")
+    eqXML = key_regex.ReplaceAll(eqXML, key)
+    
+	' set the correct value in the request string
+	value_regex = CreateObject("roRegex", "EQ_VALUE", "i")
+    retXML = value_regex.ReplaceAll(eqXML, value)
+    
+    return retXML
+
+end Function
+
+Sub SonosSubCtrl(mp as object, connectedPlayerIP as string, EqKey as string, EqVal as string) as object
 	
 	' print "SonosSubCtrl"
 
@@ -1836,16 +1897,6 @@ Sub SonosSubCtrl(mp as object, connectedPlayerIP as string, enableVal as integer
 	sonosReqData["dest"]=connectedPlayerIP
 	soapTransfer.SetUserData(sonosReqData)
 
-	subXML="<?xml version="+chr(34)+"1.0"+chr(34)+" encoding="+chr(34)+"utf-8"+chr(34)+"?>"
-	subXML=subXML+"<s:Envelope s:encodingStyle="+chr(34)
-	subXML=subXML+"http://schemas.xmlsoap.org/soap/encoding/"+chr(34)
-	subXML=subXML+" xmlns:s="+chr(34)+"http://schemas.xmlsoap.org/soap/envelope/"+chr(34)
-	subXML=subXML+"><s:Body><u:SetEQ xmlns:u="+chr(34)
-	subXML=subXML+"urn:schemas-upnp-org:service:RenderingControl:1"+chr(34)
-	subXML=subXML+"><InstanceID>0</InstanceID>"
-	subXML=subXML+"<EQType>SubEnable</EQType><DesiredValue>ENABLEVALUE</DesiredValue></u:SetEQ>"
-	subXML=subXML+"</s:Body></s:Envelope>"
-	
 	soapTransfer.SetUrl( connectedPlayerIP + "/MediaRenderer/RenderingControl/Control")
 	ok = soapTransfer.addHeader("SOAPACTION", "urn:schemas-upnp-org:service:RenderingControl:1#SetEQ")
 	if not ok then
@@ -1856,13 +1907,7 @@ Sub SonosSubCtrl(mp as object, connectedPlayerIP as string, enableVal as integer
 		stop
 	end if
 
-	' set the correct Mute value in the request string
-	r = CreateObject("roRegex", "ENABLEVALUE", "i")
-	if enableVal=0 then 
-		reqString=r.ReplaceAll(subXML,"0")
-	else
-		reqString=r.ReplaceAll(subXML,"1")
-	end if
+    reqString = SonosCreateSetEQBody(EqKey, EqVal)
 
 	print "Executing SubControl: ";connectedPlayerIP
 	ok = soapTransfer.AsyncPostFromString(reqString)
@@ -1975,7 +2020,7 @@ Sub SonosSurroundCtrl(mp as object, connectedPlayerIP as string, enableVal as in
 	soapTransfer.SetPort( mp )
 
 	sonosReqData=CreateObject("roAssociativeArray")
-	sonosReqData["type"]="SubCtrl"
+	sonosReqData["type"]="SurroundCtrl"
 	sonosReqData["dest"]=connectedPlayerIP
 	soapTransfer.SetUserData(sonosReqData)
 
