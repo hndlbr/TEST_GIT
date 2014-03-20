@@ -53,21 +53,27 @@ Function newSonos(msgPort As Object, userVariables As Object, bsp as Object)
 
 	s.st=CreateObject("roSystemTime")
 	'TIMING print "Sonos Plugin created at: ";s.st.GetLocalDateTime()
+	
+	' Reset some critical variables
+	if (s.userVariables["aliveTimeoutSeconds"] <> invalid) then
+		s.userVariables["aliveTimeoutSeconds"].Reset(False)
+	end if
+	if (s.userVariables["subBondTo"] <> invalid) then
+		s.userVariables["subBondTo"].Reset(False)
+	end if
 
 	' Create timer to see if players have gone away
-	s.timer2=CreateObject("roTimer")  
-	s.timer2.SetPort(msgPort)
-
-	timeout=s.st.GetLocalDateTime()
-	delay=600
-	if (userVariables["aliveTimeoutSeconds"] <> invalid) then
-	    d=userVariables["aliveTimeoutSeconds"].currentValue$
-	    delay=val(d)
+	s.timerAliveCheck=CreateObject("roTimer")  
+	s.timerAliveCheck.SetPort(msgPort)
+	s.accelerateAliveCheck = False
+	StartAliveCheckTimer(s)
+	
+	' Create timer to check topology (only if SUB bonding is enabled by user var)
+	if s.userVariables["subBondTo"] <> invalid and s.userVariables["subBondTo"].currentValue$ <> "none" then
+		s.timerTopologyCheck = CreateObject("roTimer")
+		s.timerTopologyCheck.SetPort(msgPort)
+		StartTopologyCheckTimer(s)
 	end if
-	timeout.AddSeconds(delay)
-	s.timer2.SetDateTime(timeout)
-	s.timer2.Start()
-
 
 	' Need to remove once all instances of this are taken out of the Sonos code
 	s.mp = msgPort
@@ -148,6 +154,31 @@ Function newSonos(msgPort As Object, userVariables As Object, bsp as Object)
 	return s
 End Function
 
+Sub StartAliveCheckTimer(s as object)
+	timeout=s.st.GetLocalDateTime()
+	if s.accelerateAliveCheck then
+		delay = 60
+	else
+		delay=600
+		if (s.userVariables["aliveTimeoutSeconds"] <> invalid) then
+			d=s.userVariables["aliveTimeoutSeconds"].currentValue$
+			delay=val(d)
+		end if
+	end if
+	timeout.AddSeconds(delay)
+	s.timerAliveCheck.SetDateTime(timeout)
+	s.timerAliveCheck.Start()
+End Sub
+
+Sub StartTopologyCheckTimer(s as object)
+	if s.timerTopologyCheck <> invalid then
+		timeout=s.st.GetLocalDateTime()
+		timeout.AddSeconds(125)
+		s.timerTopologyCheck.SetDateTime(timeout)
+		s.timerTopologyCheck.Start()
+	end if
+End Sub
+
 
 sub setDebugPrintBehavior(s as object)
     if s.userVariables["debugPrint"] <> invalid
@@ -208,18 +239,8 @@ Function sonos_ProcessEvent(event As Object) as boolean
 			print "renewing for registering events"
 			SonosRenewRegisterForEvents(m)
 			retval = true
-		end if
-		if (event.GetSourceIdentity() = m.timer2.GetIdentity()) then
-			timeout=m.st.GetLocalDateTime()
-			delay=600
-			if (m.userVariables["aliveTimeoutSeconds"] <> invalid) then
-			    d=m.userVariables["aliveTimeoutSeconds"].currentValue$
-			    delay=val(d)
-			end if
-			timeout.AddSeconds(delay)
-			m.timer2.SetDateTime(timeout)
-			m.timer2.Start()
-
+		else if (event.GetSourceIdentity() = m.timerAliveCheck.GetIdentity()) then
+			StartAliveCheckTimer(m)
 			for each device in m.sonosDevices
 			    if device.alive=true then
 			        ' mark it as false - an alive should come by and mark it as true again'
@@ -236,14 +257,16 @@ Function sonos_ProcessEvent(event As Object) as boolean
 			' Now re-scan
 			FindAllSonosDevices(m)
 	        retval=true
+		else if (event.GetSourceIdentity() = m.timerTopologyCheck.GetIdentity()) then
+			StartTopologyCheckTimer(m)
+			CheckSonosTopology(m)
+	        retval=true
 		end if
-
 	end if
 
 	return retval
 
 End Function
-
 
 Sub isSonosDevicePresent(s as object , devType as string ) as boolean
 
@@ -1204,6 +1227,8 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 					xfer = SonosSubUnBond(sonos.mp, sonosDevice.baseURL, subDevice.UDN)
 					sonos.xferObjects.push(xfer)
 				end if
+			else if command = "checktopology" then
+				CheckSonosTopology(sonos)
 			else if command = "subon" then
 				' print "Sub ON"
 				xfer = SonosSubCtrl(sonos.mp, sonosDevice.baseURL,1)
@@ -1409,6 +1434,63 @@ function setSonosMasterDevice(sonos as object,devType as string) as object
 	end if
 	return invalid
 end function
+
+Sub CheckSonosTopology(sonos as object)
+
+	runningState="unknown"
+	if sonos.userVariables["runningState"] <> invalid then
+		runningState=sonos.userVariables["runningState"].currentValue$
+	end if
+	
+	' Do nothing about bonding until the boot sequence is done
+	if runningState="running" then
+	
+		print "**** Checking Sonos Topology"
+		
+		bondMaster$ = "none"
+		if sonos.userVariables["subBondTo"] <> invalid then
+			bondMaster$ = sonos.userVariables["subBondTo"].currentValue$
+		end if
+	
+		subBondStatus$ = "none"
+		if sonos.userVariables["subBondStatus"] <> invalid then
+			subBondStatus$ = sonos.userVariables["subBondStatus"].currentValue$
+		end if
+
+		if bondMaster$ <> "none" and subBondStatus$ <> "none" then
+			bondMaster = GetDeviceByPlayerModel(sonos.sonosDevices, bondMaster$)
+			if bondMaster <> invalid then
+				subDevice = GetDeviceByPlayerModel(sonos.sonosDevices, "sub")
+				if subDevice <> invalid and subBondStatus$ = "Unbonded" then
+					sonos.accelerateAliveCheck = False
+					' Bond sub to bondMaster
+					print "**** Bonding ";bondMaster$;" to SUB"
+					xfer = SonosSubBond(sonos.mp, bondMaster.baseURL, bondMaster.UDN, subDevice.UDN)
+					sonos.xferObjects.push(xfer)
+				else if subDevice = invalid and subBondStatus$.Left(6) = "Bonded" then
+					sonos.accelerateAliveCheck = False
+					if sonos.masterBondedToSubUDN <> invalid and sonos.masterBondedToSubUDN <> "none" then
+						' Unbond sub from master
+						print "**** SUB is missing - unbonding ";bondMaster$;" from SUB"
+						xfer = SonosSubUnBond(sonos.mp, bondMaster.baseURL, sonos.masterBondedToSubUDN)
+						sonos.xferObjects.push(xfer)
+					else
+						print "**** Need to unbond SUB, but we don't have sub UDN that was bonded"
+					end if
+				else if subBondStatus$ = "Bonded/missing" then
+					' If topology update indicates the bondMaster is bonded, but
+					'  the sub is missing, accelerate alive checks to determine
+					'  when the sub actually goes away
+					' When that happens, we will unbond the master
+					sonos.timerAliveCheck.Stop()
+					sonos.accelerateAliveCheck = True
+					StartAliveCheckTimer(sonos)
+				end if
+			end if
+		end if
+	end if
+
+End Sub
 
 sub SonosGetVolume(mp as object, connectedPlayerIP as string) as object
 
@@ -3536,7 +3618,27 @@ Function CheckSubBonding(s as object, zoneGroupStateXml$ as string) as string
 			for each member in members
 				'print "*** member: ";member@UUID
 				if member@UUID = bondMaster.UDN then
+					' First check for a channel map, and see if master thinks is bonded to a SUB
+					s.masterBondedToSubUDN = "none"
+					channelMap = member@HTSatChanMapSet
+					if type(channelMap) = "roString" then
+						rx = CreateObject("roRegex", ";", "i")
+						chans = rx.split(channelMap)
+						for each chan in chans
+							rx2 = CreateObject("roRegex", ":", "i")
+							chanComps = rx2.split(chan)
+							if chanComps[1] = "SW" then
+								s.masterBondedToSubUDN = chanComps[0]
+							end if
+						end for
+					end if
+					if subUDN <> "none" and s.masterBondedToSubUDN <> "none" and s.masterBondedToSubUDN <> subUDN then
+						' master is bonded to a different SUB than ours!
+						print "**** CheckSubBonding, master bonded to different SUB, status: Bonded/missing"
+						return "Bonded/missing"
+					end if
 					' Look for Satellite entry
+					' If our SUB has gone offline, it will not be in this list
 					satellites = member.GetNamedElements("Satellite")
 					for each satellite in satellites
 					    'print "**** satellite: ";satellite@UUID
@@ -3545,9 +3647,10 @@ Function CheckSubBonding(s as object, zoneGroupStateXml$ as string) as string
 							return "Bonded"
 						end if
 					end for
-					if satellites.count() > 0 then
-						' The master is bonded to a missing satellite
-						print "**** CheckSubBonding, Bonded/missing"
+					' Our SUB is either missing or not in the Satellite list
+					' If the master is bonded to something, the SUB is therefore missing
+					if s.masterBondedToSubUDN <> "none" then
+						print "**** CheckSubBonding, master bonded, but our SUB isn't found: Bonded/missing"
 						return "Bonded/missing"
 					end if
 				end if
