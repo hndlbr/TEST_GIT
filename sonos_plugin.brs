@@ -19,7 +19,7 @@ Function newSonos(msgPort As Object, userVariables As Object, bsp as Object)
 	' Create the object to return and set it up
 	s = {}
 
-	s.version = "3.05"
+	s.version = "3.07"
 
 	s.configVersion = "1.0"
 	registrySection = CreateObject("roRegistrySection", "networking")
@@ -30,7 +30,7 @@ Function newSonos(msgPort As Object, userVariables As Object, bsp as Object)
 		else
 			' If no time server, assume config 1.1
 			value$ = registrySection.Read("ts")
-			if type(value$)<>"roString" or value$.Len()=0 then
+			if Len(value$) = 0 then
 				s.configVersion = "1.1"
 			end if
 		end if
@@ -110,6 +110,7 @@ Function newSonos(msgPort As Object, userVariables As Object, bsp as Object)
 	s.masterDeviceLastTransportURI=""
 
 	' Keep track of all the devices that should be grouped for playing together
+	' TODO - is this still used?
 	s.playingGroup = createObject("roArray",0, true)
 
 	' Create the UDP receiver port for the Sonos commands
@@ -240,6 +241,7 @@ Function sonos_ProcessEvent(event As Object) as boolean
 			SonosRenewRegisterForEvents(m)
 			retval = true
 		else if (event.GetSourceIdentity() = m.timerAliveCheck.GetIdentity()) then
+			print "AliveCheck at ";m.st.GetLocalDateTime()
 			StartAliveCheckTimer(m)
 			for each device in m.sonosDevices
 			    if device.alive=true then
@@ -291,9 +293,13 @@ End Sub
 Sub FindAllSonosDevices(s as Object) 
 	print "*** FindAllSonosDevices"
 
-	devices = s.devices
+	'devices = s.devices
 	CreateUPnPDiscoverer(s.msgPort, OnFound, s)
-	s.disco.Discover("upnp:rootdevice")
+	' Send M-SEARCH multiple times, since devices may occasionally miss UDP M-SEARCH request
+	for count = 1 to 3
+		s.disco.Discover("upnp:rootdevice")
+		Sleep(10)
+	end for
 
 End Sub
 
@@ -654,7 +660,7 @@ Sub SendXMLQuery(s as object, response as string)
 		'print "XML Query sent"
 		s.devices.push(Query)
 	else
-		'print "**** XML Query NOT Sent ****"
+		print "**** XML Query NOT Sent ****"
 	end if
 end sub
 
@@ -703,25 +709,25 @@ Function GetBaseURLFromLocation(location as string) as string
 end Function
 
 
-function findMatchingValidHHID(s as object)
-	for each device in s.sonosDevices
-      if (instr(1, device.hhid, "Sonos_RDM_")) then
-	    for each d in s.sonosDevices
-	        if d.modelNumber=device.modelNumber
-	            goto next_device
-	        end if
-            print "findMatchingValidHHIDs: ";device.modelNumber;" - ";d.modelNumber
-            if d.hhid=device.hhid
-                ' two matching devices '
-                print "devices ";d.modelNumber;"and ";device.modelNumber;" have hhid: "
-                return d.hhid
-	        end if    
-		end for
-        next_device:
-      end if
-	next
-	return ""
-end function
+' function findMatchingValidHHID(s as object)
+	' for each device in s.sonosDevices
+      ' if (instr(1, device.hhid, "Sonos_RDM_")) then
+	    ' for each d in s.sonosDevices
+	        ' if d.modelNumber=device.modelNumber
+	            ' goto next_device
+	        ' end if
+            ' print "findMatchingValidHHIDs: ";device.modelNumber;" - ";d.modelNumber
+            ' if d.hhid=device.hhid
+                ' ' two matching devices '
+                ' print "devices ";d.modelNumber;"and ";device.modelNumber;" have hhid: "
+                ' return d.hhid
+	        ' end if    
+		' end for
+        ' next_device:
+      ' end if
+	' next
+	' return ""
+' end function
 
 
 sub CheckPlayerHHIDs(s as object) as boolean
@@ -985,28 +991,28 @@ function GetDeviceByUDN(sonosDevices as Object, UDN as string) as object
 end function
 
 
-Function CheckGroupValid(sonosDevices as Object, masterDevice as object) as object
+' Function CheckGroupValid(sonosDevices as Object, masterDevice as object) as object
 
-	if masterDevice<>invalid
-  	    masterString="x-rincon:"+masterDevice.UDN
-  	else 
-  	    masterString="none"
-  	end if
+	' if masterDevice<>invalid
+  	    ' masterString="x-rincon:"+masterDevice.UDN
+  	' else 
+  	    ' masterString="none"
+  	' end if
 
-	' if any of the devices don't have their AVTransportURI set to the UDN of the master then they are 
-	' not grouped'
-	for i = 0 to sonosDevices.count() - 1
-		if (sonosDevices[i].modelNumber <> masterDevice.modelNumber) then
-		    print "CheckGroupValid: +++ comparing device [";sonosDevices[i].AVTransportURI;"] to master [";masterString;"]"
-		    if sonosDevices[i].AVTransportURI<>masterString
-		        print "+++ NOT Grouped!"
-		        return false
-		    end if
-		end if
-	end for
-	print "+++ Grouped!"
-	return true
-end function
+	' ' if any of the devices don't have their AVTransportURI set to the UDN of the master then they are 
+	' ' not grouped'
+	' for i = 0 to sonosDevices.count() - 1
+		' if (sonosDevices[i].modelNumber <> masterDevice.modelNumber) then
+		    ' print "CheckGroupValid: +++ comparing device [";sonosDevices[i].AVTransportURI;"] to master [";masterString;"]"
+		    ' if sonosDevices[i].AVTransportURI<>masterString
+		        ' print "+++ NOT Grouped!"
+		        ' return false
+		    ' end if
+		' end if
+	' end for
+	' print "+++ Grouped!"
+	' return true
+' end function
 
 
 
@@ -1345,6 +1351,7 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 			    'sonos.masterDevice = devType
 				setSonosMasterDevice(sonos,devType)
 			else if command = "addplayertogroup" then
+				' TODO - is this still used?
 				print "Trying to add ";devType;" to playing group"
 				found = false
 				print "Number of device is: "; sonos.playingGroup.count()
@@ -1376,55 +1383,55 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 			next
 
 		end if
-	else
-		' See if it is a Brightsign message
-		r = CreateObject("roRegex", "^brightsign", "i")
-		match=r.IsMatch(msg)
-		if (match) then
-			retval = true
+	' else
+		' ' See if it is a Brightsign message
+		' r = CreateObject("roRegex", "^brightsign", "i")
+		' match=r.IsMatch(msg)
+		' if (match) then
+			' retval = true
 
-			r2 = CreateObject("roRegex", "!", "i")
-			fields=r2.split(msg)
-			numFields = fields.count()
-			if (numFields < 3) or (numFields > 5) then
-				print "************ Incorrect number of fields for BrightSign command:";msg
-				' need to have a least 3 fields and not more than 4 fields to be valid
-				return retval
-			else if (numFields = 3) then
-				' command with no details
-				command =fields[1]
-				field1 =fields[2]
-				field2 = ""
-				field3 = ""
-			else if (numFields = 4) then
-				' command with details
-				command =fields[1]
-				field1 =fields[2]
-				field2 =fields[3]
-				field3 =""
-			else if (numFields = 5) then
-				' command with details
-				command =fields[1]
-				field1 =fields[2]
-				field2 =fields[3]
-				field3 =fields[4]
-			end if
+			' r2 = CreateObject("roRegex", "!", "i")
+			' fields=r2.split(msg)
+			' numFields = fields.count()
+			' if (numFields < 3) or (numFields > 5) then
+				' print "************ Incorrect number of fields for BrightSign command:";msg
+				' ' need to have a least 3 fields and not more than 4 fields to be valid
+				' return retval
+			' else if (numFields = 3) then
+				' ' command with no details
+				' command =fields[1]
+				' field1 =fields[2]
+				' field2 = ""
+				' field3 = ""
+			' else if (numFields = 4) then
+				' ' command with details
+				' command =fields[1]
+				' field1 =fields[2]
+				' field2 =fields[3]
+				' field3 =""
+			' else if (numFields = 5) then
+				' ' command with details
+				' command =fields[1]
+				' field1 =fields[2]
+				' field2 =fields[3]
+				' field3 =fields[4]
+			' end if
 
-			if command = "chpresent" then
-				available = ChannelAvailable(sonos, field1, field2, field3)
-				if available then 
-					print "Channel: ";field2;" ";field1;" is available"
-					sendSelfUDP("ATSC")
-				else
-					print "Channel: ";field2;" ";field1;" is NOT available"
-					sendSelfUDP("noATSC")
-				end if
-			else if (command = "resolution") then
-				vm=CreateObject("roVideoMode")
-				print "Switching Resolution"
-				vm.SetMode(field1+"-noreboot")
-			end if
-		end if
+			' if command = "chpresent" then
+				' available = ChannelAvailable(sonos, field1, field2, field3)
+				' if available then 
+					' print "Channel: ";field2;" ";field1;" is available"
+					' sendSelfUDP("ATSC")
+				' else
+					' print "Channel: ";field2;" ";field1;" is NOT available"
+					' sendSelfUDP("noATSC")
+				' end if
+			' else if (command = "resolution") then
+				' vm=CreateObject("roVideoMode")
+				' print "Switching Resolution"
+				' vm.SetMode(field1+"-noreboot")
+			' end if
+		' end if
 	end if
 
 	return retval
@@ -1483,8 +1490,6 @@ Sub CheckSonosTopology(sonos as object)
 	' Do nothing about bonding until the boot sequence is done
 	if runningState="running" then
 	
-		print "**** Checking Sonos Topology"
-		
 		bondMaster$ = "none"
 		if sonos.userVariables["subBondTo"] <> invalid then
 			bondMaster$ = sonos.userVariables["subBondTo"].currentValue$
@@ -1495,6 +1500,8 @@ Sub CheckSonosTopology(sonos as object)
 			subBondStatus$ = sonos.userVariables["subBondStatus"].currentValue$
 		end if
 
+		print "**** Checking Sonos Topology, master: ";bondMaster$;", subBondStatus: ";subBondStatus$;", time: ";sonos.st.GetLocalDateTime()
+		
 		if bondMaster$ <> "none" and subBondStatus$ <> "none" then
 			bondMaster = GetDeviceByPlayerModel(sonos.sonosDevices, bondMaster$)
 			if bondMaster <> invalid then
@@ -1505,7 +1512,7 @@ Sub CheckSonosTopology(sonos as object)
 					print "**** Bonding ";bondMaster$;" to SUB"
 					xfer = SonosSubBond(sonos.mp, bondMaster.baseURL, bondMaster.UDN, subDevice.UDN)
 					sonos.xferObjects.push(xfer)
-				else if subDevice = invalid and subBondStatus$.Left(6) = "Bonded" then
+				else if (subBondStatus$ = "Bonded/missing") or (subDevice = invalid and subBondStatus$.Left(6) = "Bonded") then
 					sonos.accelerateAliveCheck = False
 					if sonos.masterBondedToSubUDN <> invalid and sonos.masterBondedToSubUDN <> "none" then
 						' Unbond sub from master
@@ -1515,14 +1522,15 @@ Sub CheckSonosTopology(sonos as object)
 					else
 						print "**** Need to unbond SUB, but we don't have sub UDN that was bonded"
 					end if
-				else if subBondStatus$ = "Bonded/missing" then
-					' If topology update indicates the bondMaster is bonded, but
-					'  the sub is missing, accelerate alive checks to determine
-					'  when the sub actually goes away
-					' When that happens, we will unbond the master
-					sonos.timerAliveCheck.Stop()
-					sonos.accelerateAliveCheck = True
-					StartAliveCheckTimer(sonos)
+				' else if subBondStatus$ = "Bonded/missing" then
+					' ' If topology update indicates the bondMaster is bonded, but
+					' '  the sub is missing, accelerate alive checks to determine
+					' '  when the sub actually goes away
+					' ' When that happens, we will unbond the master
+					' print "**** SUB is in our list, but bonded master reports SUB missing - accelerating AliveCheck"
+					' sonos.timerAliveCheck.Stop()
+					' sonos.accelerateAliveCheck = True
+					' StartAliveCheckTimer(sonos)
 				end if
 			end if
 		end if
@@ -1700,7 +1708,43 @@ Sub SonosGetMute(mp as object, connectedPlayerIP as string) as object
 	return soapTransfer
 end sub
 
+Sub SonosMutePauseControl(mp as object, connectedPlayerIP as string) as object
 
+	reqString="<?xml version="+chr(34)+"1.0"+chr(34)+" encoding="+chr(34)+"utf-8"+chr(34)+" standalone="+chr(34)+"yes"+chr(34)+"?>"
+	reqString=reqString+"<s:Envelope s:encodingStyle="+chr(34)
+	reqString=reqString+"http://schemas.xmlsoap.org/soap/encoding/"+chr(34)
+	reqString=reqString+" xmlns:s="+chr(34)+"http://schemas.xmlsoap.org/soap/envelope/"+chr(34)+">"
+	reqString=reqString+"<s:Body>"
+	reqString=reqString+"<u:SetString xmlns:u="+chr(34)+"urn:schemas-upnp-org:service:SystemProperties:1"+chr(34)+">"
+	reqString=reqString+"<VariableName>R_ButtonMode</VariableName><StringValue>Mute</StringValue></u:SetString></s:Body>"
+	reqString=reqString+"</s:Envelope>"
+
+	soapTransfer = CreateObject("roUrlTransfer")
+	soapTransfer.SetMinimumTransferRate( 2000, 1 )
+	soapTransfer.SetPort( mp )
+
+	sonosReqData=CreateObject("roAssociativeArray")
+	sonosReqData["type"]="MutePauseControl"
+	sonosReqData["dest"]=connectedPlayerIP
+	soapTransfer.SetUserData(sonosReqData)
+
+	soapTransfer.SetUrl( connectedPlayerIP + "/SystemProperties/Control")
+	ok = soapTransfer.addHeader("SOAPACTION", "urn:schemas-upnp-org:service:SystemProperties:1#SetString")
+	if not ok then
+		stop
+	end if
+
+	ok = soapTransfer.addHeader("Content-Type", "text/xml; charset="+ chr(34) + "utf-8" + chr(34))
+	if not ok then
+		stop
+	end if
+
+	' print "strlen: "+str(len(xmlString))
+	' print xmlString
+	ok = soapTransfer.AsyncPostFromString(reqString)
+
+	return soapTransfer
+end sub
 
 
 Sub SonosSetRDM(mp as object, connectedPlayerIP as string, rdmVal as integer) as object
@@ -1918,7 +1962,7 @@ Sub SonosSubCtrl(mp as object, connectedPlayerIP as string, EqKey as string, EqV
 	return soapTransfer
 end sub
 
-Sub SonosSubBond(mp as object, connectedPlayerIP as string, s9UDN as object, subUDN as object) as object
+Sub SonosSubBond(mp as object, connectedPlayerIP as string, s9UDN as string, subUDN as string) as object
     
     soapTransfer = CreateObject("roUrlTransfer")
     soapTransfer.SetMinimumTransferRate( 2000, 1 )
@@ -2467,7 +2511,6 @@ Sub SonosGroupAll(s as object) as object
 	end for
 end sub
 
-
 Sub SonosSetGroup(mp as object, connectedPlayerIP as string, sonosPlayerUDN as string) as object
 
 	xmlString="<?xml version="+chr(34)+"1.0"+chr(34)+" encoding="+chr(34)+"utf-8"+chr(34)
@@ -2616,8 +2659,6 @@ Function processSonosRDMResponse(msg as object, connectedPlayerIP as string, son
 End Function
 
 
-'SetGroup
-
 Function processSonosMuteResponse(msg as object, connectedPlayerIP as string, sonos as Object)
 
 	print "processSonosMuteResponse from " + connectedPlayerIP
@@ -2659,8 +2700,6 @@ Function processSonosGroupResponse(msg as object, connectedPlayerIP as string, s
 
 	print "processSonosGroupResponse from " + connectedPlayerIP
 	print msg
-
-
 
 End Function
 
@@ -2859,89 +2898,89 @@ end sub
 
 
 
-Function ChannelAvailable(sonos as object, virtualChannel as string, modulation as string, rfChannel as string) as boolean
-	print "Looking for Virtual Channel: ";virtualChannel;" with modulation type: ";modulation;" on RF Channel: ";rfChannel
-	c = CreateObject("roChannelManager")
+' Function ChannelAvailable(sonos as object, virtualChannel as string, modulation as string, rfChannel as string) as boolean
+	' print "Looking for Virtual Channel: ";virtualChannel;" with modulation type: ";modulation;" on RF Channel: ";rfChannel
+	' c = CreateObject("roChannelManager")
+	'
+	' channelAvail = false
+	' ' See if there are any cached channels
+	' count = c.GetChannelCount()
+	' if (count > 0 ) then
+		' print "Tuner Channels found"
+		' cinfo  = CreateObject("roAssociativeArray")
+		' cinfo["VirtualChannel"] = virtualChannel
+		' desc = c.CreateChannelDescriptor(cinfo)
+		' if (desc <> invalid)
+			' ChannelAvail = true
+			' print "Channnel: ";virtualChannel;" found, descriptor ="
+			' print desc
+			' ' Make sure the channel that was cached is really available now
+			' aa  = CreateObject("roAssociativeArray")
+			' aa["ChannelMap"] = desc["ChannelMap"]
+			' aa["FirstRfChannel"] = desc["RfChannel"]
+			' aa["LastRfChannel"] = desc["RfChannel"]
+			' ' Clear the channel data
+			' c.ClearChannelData()
+			' print "Do scan to validate channel is really available now"
+			' c.Scan(aa)
+			' cinfo["VirtualChannel"] = virtualChannel
+			' desc = c.CreateChannelDescriptor(cinfo)
+			' if (desc <> invalid) then 
+				' print "Descriptor after confirmation scan"
+				' print desc
+				' ChannelAvail = true
+			' else
+				' ' Do a complete scan to see if we can find the channel
+				' Print "Doing a complete scan, found cached channel but single scan did not find channel"
+				' ChannelAvail = FindChannelByScan(modulation, virtualChannel, rfChannel)
+			' end if
+		' else
+			' print "Channel: ";channel;" not in list, scan again..."
+			' ChannelAvail = FindChannelByScan(modulation, virtualChannel, rfChannel)
+		' end if
+	' else
+		' print "No channels available, run a scan..."
+		' ChannelAvail = 	FindChannelByScan(modulation, virtualChannel, rfChannel)
+	' end if
+	'
+	' if (channelAvail) then
+		' cinfo  = CreateObject("roAssociativeArray")
+		' cinfo["VirtualChannel"] = virtualChannel
+		' desc = c.CreateChannelDescriptor(cinfo)
+		' sonos.channelDesc = desc
+	' end if
+	'	
+	' return (channelAvail)
+' end Function
 
-	channelAvail = false
-	' See if there are any cached channels
-	count = c.GetChannelCount()
-	if (count > 0 ) then
-		print "Tuner Channels found"
-		cinfo  = CreateObject("roAssociativeArray")
-		cinfo["VirtualChannel"] = virtualChannel
-		desc = c.CreateChannelDescriptor(cinfo)
-		if (desc <> invalid)
-			ChannelAvail = true
-			print "Channnel: ";virtualChannel;" found, descriptor ="
-			print desc
-			' Make sure the channel that was cached is really available now
-			aa  = CreateObject("roAssociativeArray")
-			aa["ChannelMap"] = desc["ChannelMap"]
-			aa["FirstRfChannel"] = desc["RfChannel"]
-			aa["LastRfChannel"] = desc["RfChannel"]
-			' Clear the channel data
-			c.ClearChannelData()
-			print "Do scan to validate channel is really available now"
-			c.Scan(aa)
-			cinfo["VirtualChannel"] = virtualChannel
-			desc = c.CreateChannelDescriptor(cinfo)
-			if (desc <> invalid) then 
-				print "Descriptor after confirmation scan"
-				print desc
-				ChannelAvail = true
-			else
-				' Do a complete scan to see if we can find the channel
-				Print "Doing a complete scan, found cached channel but single scan did not find channel"
-				ChannelAvail = FindChannelByScan(modulation, virtualChannel, rfChannel)
-			end if
-		else
-			print "Channel: ";channel;" not in list, scan again..."
-			ChannelAvail = FindChannelByScan(modulation, virtualChannel, rfChannel)
-		end if
-	else
-		print "No channels available, run a scan..."
-		ChannelAvail = 	FindChannelByScan(modulation, virtualChannel, rfChannel)
-	end if
-
-	if (channelAvail) then
-		cinfo  = CreateObject("roAssociativeArray")
-		cinfo["VirtualChannel"] = virtualChannel
-		desc = c.CreateChannelDescriptor(cinfo)
-		sonos.channelDesc = desc
-	end if
-		
-	return (channelAvail)
-end Function
-
-Function FindChannelByScan(modulation as string, virtualChannel as string, rfChannel as string) as Boolean
-
-	c = CreateObject("roChannelManager")
-	aa  = CreateObject("roAssociativeArray")
-	if (modulation <> "") then
-		aa["ChannelMap"] = modulation
-	end if
-	if (rfChannel <> "") then
-		rfChannelNum = int(val(rfChannel))
-		print "RF Channel Number = "; rfChannelNum		
-		aa["FirstRfChannel"] = rfChannelNum
-		aa["LastRfChannel"] = rfChannelNum
-	end if
-	c.Scan(aa)
-	cinfo  = CreateObject("roAssociativeArray")
-	cinfo["VirtualChannel"] = virtualChannel
-	desc = c.CreateChannelDescriptor(cinfo)
-	if (desc <> invalid)
-		ChannelAvail = true
-		print "Channnel: ";virtualChannel;" found, descriptor ="
-		print desc
-	else
-		print "Channnel: ";virtualChannel;" NOT found after scan.."
-		ChannelAvail = false
-	end if
-
-	return ChannelAvail
-end function
+' Function FindChannelByScan(modulation as string, virtualChannel as string, rfChannel as string) as Boolean
+	'
+	' c = CreateObject("roChannelManager")
+	' aa  = CreateObject("roAssociativeArray")
+	' if (modulation <> "") then
+		' aa["ChannelMap"] = modulation
+	' end if
+	' if (rfChannel <> "") then
+		' rfChannelNum = int(val(rfChannel))
+		' print "RF Channel Number = "; rfChannelNum		
+		' aa["FirstRfChannel"] = rfChannelNum
+		' aa["LastRfChannel"] = rfChannelNum
+	' end if
+	' c.Scan(aa)
+	' cinfo  = CreateObject("roAssociativeArray")
+	' cinfo["VirtualChannel"] = virtualChannel
+	' desc = c.CreateChannelDescriptor(cinfo)
+	' if (desc <> invalid)
+		' ChannelAvail = true
+		' print "Channnel: ";virtualChannel;" found, descriptor ="
+		' print desc
+	' else
+		' print "Channnel: ";virtualChannel;" NOT found after scan.."
+		' ChannelAvail = false
+	' end if
+	'
+	' return ChannelAvail
+' end function
 
 Function SonosDeviceBusy(sonos as object, devType as String) as Boolean
 
@@ -3611,6 +3650,11 @@ Sub OnZoneGroupTopologyEvent(userdata as Object, e as Object)
 				exit for
 			end if	
 		end for
+		
+		curStatus$ = getUserVariableValue(s, "subBondStatus")
+		if curStatus$ <> invalid and curStatus$ <>status$ then
+			sendPluginEvent(s, "TopologyChanged")
+		end if
 
 		if status$.Len() > 0 then
 			updateUserVar(s.userVariables, "subBondStatus", status$, true)	
@@ -3863,26 +3907,26 @@ Function rdmHouseholdSetupAsync(mp as object,connectedPlayerIP as string, hhid a
 	return b
 end Function
 
-Function rdmHouseholdSetup(connectedPlayerIP as string, hhid as string, name as string, icon as string, reboot as integer) as Object
+' Function rdmHouseholdSetup(connectedPlayerIP as string, hhid as string, name as string, icon as string, reboot as integer) as Object
 
-	print "setting hhhid: ";hhid;" for ";connectedPlayerIP
+	' print "setting hhhid: ";hhid;" for ";connectedPlayerIP
 
-	sURL=connectedPlayerIP+"/rdmhhsetup"
-	v={}
-	v.hhid=hhid
-	v.name=name
-	v.icon=icon
-	v.reboot=str(reboot)
-	v.reboot=v.reboot.trim()
-	b = postFormData(sURL,v)
-	if b<>true
-		print "ERROR setting Household for "+connectedPlayerIP
-	else
-	    print "set hhid ";hhid;" on ";connectedPlayerIP
-	end if
+	' sURL=connectedPlayerIP+"/rdmhhsetup"
+	' v={}
+	' v.hhid=hhid
+	' v.name=name
+	' v.icon=icon
+	' v.reboot=str(reboot)
+	' v.reboot=v.reboot.trim()
+	' b = postFormData(sURL,v)
+	' if b<>true
+		' print "ERROR setting Household for "+connectedPlayerIP
+	' else
+	    ' print "set hhid ";hhid;" on ";connectedPlayerIP
+	' end if
 
-	return v
-end Function
+	' return v
+' end Function
 
 
 Function postFormDataAsync(mp as object, connectedPlayerIP as object, sURL as string, vars as Object, reqType as object) as Object
@@ -3916,35 +3960,35 @@ Function postFormDataAsync(mp as object, connectedPlayerIP as object, sURL as st
 end Function  
 
 
-Function postFormData(sURL as string, vars as Object) as Object
-  if sURL=invalid
-    return false
-  endif 
+' Function postFormData(sURL as string, vars as Object) as Object
+  ' if sURL=invalid
+    ' return false
+  ' endif 
 
-  fTransfer = CreateObject("roUrlTransfer")
-  fTransfer.SetUrl(sURL)
+  ' fTransfer = CreateObject("roUrlTransfer")
+  ' fTransfer.SetUrl(sURL)
 
-  postString=""
-  for each v in vars
-		''    print "*** "+v
-    if postString<>""
-      postString=postString+"&"
-    endif
-    postString=postString+fTransfer.escape(v)+"="+fTransfer.escape(vars[v])
-	'print "postFormData - sURL: "+sURL+"?"+postString
-  next
+  ' postString=""
+  ' for each v in vars
+		' ''    print "*** "+v
+    ' if postString<>""
+      ' postString=postString+"&"
+    ' endif
+    ' postString=postString+fTransfer.escape(v)+"="+fTransfer.escape(vars[v])
+	' 'print "postFormData - sURL: "+sURL+"?"+postString
+  ' next
 
-  print "POSTing "+postString+" to "+sURL
+  ' print "POSTing "+postString+" to "+sURL
 
-  ret=fTransfer.PostFromString(postString)
-  print str(ret)
-  if ret<>200
-    print "ERROR performing POST"
-    return false
-  end if
+  ' ret=fTransfer.PostFromString(postString)
+  ' print str(ret)
+  ' if ret<>200
+    ' print "ERROR performing POST"
+    ' return false
+  ' end if
 
-  return true
-end Function  
+  ' return true
+' end Function  
 
 
 Function SonosPlayerReboot(mp as object, connectedPlayerIP as string)
@@ -4045,12 +4089,12 @@ Sub SonosSoftwareUpdate(s as object, mp as object, connectedPlayerIP as string, 
 end sub
 
 
-Function processSonosSoftwareUpdateResponse(msg as object, connectedPlayerIP as string, sonos as Object)
+' Function processSonosSoftwareUpdateResponse(msg as object, connectedPlayerIP as string, sonos as Object)
 
-	print "processSonosSoftwareUpdateResponse from " + connectedPlayerIP
-	print msg
+	' print "processSonosSoftwareUpdateResponse from " + connectedPlayerIP
+	' print msg
 
-End Function
+' End Function
 
 
 Function AddAllSonosUpgradeImages(s as object, version as string)
@@ -4179,51 +4223,6 @@ sub updateUserVar(uv as object, targetVar as string, newValue as string, postMsg
 	end if
 end sub
 
-Sub SonosMutePauseControl(mp as object, connectedPlayerIP as string) as object
-
-	reqString="<?xml version="+chr(34)+"1.0"+chr(34)+" encoding="+chr(34)+"utf-8"+chr(34)+" standalone="+chr(34)+"yes"+chr(34)+"?>"
-	reqString=reqString+"<s:Envelope s:encodingStyle="+chr(34)
-	reqString=reqString+"http://schemas.xmlsoap.org/soap/encoding/"+chr(34)
-	reqString=reqString+" xmlns:s="+chr(34)+"http://schemas.xmlsoap.org/soap/envelope/"+chr(34)+">"
-	reqString=reqString+"<s:Body>"
-	reqString=reqString+"<u:SetString xmlns:u="+chr(34)+"urn:schemas-upnp-org:service:SystemProperties:1"+chr(34)+">"
-	reqString=reqString+"<VariableName>R_ButtonMode</VariableName><StringValue>Mute</StringValue></u:SetString></s:Body>"
-	reqString=reqString+"</s:Envelope>"
-
-	soapTransfer = CreateObject("roUrlTransfer")
-	soapTransfer.SetMinimumTransferRate( 2000, 1 )
-	soapTransfer.SetPort( mp )
-
-	sonosReqData=CreateObject("roAssociativeArray")
-	sonosReqData["type"]="MutePauseControl"
-	sonosReqData["dest"]=connectedPlayerIP
-	soapTransfer.SetUserData(sonosReqData)
-
-	soapTransfer.SetUrl( connectedPlayerIP + "/SystemProperties/Control")
-	ok = soapTransfer.addHeader("SOAPACTION", "urn:schemas-upnp-org:service:SystemProperties:1#SetString")
-	if not ok then
-		stop
-	end if
-
-	ok = soapTransfer.addHeader("Content-Type", "text/xml; charset="+ chr(34) + "utf-8" + chr(34))
-	if not ok then
-		stop
-	end if
-
-	' print "strlen: "+str(len(xmlString))
-	' print xmlString
-	ok = soapTransfer.AsyncPostFromString(reqString)
-
-	return soapTransfer
-end sub
-
-
-Function processSonosMutePauseControlResponse(msg as object, connectedPlayerIP as string, sonos as Object)
-
-	print "processSonosMutePauseControlResponse from " + connectedPlayerIP
-	print msg
-
-End Function
 
 
 Sub BubbleSortDeviceList(devices As Object)
