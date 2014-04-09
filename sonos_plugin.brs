@@ -19,7 +19,7 @@ Function newSonos(msgPort As Object, userVariables As Object, bsp as Object)
 	' Create the object to return and set it up
 	s = {}
 
-	s.version = "3.08"
+	s.version = "3.09"
 
 	s.configVersion = "1.0"
 	registrySection = CreateObject("roRegistrySection", "networking")
@@ -57,6 +57,9 @@ Function newSonos(msgPort As Object, userVariables As Object, bsp as Object)
 	' Reset some critical variables
 	if (s.userVariables["aliveTimeoutSeconds"] <> invalid) then
 		s.userVariables["aliveTimeoutSeconds"].Reset(False)
+	end if
+	if (s.userVariables["msearchRepeatCount"] <> invalid) then
+		s.userVariables["msearchRepeatCount"].Reset(False)
 	end if
 	if (s.userVariables["subBondTo"] <> invalid) then
 		s.userVariables["subBondTo"].Reset(False)
@@ -144,7 +147,7 @@ Function newSonos(msgPort As Object, userVariables As Object, bsp as Object)
     end if
 	
 	' set up infoString variable with version numbers, if default value = "versions"
-	if s.userVariables["infoString"] <> invalid and s.userVariables["infoString"].currentValue$ = "versions" then
+	if s.userVariables["infoString"] <> invalid and s.userVariables["infoString"].defaultValue$ = "versions" then
 		info$ = s.version + " / " + s.configVersion
 		updateUserVar(s.userVariables,"infoString",info$,false)
 	end if
@@ -291,15 +294,24 @@ End Sub
 
 
 Sub FindAllSonosDevices(s as Object) 
-	print "*** FindAllSonosDevices"
+	' Conditionally send M-SEARCH multiple times, since devices may occasionally miss UDP M-SEARCH request
+	repeatCount = 1
+	if (s.userVariables["msearchRepeatCount"] <> invalid) then
+		d=s.userVariables["msearchRepeatCount"].currentValue$
+		repeatCount=val(d)
+	end if
+	
+	print "*** FindAllSonosDevices (repeat count";str(repeatCount);")"
 
 	CreateUPnPDiscoverer(s.msgPort, OnFound, s)
-	' Send M-SEARCH multiple times, since devices may occasionally miss UDP M-SEARCH request
-	for count = 1 to 3
+	if repeatCount <= 1 then
 		s.disco.Discover("upnp:rootdevice")
-		Sleep(10)
-	end for
-
+	else
+		for count = 1 to repeatCount
+			s.disco.Discover("upnp:rootdevice")
+			Sleep(10)
+		end for
+	end if
 End Sub
 
 Sub PrintAllSonosDevices(s as Object) 
@@ -1184,6 +1196,9 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 					xfer = SonosSubUnBond(sonos.mp, sonosDevice.baseURL, subDevice.UDN)
 					sonos.xferObjects.push(xfer)
 				end if
+			else if command = "setautoplayroom" then
+				xfer = SonosSetAutoplayRoomUUID(sonos.mp, sonosDevice.baseURL, sonosDevice.UDN)
+				sonos.xferObjects.push(xfer)
 			else if command = "checktopology" then
 				CheckSonosTopology(sonos)
 			else if command = "subon" then
@@ -1806,6 +1821,49 @@ Sub SonosSetWifi(mp as object, connectedPlayerIP as string, setValue as string) 
 	return (soapTransfer)
 end Sub
 
+Sub SonosSetAutoplayRoomUUID(mp as object, connectedPlayerIP as string, masterUDN as string) as object
+
+	xmlString="<?xml version="+chr(34)+"1.0"+chr(34)+" encoding="+chr(34)+"utf-8"+chr(34)+"?>"
+	xmlString=xmlString+"<s:Envelope s:encodingStyle="+chr(34)
+	xmlString=xmlString+"http://schemas.xmlsoap.org/soap/encoding/"+chr(34)
+	xmlString=xmlString+" xmlns:s="+chr(34)+"http://schemas.xmlsoap.org/soap/envelope/"+chr(34)
+	xmlString=xmlString+"><s:Body><u:SetAutoplayRoomUUID xmlns:u="+chr(34)
+	xmlString=xmlString+"urn:schemas-upnp-org:service:DeviceProperties:1"+chr(34)
+	xmlString=xmlString+"><RoomUUID>UDNSTRING</RoomUUID>"
+	xmlString=xmlString+"</u:SetAutoplayRoomUUID>"
+	xmlString=xmlString+"</s:Body></s:Envelope>"
+
+	r1 = CreateObject("roRegex", "UDNSTRING", "i")
+	reqString = r1.ReplaceAll(xmlString, masterUDN)
+
+	sTransfer = CreateObject("roUrlTransfer")
+	sTransfer.SetMinimumTransferRate( 2000, 1 )
+	sTransfer.SetPort( mp )
+
+	sonosReqData=CreateObject("roAssociativeArray")
+	sonosReqData["type"]="SetAutoplayRoomUUID"
+	sonosReqData["dest"]=connectedPlayerIP
+	sTransfer.SetUserData(sonosReqData)
+
+	sTransfer.SetUrl( connectedPlayerIP + "/DeviceProperties/Control")
+	ok = sTransfer.addHeader("SOAPACTION", "urn:schemas-upnp-org:service:DeviceProperties:1#SetAutoplayRoomUUID")
+	if not ok then
+		stop
+	end if
+	ok = sTransfer.addHeader("Content-Type", "text/xml; charset="+ chr(34) + "utf-8" + chr(34))
+	if not ok then
+		stop
+	end if
+	
+	print "Executing SetAutoplayRoomUUID: ";connectedPlayerIP
+	ok = sTransfer.AsyncPostFromString(reqString)
+	if not ok then
+		stop
+	end if
+
+	return sTransfer
+End Sub
+
 Function SonosCreateSetEQBody(key as string, value as string) as string
 
 	eqXML="<?xml version="+chr(34)+"1.0"+chr(34)+" encoding="+chr(34)+"utf-8"+chr(34)+"?>"
@@ -1816,8 +1874,8 @@ Function SonosCreateSetEQBody(key as string, value as string) as string
 	eqXML=eqXML+"urn:schemas-upnp-org:service:RenderingControl:1"+chr(34)
 	eqXML=eqXML+"><InstanceID>0</InstanceID>"
 	eqXML=eqXML+"<EQType>EQ_KEY</EQType><DesiredValue>EQ_VALUE</DesiredValue></u:SetEQ>"
-    
-    
+	eqXML=eqXML+"</s:Body></s:Envelope>"
+
 	' set the correct key in the request string
 	key_regex = CreateObject("roRegex", "EQ_KEY", "i")
     eqXML = key_regex.ReplaceAll(eqXML, key)
