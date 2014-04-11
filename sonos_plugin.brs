@@ -374,7 +374,6 @@ Sub FindAllSonosDevices(s as Object)
 	print "*** FindAllSonosDevices"
 
 	CreateUPnPController(s)
-	' TODO - issue multiple searches for reliability
 	if not s.upnp.Search("upnp:rootdevice", 5) then
 		print "Failed to initiate UPnP search for Sonos devices"
 	end if
@@ -727,16 +726,6 @@ Function GetDeviceByPlayerModel(sonosDevices as Object, modelNumber as string) a
 
 End function
 
-Function GetDeviceByPlayerBaseURL(sonosDevices as Object, baseURL as string) as object
-	device = invalid
-	for i = 0 to sonosDevices.count() - 1
-		if (sonosDevices[i].baseURL = baseURL) then
-			device = sonosDevices[i]
-		end if
-	end for
-	return device
-End Function
-
 Function GetDeviceByUDN(sonosDevices as Object, UDN as string) as object
 	device = invalid
 	for i = 0 to sonosDevices.count() - 1
@@ -1003,6 +992,8 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 				if subDevice <> invalid then
 					SonosSubUnBond(sonos, sonosDevice, subDevice.UDN)
 				end if
+			else if command = "setautoplayroom" then
+				SonosSetAutoplayRoomUUID(sonos, sonosDevice)
 			else if command = "checktopology" then
 				CheckSonosTopology(sonos)
 			else if command = "subon" then
@@ -1305,6 +1296,17 @@ Sub SonosApplyRDMDefaultSettings(sonos as object, sonosDevice as object)
 	sonosReqData["type"]="ApplyRDMDefaultSettings"
 	sonosReqData["dest"]=sonosDevice.baseURL
 	sonosReqData["id"]=sonosDevice.systemPropertiesService.Invoke("ApplyRDMDefaultSettings", params)
+	sonos.upnpActionObjects.push(sonosReqData)
+End Sub
+
+Sub SonosSetAutoplayRoomUUID(sonos as object, sonosDevice as object)
+	params = { }
+	params.RoomUUID = sonosDevice.UDN
+	
+	sonosReqData=CreateObject("roAssociativeArray")
+	sonosReqData["type"]="SetAutoplayRoomUUID"
+	sonosReqData["dest"]=sonosDevice.baseURL
+	sonosReqData["id"]=sonosDevice.devicePropertiesService.Invoke("SetAutoplayRoomUUID", params)
 	sonos.upnpActionObjects.push(sonosReqData)
 End Sub
 
