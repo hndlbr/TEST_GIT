@@ -1,5 +1,7 @@
 Sub Main()
-    print "UPNP Test Script"
+	print "****************************************************************************"
+    print "UPNP Test Script - Start"
+ 	print "****************************************************************************"
 
     mp = CreateObject("roMessagePort")
     sonos = newSonos(mp)
@@ -48,16 +50,32 @@ Function sonos_ProcessEvent(event As Object, s as Object) as boolean
 	if type(event) = "roUPnPSearchEvent" then
 		obj = event.GetObject()
 		evType = event.GetType()
-		if evType = 1 then
+		if evType = 0 then
+			if type(obj) = "roAssociativeArray" then
+				CheckSSDPNotification(obj, s)
+			else
+				print "!!!!! Received roUPnPSearchEvent, type 0 - unexpected object: ";type(obj)
+			end if
+		else if evType = 1 then
+			if type(obj) = "roAssociativeArray" then
+				CheckUPnPDeviceStatus(obj, s)
+			else
+				print "!!!!! Received roUPnPSearchEvent, type 1 - unexpected object: ";type(obj)
+			end if
+		else if evType = 2 then
 			if type(obj) = "roUPnPDevice" then
 				' new device
 				CheckNewUPnPDevice(obj, s)
-			else if type(obj) = "roAssociativeArray" then
-				CheckUPnPDeviceStatus(obj, s)
+			else
+				print "!!!!! Received roUPnPSearchEvent, type 2 - unexpected object: ";type(obj)
 			end if
-		else if evType = 0 and type(obj) = "roAssociativeArray" then
-			' SSDP Notify
-			'CheckSSDPNotification(obj, s)
+		else if evType = 3 then
+			if type(obj) = "roUPnPDevice" then
+				' device was removed 
+				CheckUPnPDeviceRemoved(obj, s)
+			else
+				print "!!!!! Received roUPnPSearchEvent, type 3 - unexpected object: ";type(obj)
+			end if
 		end if
 		retval = true
 	else if type(event) = "roUPnPActionResult" then
@@ -85,10 +103,13 @@ Sub CheckSSDPNotification(obj, s)
 		aliveFound = obj.DoesExist("NTS") and obj.NTS = "ssdp:alive"
 		byebyeFound = obj.DoesExist("NTS") and obj.NTS = "ssdp:byebye"
 		rootDevice = obj.DoesExist("NT") and obj.NT = "upnp:rootdevice"
-		if 	aliveFound and rootDevice  then
-			print "***********  Received ssdp:alive, UDN: ";udn
-		else if byebyeFound then
-			print "&&&&&&&&&&&  Received ssdp:byebye, UDN: ";udn
+		sonosNotification = obj.DoesExist("X-RINCON-BOOTSEQ")
+		if sonosNotification and rootDevice then
+			if 	aliveFound then
+				print "***********  Received ssdp:alive, UDN: ";udn
+			else if byebyeFound then
+				print "&&&&&&&&&&&  Received ssdp:byebye, UDN: ";udn
+			end if
 		end if
 	end if
 End Sub
@@ -128,6 +149,8 @@ Sub DoAliveCheck(s as Object)
 			if count% = 0 then
 				DeletePlayerByUDN(s,device.UDN)
 				print "+++ alive timer expired - device [";device.modelNumber;" - ";device.UDN;"] not seen and is deleted"
+			else
+				device.aliveCount% = count%
 			end if
 		end if
 	end for
@@ -143,14 +166,14 @@ Function IsModelDesired(model as string) as boolean
 	return false
 End Function
 
-Function DeletePlayerByUDN(s as object, uuid as String) as boolean
-	print "+++ DeletePlayerByUDN ";uuid
+Function DeletePlayerByUDN(s as object, udn as String) as boolean
+	print "+++ DeletePlayerByUDN ";udn
 	found = false
 	i = 0
 
 	numdevices = s.sonosDevices.count()
 	while (not found) and (i < numdevices)  
-		if (uuid=s.sonosDevices[i].UDN) then
+		if (udn=s.sonosDevices[i].UDN) then
 		  found = true
 		  deviceNumToDelete = i
 		end if
@@ -158,10 +181,10 @@ Function DeletePlayerByUDN(s as object, uuid as String) as boolean
 	end while
 	if (found) then
 	    modelBeingDeleted=s.sonosDevices[deviceNumToDelete].modelNumber
-		print "!!! Deleting Player "+modelBeingDeleted+" with uuid: " + uuid
+		print "!!! Deleting Player "+modelBeingDeleted+" with UDN: " + udn
 		s.sonosDevices.delete(deviceNumToDelete)
 	else
-		print "matching uuid not in list: ";uuid
+		print "- Matching UDN not in list: ";udn
 	end if		
 	return found
 end function
@@ -218,6 +241,7 @@ Sub CheckUPnPDeviceStatus(ssdpData as Object, s as Object)
 		print "Found existing Sonos Device at baseURL ";sonosDevice.baseURL;", UDN: ";udn
 		' Mark device as alive
 		sonosDevice.alive=true
+		sonosDevice.aliveCount%=3
 		UpdateSonosDeviceSSDPData(sonosDevice, ssdpData)
 		if sonosDevice.desired then
 			des$=" is desired"
@@ -226,6 +250,13 @@ Sub CheckUPnPDeviceStatus(ssdpData as Object, s as Object)
 		end if
 		print "Player ";sonosDevice.modelNumber;des$
 	end if
+End Sub
+
+Sub CheckUPnPDeviceRemoved(upnpDevice, s)
+	print "+++ UPnP Device removed from control point"
+	headers = upnpDevice.GetHeaders()
+	udn = GetUDNfromUSNHeader(headers.USN)
+	deletePlayerByUDN(s,udn)
 End Sub
 
 Function newSonosDevice(sonos as Object, upnpDevice as Object, isDesired as Boolean) as Object

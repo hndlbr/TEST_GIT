@@ -199,12 +199,32 @@ Function sonos_ProcessEvent(event As Object) as boolean
 	else if type(event) = "roUPnPSearchEvent" then
 		obj = event.GetObject()
 		evType = event.GetType()
-		if evType = 1 and type(obj) = "roUPnPDevice" then
-			' response to search
-			CheckUPnPDevice(obj, m)
-		else if evType = 0 and type(obj) = "roAssociativeArray" then
-			' SSDP Notify
-			CheckSSDPNotification(obj, m)
+		if evType = 0 then
+			if type(obj) = "roAssociativeArray" then
+				'CheckSSDPNotification(obj, s)
+			else
+				print "!!!!! Received roUPnPSearchEvent, type 0 - unexpected object: ";type(obj)
+			end if
+		else if evType = 1 then
+			if type(obj) = "roAssociativeArray" then
+				CheckUPnPDeviceStatus(obj, s)
+			else
+				print "!!!!! Received roUPnPSearchEvent, type 1 - unexpected object: ";type(obj)
+			end if
+		else if evType = 2 then
+			if type(obj) = "roUPnPDevice" then
+				' new device
+				CheckNewUPnPDevice(obj, s)
+			else
+				print "!!!!! Received roUPnPSearchEvent, type 2 - unexpected object: ";type(obj)
+			end if
+		else if evType = 3 then
+			if type(obj) = "roUPnPDevice" then
+				' device was removed 
+				CheckUPnPDeviceRemoved(obj, s)
+			else
+				print "!!!!! Received roUPnPSearchEvent, type 3 - unexpected object: ";type(obj)
+			end if
 		end if
 		retval = true
 	else if type(event) = "roUPnPActionResult" then
@@ -230,23 +250,7 @@ Function sonos_ProcessEvent(event As Object) as boolean
 			SonosRenewRegisterForEvents(m)
 			retval = true
 		else if (event.GetSourceIdentity() = m.timerAliveCheck.GetIdentity()) then
-			print "AliveCheck at ";m.st.GetLocalDateTime()
-			StartAliveCheckTimer(m)
-			for each device in m.sonosDevices
-			    if device.alive=true then
-			        ' mark it as false - an alive should come by and mark it as true again'
-			        device.alive=false
-			    else if device.alive=false then
-			        DeletePlayerByUDN(m,device.UDN)
-			        model=device.modelNumber
-			        if device.desired=true then
-			            m.deletedDevices.push(model)
-			        end if
-			        print "+++ alive timer expired - device [";device.modelNumber;" - ";device.UDN;"] not seen and is deleted"
-			    end if
-			end for
-			' Now re-scan
-			FindAllSonosDevices(m)
+			DoAliveCheck(s)
 	        retval=true
 		else if (m.timerTopologyCheck <> invalid) and (event.GetSourceIdentity() = m.timerTopologyCheck.GetIdentity()) then
 			StartTopologyCheckTimer(m)
@@ -379,6 +383,28 @@ Sub FindAllSonosDevices(s as Object)
 	end if
 End Sub
 
+Sub DoAliveCheck(s as Object)
+	print "AliveCheck at ";s.st.GetLocalDateTime()
+	StartAliveCheckTimer(s)
+	for each device in s.sonosDevices
+		if device.alive then
+			' mark it as false - an alive should come by and mark it as true again'
+			device.alive=false
+		else
+			count% = device.aliveCount% - 1
+			' Remove the device if not found for several tries
+			if count% = 0 then
+				DeletePlayerByUDN(s,device.UDN)
+				print "+++ alive timer expired - device [";device.modelNumber;" - ";device.UDN;"] not seen and is deleted"
+			else
+				device.aliveCount% = count%
+			end if
+		end if
+	end for
+	' Now re-scan
+	FindAllSonosDevices(s)
+End Sub
+
 Sub CheckSSDPNotification(headers as Object, s as Object)
 	'Ignore M-SEARCH events
 	if headers.ssdpType <> invalid and lcase(headers.ssdpType.Left(8)) = "m-search" then
@@ -486,24 +512,24 @@ Sub CheckSSDPNotification(headers as Object, s as Object)
 	end if ' byebyeFound'
 End Sub
 
-Function GetUDNfromUSNHeader(value as string) as String
-	uuidString=""
-	if value <> invalid and value.Left(5) = "uuid:" then 
-		uuidEnd=instr(5,value,"::")
-		uuidString=mid(value,5,uuidEnd-5)
+Function isModelDesiredByUservar(s as object, model as string) as boolean
+	if s.userVariables[model+"Desired"] <> invalid then
+	    if s.userVariables[model+"Desired"].currentValue$ = "yes"
+	        return true
+	    end if
 	end if
-	return uuidString
+	return false
 End Function
 
-Function DeletePlayerByUDN(s as object, uuid as String) as boolean
+Function DeletePlayerByUDN(s as object, udn as String) as boolean
 
-	print "+++ DeletePlayerByUDN ";uuid
+	print "+++ DeletePlayerByUDN ";udn
 	found = false
 	i = 0
 
 	numdevices = s.sonosDevices.count()
 	while (not found) and (i < numdevices)  
-		if (uuid=s.sonosDevices[i].UDN) then
+		if (udn=s.sonosDevices[i].UDN) then
 		  found = true
 		  deviceNumToDelete = i
 		end if
@@ -511,7 +537,7 @@ Function DeletePlayerByUDN(s as object, uuid as String) as boolean
 	end while
 	if (found) then
 	    modelBeingDeleted=s.sonosDevices[deviceNumToDelete].modelNumber
-		print "!!! Deleting Player "+modelBeingDeleted+" with uuid: " + uuid
+		print "!!! Deleting Player "+modelBeingDeleted+" with UDN: " + udn
 		s.sonosDevices.delete(deviceNumToDelete)
 
 		' Indicate the player is no longer present
@@ -523,12 +549,12 @@ Function DeletePlayerByUDN(s as object, uuid as String) as boolean
  		    setSonosMasterDevice(s,"sall")
  		end if
 	else
-		print "matching uuid not in list: ";uuid
+		print "Matching UDN not in list: ";udn
 	end if		
 	return found
 end function
 
-Sub CheckUPnPDevice(upnpDevice as Object, s as Object)
+Sub CheckNewUPnPDevice(upnpDevice as Object, s as Object)
 
 	info = upnpDevice.GetDeviceInfo()
 	deviceType = info.deviceType
@@ -536,29 +562,30 @@ Sub CheckUPnPDevice(upnpDevice as Object, s as Object)
 
 		headers = upnpDevice.GetHeaders()
 		baseURL = GetBaseURLFromLocation(headers.location)
-		model = GetPlayerModelByBaseIP(s.sonosDevices, baseURL)			
+		udn = GetUDNfromUSNHeader(headers.USN)
+		model = GetPlayerModelByUDN(s.sonosDevices, udn)			
 		model = lcase(model)
-		print "Found Sonos Device at baseURL ";baseURL
+		print "Found new Sonos Device at baseURL ";baseURL
 
 		if (model = "") then
-
+			info = upnpDevice.GetDeviceInfo()
 			model = lcase(info.modelNumber)
 			
 			' check to see if we don't already have one and if it's one we already deleted and if so, we need to reboot
-			d=GetDeviceByPlayerModel(s.sonosDevices, model)
-			if d=invalid then 
-				for each deletedModel in s.deletedDevices
-					if deletedModel=model
-						print "********************* previously deleted player ";model;" detected - rebooting"
-						RebootSystem()
-					end if
-				end for
-			end if
-
+			' d=GetDeviceByPlayerModel(s.sonosDevices, model)
+			' if d=invalid then 
+				' for each deletedModel in s.deletedDevices
+					' if deletedModel=model
+						' print "********************* previously deleted player ";model;" detected - rebooting"
+						' RebootSystem()
+					' end if
+				' end for
+			' end if
+			
 			desired = isModelDesiredByUservar(s,model)
-			SonosDevice = newSonosDevice(s,upnpDevice,desired)
-			if desired=true
-				SonosDevice.desired = true
+			sonosDevice = newSonosDevice(s,upnpDevice,desired)
+			if desired=true then
+				sonosDevice.desired = true
 
 				print "Sonos at ";baseURL;" is desired"
 
@@ -574,74 +601,75 @@ Sub CheckUPnPDevice(upnpDevice as Object, s as Object)
 				' if this Sonos device was previously skipped on boot, we need to reboot'
 				' but ONLY if we are in a state where we are all the way up and running'
 				' if we are still booting up and configuring, we need to let that run it's course
-				runningState="unknown"
-				if s.userVariables["runningState"] <> invalid then
-					runningState=s.userVariables["runningState"].currentValue$
-				end if
-				if runningState="running" then
-					skippedString=model+"Skipped"
-					if s.userVariables[skippedString] <> invalid then
-						skipVal=s.userVariables[skippedString].currentValue$ 
-						if skipVal="yes"
-							updateUserVar(s.userVariables,skippedString, "no",true)
-							print "+++ skipped player ";model;" - rebooting!"
-							RebootSystem()
-						end if
-					end if
-				end if
+				' runningState="unknown"
+				' if s.userVariables["runningState"] <> invalid then
+					' runningState=s.userVariables["runningState"].currentValue$
+				' end if
+				' if runningState="running" then
+					' skippedString=model+"Skipped"
+					' if s.userVariables[skippedString] <> invalid then
+						' skipVal=s.userVariables[skippedString].currentValue$ 
+						' if skipVal="yes"
+							' updateUserVar(s.userVariables,skippedString, "no",true)
+							' print "+++ skipped player ";model;" - rebooting!"
+							' RebootSystem()
+						' end if
+					' end if
+				' end if
 
-				SonosRegisterForEvents(s,SonosDevice)
+				SonosRegisterForEvents(s,sonosDevice)
 			end if ' desired=true'
-			s.sonosDevices.push(SonosDevice)
+			s.sonosDevices.push(sonosDevice)
 		else
-			print "Player ";model;" already exists in device list"
-			sonosDevice=GetDeviceByPlayerModel(s.sonosDevices, model)
-			if sonosDevice <> invalid then
-				sonosDevice.alive=true
-				desired=isModelDesiredByUservar(s,model)
-				if desired=true then
-					SonosDevice.desired=true
-					print "Player ";model;" is DESIRED"
-				else
-					print "Player ";model;" is not desired"
-				end if
-
-				' booting with skipped players may put us here and we need to make sure the player is marked present'
-				updateUserVar(s.userVariables,SonosDevice.modelNumber,"present",true)
-
+			sonosDevice=GetDeviceByUDN(s.sonosDevices, udn)
+			desired=isModelDesiredByUservar(s,model)
+			updateSonosDevice(sonosDevice,upnpDevice,desired)
+			if desired then
+				des$="is desired"
+			else
+				des$="is NOT desired"
 			end if
+			print "Player ";model;" already exists in device list, ";des$
+
+			' booting with skipped players may put us here and we need to make sure the player is marked present'
+			updateUserVar(s.userVariables,SonosDevice.modelNumber,"present",true)
 		end if
 	end if
-	
 End Sub
 
-Function isModelDesiredByUservar(s as object, model as string) as boolean
-	if s.userVariables[model+"Desired"] <> invalid then
-	    if s.userVariables[model+"Desired"].currentValue$ = "yes"
-	        return true
-	    end if
+Sub CheckUPnPDeviceStatus(ssdpData as Object, s as Object)
+	udn = GetUDNfromUSNHeader(ssdpData.USN)
+	sonosDevice=GetDeviceByUDN(s.sonosDevices, udn)
+	if sonosDevice <> invalid then
+		print "Found existing Sonos Device at baseURL ";sonosDevice.baseURL;", UDN: ";udn
+		' Mark device as alive
+		sonosDevice.alive=true
+		sonosDevice.aliveCount%=3
+		UpdateSonosDeviceSSDPData(sonosDevice, ssdpData)
+		if sonosDevice.desired then
+			des$=" is desired"
+		else
+			des$=" is NOT desired"
+		end if
+		print "Player ";sonosDevice.modelNumber;des$
 	end if
-	return false
-End Function
+End Sub
+
+Sub CheckUPnPDeviceRemoved(upnpDevice, s)
+	print "+++ UPnP Device removed from control point"
+	headers = upnpDevice.GetHeaders()
+	udn = GetUDNfromUSNHeader(headers.USN)
+	deletePlayerByUDN(s,udn)
+End Sub
 
 Function newSonosDevice(sonos as Object, upnpDevice as Object, isDesired as Boolean) as Object
 	sonosDevice = { baseURL: "", deviceXML: invalid, modelNumber: "", modelDescription: "", UDN: "", deviceType: "", hhid: "none", uuid: "", softwareVersion: ""}
 	
 	headers = upnpDevice.GetHeaders()
-	sonosDevice.baseURL = GetBaseURLFromLocation(headers.location)
-	sonosDevice.hhid = ""
-	if headers.DoesExist("X-RINCON-HOUSEHOLD") then
-		hhid = headers["X-RINCON-HOUSEHOLD"]
-	end if
 	sonosDevice.uuid = mid(headers.USN,6)
-	sonosDevice.bootseq = headers["X-RINCON-BOOTSEQ"]
+	sonosDevice.UDN = GetUDNfromUSNHeader(headers.USN)
 	
-	info = upnpDevice.GetDeviceInfo()
-	sonosDevice.modelNumber = lcase(info.modelNumber)
-	sonosDevice.modelDescription = lcase(info.modelDescription)
-	sonosDevice.UDN = mid(info.UDN,6)
-	sonosDevice.deviceType = info.deviceType
-	sonosDevice.softwareVersion=lcase(info.softwareVersion)
+	updateSonosDevice(sonosDevice, upnpDevice, isDesired)
 	
 	if isDesired then
 		sonosDevice.systemPropertiesService = upnpDevice.GetService("urn:schemas-upnp-org:service:SystemProperties:1")
@@ -674,15 +702,47 @@ Function newSonosDevice(sonos as Object, upnpDevice as Object, isDesired as Bool
 	sonosDevice.AlarmListVersion = -1
 	sonosDevice.AlarmCheckNeeded = "yes"
 	
-	sonosDevice.desired=isDesired
-	sonosDevice.alive=true
-
 	print "device HHID:       ["+SonosDevice.hhid+"]"
 	print "device UDN:        ["+SonosDevice.UDN+"]"
 	print "software Version:  ["+sonosDevice.softwareVersion+"]"
 	print "boot sequence:     ["+sonosDevice.bootseq+"]"
 
 	return sonosDevice
+End Function
+
+Sub updateSonosDevice(sonosDevice as Object, upnpDevice as Object, isDesired as Boolean)
+	if sonosDevice <> invalid and upnpDevice <> invalid then
+		sonosDevice.alive=true
+		sonosDevice.aliveCount%=3
+		sonosDevice.desired=isDesired
+		
+		headers = upnpDevice.GetHeaders()
+		UpdateSonosDeviceSSDPData(sonosDevice, headers)
+	
+		info = upnpDevice.GetDeviceInfo()
+		sonosDevice.modelNumber = lcase(info.modelNumber)
+		sonosDevice.modelDescription = lcase(info.modelDescription)
+		sonosDevice.deviceType = info.deviceType
+		sonosDevice.softwareVersion=lcase(info.softwareVersion)
+	end if
+End Sub
+
+Sub UpdateSonosDeviceSSDPData(sonosDevice as Object, ssdpData as Object)
+		sonosDevice.baseURL = GetBaseURLFromLocation(ssdpData.location)
+		sonosDevice.hhid = ""
+		if ssdpData.DoesExist("X-RINCON-HOUSEHOLD") then
+			hhid = ssdpData["X-RINCON-HOUSEHOLD"]
+		end if
+		sonosDevice.bootseq = ssdpData["X-RINCON-BOOTSEQ"]
+End Sub
+
+Function GetUDNfromUSNHeader(value as string) as String
+	uuidString=""
+	if value <> invalid and value.Left(5) = "uuid:" then 
+		uuidEnd=instr(6,value,"::")
+		uuidString=mid(value,6,uuidEnd-6)
+	end if
+	return uuidString
 End Function
 
 Function GetBaseURLFromLocation(location as string) as string
@@ -693,29 +753,17 @@ Function GetBaseURLFromLocation(location as string) as string
 	return baseURL
 End Function
 
-Function GetPlayerModelByBaseIP(sonosDevices as Object, IP as string) as string
+Function GetPlayerModelByUDN(sonosDevices as Object, udn as string) as string
 	returnModel = ""
 	for i = 0 to sonosDevices.count() - 1
-		if (sonosDevices[i].baseURL = IP) then
+		if (sonosDevices[i].UDN = udn) then
 			returnModel = sonosDevices[i].modelNumber
 		end if
 	end for
 	return returnModel
 End function
 
-' Function GetBaseIPByPlayerModel(sonosDevices as Object, modelNumber as string) as string
-	' newIP = ""
-	' for i = 0 to sonosDevices.count() - 1 then
-		' if (sonosDevices[i].modelNumber = modelNumber) then
-			' newIP = sonosDevices[i].baseURL
-		' end if
-	' end for
-	'
-	' return newIP
-' End Function
-
 Function GetDeviceByPlayerModel(sonosDevices as Object, modelNumber as string) as object
-	
 	device = invalid
 	for i = 0 to sonosDevices.count() - 1
 		if (sonosDevices[i].modelNumber = modelNumber) then
@@ -723,13 +771,12 @@ Function GetDeviceByPlayerModel(sonosDevices as Object, modelNumber as string) a
 		end if
 	end for
 	return device
-
 End function
 
-Function GetDeviceByUDN(sonosDevices as Object, UDN as string) as object
+Function GetDeviceByUDN(sonosDevices as Object, udn as string) as object
 	device = invalid
 	for i = 0 to sonosDevices.count() - 1
-		if (sonosDevices[i].UDN = UDN) then
+		if (sonosDevices[i].UDN = udn) then
 			device = sonosDevices[i]
 		end if
 	end for
@@ -1174,6 +1221,7 @@ Sub SonosGetVolume(sonos as object, sonosDevice as object)
 		sonosReqData=CreateObject("roAssociativeArray")
 		sonosReqData["type"]="GetVolume"
 		sonosReqData["dest"]=sonosDevice.baseURL
+		sonosReqData["dev"]=sonosDevice.UDN
 		sonosReqData["id"]=sonosDevice.renderingService.Invoke("GetVolume", params)
 		sonos.upnpActionObjects.push(sonosReqData)
 	else
@@ -1181,16 +1229,15 @@ Sub SonosGetVolume(sonos as object, sonosDevice as object)
 	end if
 End Sub
 
-Sub ProcessSonosVolumeResponse(sonos as Object, connectedPlayerIP as string, responseData as Object)
-	'TIMING print "processSonosVolumeResponse from " + connectedPlayerIP+" at: ";sonos.st.GetLocalDateTime();
+Sub ProcessSonosVolumeResponse(sonos as Object, deviceUDN as string, responseData as Object)
+	'TIMING print "processSonosVolumeResponse from " + deviceUDN + " at: ";sonos.st.GetLocalDateTime();
 	volStr = responseData["CurrentVolume"]
 	if volStr <> invalid then
 		print "Current Volume: " + volStr
-		for each d in sonos.sonosDevices
-			if d.baseURL=connectedPlayerIP then
-				d.volume=val(volStr)
-			end if
-		end for
+		sonosDevice=GetDeviceByUDN(sonos.sonosDevices,deviceUDN)
+		if sonosDevice <> invalid then
+			sonosDevice.volume=val(volStr)
+		end if
 	end if
 End Sub
 
@@ -1202,6 +1249,7 @@ Sub SonosSetVolume(sonos as object, sonosDevice as object, volume as integer)
 		sonosReqData=CreateObject("roAssociativeArray")
 		sonosReqData["type"]="SetVolume"
 		sonosReqData["dest"]=sonosDevice.baseURL
+		sonosReqData["dev"]=sonosDevice.UDN
 		sonosReqData["id"]=sonosDevice.renderingService.Invoke("SetVolume", params)
 		sonos.upnpActionObjects.push(sonosReqData)
 	else
@@ -1221,6 +1269,7 @@ Sub SonosSetMute(sonos as object, sonosDevice as object, muteVal as integer)
 		sonosReqData=CreateObject("roAssociativeArray")
 		sonosReqData["type"]="SetMute"
 		sonosReqData["dest"]=sonosDevice.baseURL
+		sonosReqData["dev"]=sonosDevice.UDN
 		sonosReqData["id"]=sonosDevice.renderingService.Invoke("SetMute", params)
 		sonos.upnpActionObjects.push(sonosReqData)
 	else
@@ -1235,6 +1284,7 @@ Sub SonosGetMute(sonos as object, sonosDevice as object)
 		sonosReqData=CreateObject("roAssociativeArray")
 		sonosReqData["type"]="GetMute"
 		sonosReqData["dest"]=sonosDevice.baseURL
+		sonosReqData["dev"]=sonosDevice.UDN
 		sonosReqData["id"]=sonosDevice.renderingService.Invoke("GetMute", params)
 		sonos.upnpActionObjects.push(sonosReqData)
 	else
@@ -1248,6 +1298,7 @@ Sub SonosMutePauseControl(sonos as object, sonosDevice as object)
 	sonosReqData=CreateObject("roAssociativeArray")
 	sonosReqData["type"]="MutePauseControl"
 	sonosReqData["dest"]=sonosDevice.baseURL
+	sonosReqData["dev"]=sonosDevice.UDN
 	sonosReqData["id"]=sonosDevice.systemPropertiesService.Invoke("SetString", params)
 	sonos.upnpActionObjects.push(sonosReqData)
 End Sub
@@ -1263,6 +1314,7 @@ Sub SonosSetRDM(sonos as object, sonosDevice as object, rdmVal as integer)
 	sonosReqData=CreateObject("roAssociativeArray")
 	sonosReqData["type"]="SetRDM"
 	sonosReqData["dest"]=sonosDevice.baseURL
+	sonosReqData["dev"]=sonosDevice.UDN
 	sonosReqData["id"]=sonosDevice.systemPropertiesService.Invoke("EnableRDM", params)
 	sonos.upnpActionObjects.push(sonosReqData)
 End Sub
@@ -1273,19 +1325,19 @@ Sub SonosGetRDM(sonos as object, sonosDevice as object)
 	sonosReqData=CreateObject("roAssociativeArray")
 	sonosReqData["type"]="GetRDM"
 	sonosReqData["dest"]=sonosDevice.baseURL
+	sonosReqData["dev"]=sonosDevice.UDN
 	sonosReqData["id"]=sonosDevice.systemPropertiesService.Invoke("GetRDM", params)
 	sonos.upnpActionObjects.push(sonosReqData)
 End Sub
 
-Sub ProcessSonosRDMResponse(sonos as Object, connectedPlayerIP as string, responseData as Object)
-	'TIMING print "processSonosVolumeResponse from " + connectedPlayerIP+" at: ";sonos.st.GetLocalDateTime();
+Sub ProcessSonosRDMResponse(sonos as Object, deviceUDN as string, responseData as Object)
+	'TIMING print "processSonosVolumeResponse from " + deviceUDN + " at: ";sonos.st.GetLocalDateTime();
 	rdmStr = responseData["CurrentRDM"]
 	if rdmStr <> invalid then
-		for each d in sonos.sonosDevices
-			if d.baseURL=connectedPlayerIP then
-				d.rdm=val(rdmStr)
-			end if
-		end for
+		sonosDevice=GetDeviceByUDN(sonos.sonosDevices,deviceUDN)
+		if sonosDevice <> invalid then
+			sonosDevice.rdm=val(rdmStr)
+		end if
 	end if
 End Sub
 
@@ -1295,6 +1347,7 @@ Sub SonosApplyRDMDefaultSettings(sonos as object, sonosDevice as object)
 	sonosReqData=CreateObject("roAssociativeArray")
 	sonosReqData["type"]="ApplyRDMDefaultSettings"
 	sonosReqData["dest"]=sonosDevice.baseURL
+	sonosReqData["dev"]=sonosDevice.UDN
 	sonosReqData["id"]=sonosDevice.systemPropertiesService.Invoke("ApplyRDMDefaultSettings", params)
 	sonos.upnpActionObjects.push(sonosReqData)
 End Sub
@@ -1306,6 +1359,7 @@ Sub SonosSetAutoplayRoomUUID(sonos as object, sonosDevice as object)
 	sonosReqData=CreateObject("roAssociativeArray")
 	sonosReqData["type"]="SetAutoplayRoomUUID"
 	sonosReqData["dest"]=sonosDevice.baseURL
+	sonosReqData["dev"]=sonosDevice.UDN
 	sonosReqData["id"]=sonosDevice.devicePropertiesService.Invoke("SetAutoplayRoomUUID", params)
 	sonos.upnpActionObjects.push(sonosReqData)
 End Sub
@@ -1319,6 +1373,7 @@ Sub SonosEqCtrl(sonos as object, sonosDevice as object, EqKey as string, EqVal a
 		sonosReqData=CreateObject("roAssociativeArray")
 		sonosReqData["type"]=EqKey
 		sonosReqData["dest"]=sonosDevice.baseURL
+		sonosReqData["dev"]=sonosDevice.UDN
 		sonosReqData["id"]=sonosDevice.renderingService.Invoke("SetEQ", params)
 		sonos.upnpActionObjects.push(sonosReqData)
 	else
@@ -1333,6 +1388,7 @@ Sub SonosResetBasicEq(sonos as object, sonosDevice as object)
 		sonosReqData=CreateObject("roAssociativeArray")
 		sonosReqData["type"]="ResetBasicEQ"
 		sonosReqData["dest"]=sonosDevice.baseURL
+		sonosReqData["dev"]=sonosDevice.UDN
 		sonosReqData["id"]=sonosDevice.renderingService.Invoke("ResetBasicEQ", params)
 		sonos.upnpActionObjects.push(sonosReqData)
 	else
@@ -1348,6 +1404,7 @@ Sub SonosSubBond(sonos as object, sonosDevice as object, subUDN as string)
 	sonosReqData=CreateObject("roAssociativeArray")
 	sonosReqData["type"]="SubBond"
 	sonosReqData["dest"]=sonosDevice.baseURL
+	sonosReqData["dev"]=sonosDevice.UDN
 	sonosReqData["id"]=sonosDevice.devicePropertiesService.Invoke("AddHTSatellite", params)
 	sonos.upnpActionObjects.push(sonosReqData)
 End Sub
@@ -1359,6 +1416,7 @@ Sub SonosSubUnbond(sonos as object, sonosDevice as object, subUDN as string)
 	sonosReqData=CreateObject("roAssociativeArray")
 	sonosReqData["type"]="SubUnbond"
 	sonosReqData["dest"]=sonosDevice.baseURL
+	sonosReqData["dev"]=sonosDevice.UDN
 	sonosReqData["id"]=sonosDevice.devicePropertiesService.Invoke("RemoveHTSatellite", params)
 	sonos.upnpActionObjects.push(sonosReqData)
 End Sub
@@ -1372,6 +1430,7 @@ Sub SonosSetSleepTimer(sonos as object, sonosDevice as object, timeout as string
 		sonosReqData=CreateObject("roAssociativeArray")
 		sonosReqData["type"]="SetSleepTimer"
 		sonosReqData["dest"]=sonosDevice.baseURL
+		sonosReqData["dev"]=sonosDevice.UDN
 		sonosReqData["id"]=sonosDevice.avTransportService.Invoke("ConfigureSleepTimer", params)
 		sonos.upnpActionObjects.push(sonosReqData)
 	else
@@ -1386,6 +1445,7 @@ Sub SonosGetSleepTimer(sonos as object, sonosDevice as object)
 		sonosReqData=CreateObject("roAssociativeArray")
 		sonosReqData["type"]="GetSleepTimer"
 		sonosReqData["dest"]=sonosDevice.baseURL
+		sonosReqData["dev"]=sonosDevice.UDN
 		sonosReqData["id"]=sonosDevice.avTransportService.Invoke("GetRemainingSleepTimerDuration", params)
 		sonos.upnpActionObjects.push(sonosReqData)
 	else
@@ -1400,6 +1460,7 @@ Sub SonosCheckAlarm(sonos as object, sonosDevice as object)
 		sonosReqData=CreateObject("roAssociativeArray")
 		sonosReqData["type"]="ListAlarms"
 		sonosReqData["dest"]=sonosDevice.baseURL
+		sonosReqData["dev"]=sonosDevice.UDN
 		sonosReqData["id"]=sonosDevice.alarmClockService.Invoke("ListAlarms", params)
 		sonos.upnpActionObjects.push(sonosReqData)
 
@@ -1417,10 +1478,10 @@ Sub SonosCheckAlarm(sonos as object, sonosDevice as object)
 	end if
 End Sub
 
-Sub ProcessSonosAlarmCheck(sonos as Object, connectedPlayerIP as string, responseData as Object)
+Sub ProcessSonosAlarmCheck(sonos as Object, deviceUDN as string, responseData as Object)
 	alStr = escapeDecode(CurrentAlarmList["CurrentRDM"])
 	print "CurrentAlarmList: " + alStr
-	sonosDevice = GetPlayerModelByBaseIP(sonos.sonosDevices, connectedPlayerIP)
+	sonosDevice=GetDeviceByUDN(sonos.sonosDevices, deviceUDN)
 	if alStr <> invalid and sonosDevice <> invalid then
 		xml=CreateObject("roXMLElement")
 		xml.Parse(alStr)
@@ -1442,6 +1503,7 @@ Sub SonosDestroyAlarm(sonos as object, sonosDevice as object, alarmId as string)
 	sonosReqData=CreateObject("roAssociativeArray")
 	sonosReqData["type"]="DestroyAlarm"
 	sonosReqData["dest"]=sonosDevice.baseURL
+	sonosReqData["dev"]=sonosDevice.UDN
 	sonosReqData["id"]=sonosDevice.alarmClockService.Invoke("DestroyAlarm", params)
 	sonos.upnpActionObjects.push(sonosReqData)
 End Sub
@@ -1454,6 +1516,7 @@ Sub SonosSetPlayMode(sonos as object, sonosDevice as object)
 		sonosReqData=CreateObject("roAssociativeArray")
 		sonosReqData["type"]="SetPlayMode"
 		sonosReqData["dest"]=sonosDevice.baseURL
+		sonosReqData["dev"]=sonosDevice.UDN
 		sonosReqData["id"]=sonosDevice.avTransportService.Invoke("SetPlayMode", params)
 		sonos.upnpActionObjects.push(sonosReqData)
 	else
@@ -1474,6 +1537,7 @@ Sub SonosSetSong(sonos as object, sonosDevice as object, bspIP as string, mp3fil
 		sonosReqData=CreateObject("roAssociativeArray")
 		sonosReqData["type"]="SetSong"
 		sonosReqData["dest"]=sonosDevice.baseURL
+		sonosReqData["dev"]=sonosDevice.UDN
 		sonosReqData["id"]=sonosDevice.avTransportService.Invoke("SetAVTransportURI", params)
 		sonos.upnpActionObjects.push(sonosReqData)
 	else
@@ -1494,6 +1558,7 @@ Sub SonosSetSPDIF(sonos as object, sonosDevice as object)
 		sonosReqData=CreateObject("roAssociativeArray")
 		sonosReqData["type"]="SetSPDIF"
 		sonosReqData["dest"]=sonosDevice.baseURL
+		sonosReqData["dev"]=sonosDevice.UDN
 		sonosReqData["id"]=sonosDevice.avTransportService.Invoke("SetAVTransportURI", params)
 		sonos.upnpActionObjects.push(sonosReqData)
 	else
@@ -1541,6 +1606,7 @@ Sub SonosSetGroup(sonos as object, sonosDevice as object, masterUDN as string)
 		sonosReqData=CreateObject("roAssociativeArray")
 		sonosReqData["type"]="SetGroup"
 		sonosReqData["dest"]=sonosDevice.baseURL
+		sonosReqData["dev"]=sonosDevice.UDN
 		sonosReqData["id"]=sonosDevice.avTransportService.Invoke("SetAVTransportURI", params)
 		sonos.upnpActionObjects.push(sonosReqData)
 	else
@@ -1555,6 +1621,7 @@ Sub SonosPlaySong(sonos as object, sonosDevice as object)
 		sonosReqData=CreateObject("roAssociativeArray")
 		sonosReqData["type"]="PlaySong"
 		sonosReqData["dest"]=sonosDevice.baseURL
+		sonosReqData["dev"]=sonosDevice.UDN
 		sonosReqData["id"]=sonosDevice.avTransportService.Invoke("Play", params)
 		sonos.upnpActionObjects.push(sonosReqData)
 	else
@@ -1590,6 +1657,7 @@ Sub SonosSoftwareUpdate(sonos as object, sonosDevice as object, serverURL as str
 	sonosReqData=CreateObject("roAssociativeArray")
 	sonosReqData["type"]="BeginSoftwareUpdate"
 	sonosReqData["dest"]=sonosDevice.baseURL
+	sonosReqData["dev"]=sonosDevice.UDN
 	sonosReqData["id"]=sonosDevice.zoneGroupTopologyService.Invoke("BeginSoftwareUpdate", params)
 	sonos.upnpActionObjects.push(sonosReqData)
 End Sub
@@ -1718,17 +1786,18 @@ Function HandleSonosUPnPActionResult(msg as object, sonos as object) as boolean
 		id=sonosReqData["id"]
 		if (actionID = id) then
 			connectedPlayerIP=sonosReqData["dest"]
+			deviceUDN=sonosReqData["dev"]
 			reqType=sonosReqData["type"]
 			print "UPnP return code: "; success; " request type: ";reqType;" from ";connectedPlayerIP
 			if success and responseData <> invalid then
 				if reqType="GetVolume" then
-					ProcessSonosVolumeResponse(sonos,connectedPlayerIP,responseData)
+					ProcessSonosVolumeResponse(sonos,deviceUDN,responseData)
 				else if reqType="GetRDM" then
-					ProcessSonosRDMResponse(sonos,connectedPlayerIP,responseData)
+					ProcessSonosRDMResponse(sonos,deviceUDN,responseData)
 				' else if reqType="GetMute" then
-					' processSonosMuteResponse(sonos,connectedPlayerIP,responseData)
+					' processSonosMuteResponse(sonos,deviceUDN,responseData)
 				else if reqType="ListAlarms" then
-					ProcessSonosAlarmCheck(sonos,connectedPlayerIP,responseData)
+					ProcessSonosAlarmCheck(sonos,deviceUDN,responseData)
 				end if
 			end if
 					
@@ -1891,6 +1960,7 @@ Sub SonosRegisterForEvents(sonos as Object, device as Object)
 			sonosReqData=CreateObject("roAssociativeArray")
 			sonosReqData["type"]="RegisterForAVTransportEvent"
 			sonosReqData["dest"]=device.baseURL
+			sonosReqData["dev"]=device.UDN
 			sonosReqData["id"]=device.avTransportService.Subscribe()
 			sonos.upnpActionObjects.push(sonosReqData)
 		end if
@@ -1903,6 +1973,7 @@ Sub SonosRegisterForEvents(sonos as Object, device as Object)
 			sonosReqData=CreateObject("roAssociativeArray")
 			sonosReqData["type"]="RegisterForRenderingControlEvent"
 			sonosReqData["dest"]=device.baseURL
+			sonosReqData["dev"]=device.UDN
 			sonosReqData["id"]=device.renderingService.Subscribe()
 			sonos.upnpActionObjects.push(sonosReqData)
 		end if
@@ -1914,6 +1985,7 @@ Sub SonosRegisterForEvents(sonos as Object, device as Object)
 		sonosReqData=CreateObject("roAssociativeArray")
 		sonosReqData["type"]="RegisterForAlarmClockEvent"
 		sonosReqData["dest"]=device.baseURL
+		sonosReqData["dev"]=device.UDN
 		sonosReqData["id"]=device.alarmClockService.Subscribe()
 		sonos.upnpActionObjects.push(sonosReqData)
 		
@@ -1924,6 +1996,7 @@ Sub SonosRegisterForEvents(sonos as Object, device as Object)
 		sonosReqData=CreateObject("roAssociativeArray")
 		sonosReqData["type"]="RegisterForZoneGroupTopologyEvent"
 		sonosReqData["dest"]=device.baseURL
+		sonosReqData["dev"]=device.UDN
 		sonosReqData["id"]=device.zoneGroupTopologyService.Subscribe()
 		sonos.upnpActionObjects.push(sonosReqData)
 	end if
@@ -1937,6 +2010,7 @@ Sub SonosRenewRegisterForEvents(sonos as Object)
 				sonosReqData=CreateObject("roAssociativeArray")
 				sonosReqData["type"]="RenewRegisterForAVTransportEvent"
 				sonosReqData["dest"]=device.baseURL
+				sonosReqData["dev"]=device.UDN
 				sonosReqData["id"]=device.avTransportService.RenewSubscription()
 				sonos.upnpActionObjects.push(sonosReqData)
 			end if
@@ -1945,6 +2019,7 @@ Sub SonosRenewRegisterForEvents(sonos as Object)
 				sonosReqData=CreateObject("roAssociativeArray")
 				sonosReqData["type"]="RenewRegisterForRenderingControlEvent"
 				sonosReqData["dest"]=device.baseURL
+				sonosReqData["dev"]=device.UDN
 				sonosReqData["id"]=device.renderingService.RenewSubscription()
 				sonos.upnpActionObjects.push(sonosReqData)
 			end if
@@ -1952,12 +2027,14 @@ Sub SonosRenewRegisterForEvents(sonos as Object)
 			sonosReqData=CreateObject("roAssociativeArray")
 			sonosReqData["type"]="RenewRegisterForAlarmClockEvent"
 			sonosReqData["dest"]=device.baseURL
+			sonosReqData["dev"]=device.UDN
 			sonosReqData["id"]=device.alarmClockService.RenewSubscription()
 			sonos.upnpActionObjects.push(sonosReqData)
 			
 			sonosReqData=CreateObject("roAssociativeArray")
 			sonosReqData["type"]="RenewRegisterForZoneGroupTopologyEvent"
 			sonosReqData["dest"]=device.baseURL
+			sonosReqData["dev"]=device.UDN
 			sonosReqData["id"]=device.zoneGroupTopologyService.RenewSubscription()
 			sonos.upnpActionObjects.push(sonosReqData)
 		end if
