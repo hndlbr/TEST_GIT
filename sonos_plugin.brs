@@ -19,7 +19,7 @@ Function newSonos(msgPort As Object, userVariables As Object, bsp as Object)
 	' Create the object to return and set it up
 	s = {}
 
-	s.version = "3.09"
+	s.version = "3.10"
 
 	s.configVersion = "1.0"
 	registrySection = CreateObject("roRegistrySection", "networking")
@@ -2202,10 +2202,10 @@ end Sub
 
 Sub SonosCheckAlarm(sonos as object, sonosDevice as object)
 
+	connectedPlayerIP = sonosDevice.baseURL
 	if sonosDevice.AlarmCheckNeeded = "yes" then
 	
 		' Get Alarm List
-		connectedPlayerIP = sonosDevice.baseURL
 		mp = sonos.mp
 		
 		xmlString="<?xml version="+chr(34)+"1.0"+chr(34)+" encoding="+chr(34)+"utf-8"+chr(34)+" standalone="+chr(34)+"yes"+chr(34)
@@ -2253,6 +2253,8 @@ Sub SonosCheckAlarm(sonos as object, sonosDevice as object)
 		
 	else
 		print "Alarm Check not needed, device: " + sonosDevice.modelNumber
+		' Post the next command in the queue for this player
+		postNextCommandInQueue(sonos, connectedPlayerIP)
 	end if
 
 end Sub
