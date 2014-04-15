@@ -44,17 +44,17 @@ End Sub
 
 Function sonos_ProcessEvent(event As Object, s as Object) as boolean
 	retval = false
-
+	'print "Process event: ";type(event)
 	if type(event) = "roUPnPSearchEvent" then
 		obj = event.GetObject()
 		evType = event.GetType()
-		if evType = 1 and type(obj) = "roAssociativeArray" and obj.USN <> invalid and obj.USN.Left(11) = "uuid:RINCON" then
-			print "UPnPSearchEvent received for Sonos device, object type: ";type(obj)
-			print "-- ";obj.USN
-		endif
-		if evType = 1 and type(obj) = "roUPnPDevice" then
-			' response to search
-			CheckUPnPDevice(obj, s)
+		if evType = 1 then
+			if type(obj) = "roUPnPDevice" then
+				' new device
+				CheckNewUPnPDevice(obj, s)
+			else if type(obj) = "roAssociativeArray" then
+				CheckUPnPDeviceStatus(obj, s)
+			end if
 		else if evType = 0 and type(obj) = "roAssociativeArray" then
 			' SSDP Notify
 			'CheckSSDPNotification(obj, s)
@@ -67,19 +67,7 @@ Function sonos_ProcessEvent(event As Object, s as Object) as boolean
 		retval = HandleSonosUPnPServiceEvent(event, s)
 	else if type(event) = "roTimerEvent" then
 		if (event.GetSourceIdentity() = s.timerAliveCheck.GetIdentity()) then
-			print "AliveCheck at ";s.st.GetLocalDateTime()
-			StartAliveCheckTimer(s)
-			for each device in s.sonosDevices
-			    if device.alive=true then
-			        ' mark it as false - an alive should come by and mark it as true again'
-			        device.alive=false
-			    else if device.alive=false then
-			        DeletePlayerByUDN(s,device.UDN)
-			        print "+++ alive timer expired - device [";device.modelNumber;" - ";device.UDN;"] not seen and is deleted"
-			    end if
-			end for
-			' Now re-scan
-			FindAllSonosDevices(s)
+			DoAliveCheck(s)
 	        retval=true
 		end if
 	end if
@@ -87,6 +75,23 @@ Function sonos_ProcessEvent(event As Object, s as Object) as boolean
 	return retval
 
 End Function
+
+Sub CheckSSDPNotification(obj, s)
+	if obj.ssdpType <> invalid and lcase(obj.ssdpType.Left(8)) <> "m-search" then
+		udn = "<unknown>"
+		if obj.DoesExist("USN") then
+			udn = GetUDNfromUSNHeader(obj.USN)
+		end if
+		aliveFound = obj.DoesExist("NTS") and obj.NTS = "ssdp:alive"
+		byebyeFound = obj.DoesExist("NTS") and obj.NTS = "ssdp:byebye"
+		rootDevice = obj.DoesExist("NT") and obj.NT = "upnp:rootdevice"
+		if 	aliveFound and rootDevice  then
+			print "***********  Received ssdp:alive, UDN: ";udn
+		else if byebyeFound then
+			print "&&&&&&&&&&&  Received ssdp:byebye, UDN: ";udn
+		end if
+	end if
+End Sub
 
 Sub CreateUPnPController(s as Object) 
 	if s.upnp = invalid then
@@ -108,6 +113,26 @@ Sub FindAllSonosDevices(s as Object)
 	if not s.upnp.Search("upnp:rootdevice", 5) then
 		print "Failed to initiate UPnP search for Sonos devices"
 	end if
+End Sub
+
+Sub DoAliveCheck(s as Object)
+	print "AliveCheck at ";s.st.GetLocalDateTime()
+	StartAliveCheckTimer(s)
+	for each device in s.sonosDevices
+		if device.alive then
+			' mark it as false - an alive should come by and mark it as true again'
+			device.alive=false
+		else
+			count% = device.aliveCount% - 1
+			' Remove the device if not found for several tries
+			if count% = 0 then
+				DeletePlayerByUDN(s,device.UDN)
+				print "+++ alive timer expired - device [";device.modelNumber;" - ";device.UDN;"] not seen and is deleted"
+			end if
+		end if
+	end for
+	' Now re-scan
+	FindAllSonosDevices(s)
 End Sub
 
 Function IsModelDesired(model as string) as boolean
@@ -141,7 +166,7 @@ Function DeletePlayerByUDN(s as object, uuid as String) as boolean
 	return found
 end function
 
-Sub CheckUPnPDevice(upnpDevice as Object, s as Object)
+Sub CheckNewUPnPDevice(upnpDevice as Object, s as Object)
 
 	info = upnpDevice.GetDeviceInfo()
 	deviceType = info.deviceType
@@ -149,62 +174,68 @@ Sub CheckUPnPDevice(upnpDevice as Object, s as Object)
 
 		headers = upnpDevice.GetHeaders()
 		baseURL = GetBaseURLFromLocation(headers.location)
-		model = GetPlayerModelByBaseIP(s.sonosDevices, baseURL)			
+		udn = GetUDNfromUSNHeader(headers.USN)
+		model = GetPlayerModelByUDN(s.sonosDevices, udn)			
 		model = lcase(model)
-		print "Found Sonos Device at baseURL ";baseURL
+		print "Found new Sonos Device at baseURL ";baseURL
 
 		if (model = "") then
+			info = upnpDevice.GetDeviceInfo()
 			model = lcase(info.modelNumber)
 			
 			desired = IsModelDesired(model)
-			SonosDevice = newSonosDevice(s,upnpDevice,desired)
+			sonosDevice = newSonosDevice(s,upnpDevice,desired)
 			if desired=true
-				SonosDevice.desired = true
+				sonosDevice.desired = true
 
 				print "Sonos at ";baseURL;" is desired"
 
 				' do the RDM ping'
 				'xfer = rdmPingAsync(s.msgPort,sonosDevice.baseURL,s.hhid) 
 				
-				SonosRegisterForEvents(s,SonosDevice)
+				SonosRegisterForEvents(s,sonosDevice)
 			end if ' desired=true'
-			s.sonosDevices.push(SonosDevice)
+			s.sonosDevices.push(sonosDevice)
 		else
-			print "Player ";model;" already exists in device list"
-			sonosDevice=GetDeviceByPlayerModel(s.sonosDevices, model)
-			if sonosDevice <> invalid then
-				sonosDevice.alive=true
-				desired=IsModelDesired(model)
-				if desired=true then
-					SonosDevice.desired=true
-					print "Player ";model;" is DESIRED"
-				else
-					print "Player ";model;" is not desired"
-				end if
+			sonosDevice=GetDeviceByUDN(s.sonosDevices, udn)
+			desired=IsModelDesired(model)
+			updateSonosDevice(sonosDevice,upnpDevice,desired)
+			if desired then
+				des$="is desired"
+			else
+				des$="is NOT desired"
 			end if
+			print "Player ";model;" already exists in device list, ";des$
 		end if
 	end if
 	
+End Sub
+
+Sub CheckUPnPDeviceStatus(ssdpData as Object, s as Object)
+	udn = GetUDNfromUSNHeader(ssdpData.USN)
+	sonosDevice=GetDeviceByUDN(s.sonosDevices, udn)
+	if sonosDevice <> invalid then
+		print "Found existing Sonos Device at baseURL ";sonosDevice.baseURL;", UDN: ";udn
+		' Mark device as alive
+		sonosDevice.alive=true
+		UpdateSonosDeviceSSDPData(sonosDevice, ssdpData)
+		if sonosDevice.desired then
+			des$=" is desired"
+		else
+			des$=" is NOT desired"
+		end if
+		print "Player ";sonosDevice.modelNumber;des$
+	end if
 End Sub
 
 Function newSonosDevice(sonos as Object, upnpDevice as Object, isDesired as Boolean) as Object
 	sonosDevice = { baseURL: "", deviceXML: invalid, modelNumber: "", modelDescription: "", UDN: "", deviceType: "", hhid: "none", uuid: "", softwareVersion: ""}
 	
 	headers = upnpDevice.GetHeaders()
-	sonosDevice.baseURL = GetBaseURLFromLocation(headers.location)
-	sonosDevice.hhid = ""
-	if headers.DoesExist("X-RINCON-HOUSEHOLD") then
-		hhid = headers["X-RINCON-HOUSEHOLD"]
-	end if
 	sonosDevice.uuid = mid(headers.USN,6)
-	sonosDevice.bootseq = headers["X-RINCON-BOOTSEQ"]
+	sonosDevice.UDN = GetUDNfromUSNHeader(headers.USN)
 	
-	info = upnpDevice.GetDeviceInfo()
-	sonosDevice.modelNumber = lcase(info.modelNumber)
-	sonosDevice.modelDescription = lcase(info.modelDescription)
-	sonosDevice.UDN = mid(info.UDN,6)
-	sonosDevice.deviceType = info.deviceType
-	sonosDevice.softwareVersion=lcase(info.softwareVersion)
+	updateSonosDevice(sonosDevice, upnpDevice, isDesired)
 	
 	if isDesired then
 		sonosDevice.systemPropertiesService = upnpDevice.GetService("urn:schemas-upnp-org:service:SystemProperties:1")
@@ -237,15 +268,47 @@ Function newSonosDevice(sonos as Object, upnpDevice as Object, isDesired as Bool
 	sonosDevice.AlarmListVersion = -1
 	sonosDevice.AlarmCheckNeeded = "yes"
 	
-	sonosDevice.desired=isDesired
-	sonosDevice.alive=true
-
 	print "device HHID:       ["+SonosDevice.hhid+"]"
 	print "device UDN:        ["+SonosDevice.UDN+"]"
 	print "software Version:  ["+sonosDevice.softwareVersion+"]"
 	print "boot sequence:     ["+sonosDevice.bootseq+"]"
 
 	return sonosDevice
+End Function
+
+Sub updateSonosDevice(sonosDevice as Object, upnpDevice as Object, isDesired as Boolean)
+	if sonosDevice <> invalid and upnpDevice <> invalid then
+		sonosDevice.alive=true
+		sonosDevice.aliveCount%=3
+		sonosDevice.desired=isDesired
+		
+		headers = upnpDevice.GetHeaders()
+		UpdateSonosDeviceSSDPData(sonosDevice, headers)
+	
+		info = upnpDevice.GetDeviceInfo()
+		sonosDevice.modelNumber = lcase(info.modelNumber)
+		sonosDevice.modelDescription = lcase(info.modelDescription)
+		sonosDevice.deviceType = info.deviceType
+		sonosDevice.softwareVersion=lcase(info.softwareVersion)
+	end if
+End Sub
+
+Sub UpdateSonosDeviceSSDPData(sonosDevice as Object, ssdpData as Object)
+		sonosDevice.baseURL = GetBaseURLFromLocation(ssdpData.location)
+		sonosDevice.hhid = ""
+		if ssdpData.DoesExist("X-RINCON-HOUSEHOLD") then
+			hhid = ssdpData["X-RINCON-HOUSEHOLD"]
+		end if
+		sonosDevice.bootseq = ssdpData["X-RINCON-BOOTSEQ"]
+End Sub
+
+Function GetUDNfromUSNHeader(value as string) as String
+	uuidString=""
+	if value <> invalid and value.Left(5) = "uuid:" then 
+		uuidEnd=instr(6,value,"::")
+		uuidString=mid(value,6,uuidEnd-6)
+	end if
+	return uuidString
 End Function
 
 Function GetBaseURLFromLocation(location as string) as string
@@ -256,10 +319,10 @@ Function GetBaseURLFromLocation(location as string) as string
 	return baseURL
 End Function
 
-Function GetPlayerModelByBaseIP(sonosDevices as Object, IP as string) as string
+Function GetPlayerModelByUDN(sonosDevices as Object, udn as string) as string
 	returnModel = ""
 	for i = 0 to sonosDevices.count() - 1
-		if (sonosDevices[i].baseURL = IP) then
+		if (sonosDevices[i].UDN = udn) then
 			returnModel = sonosDevices[i].modelNumber
 		end if
 	end for
@@ -278,10 +341,10 @@ Function GetDeviceByPlayerModel(sonosDevices as Object, modelNumber as string) a
 
 End function
 
-Function GetDeviceByPlayerBaseURL(sonosDevices as Object, baseURL as string) as object
+Function GetDeviceByUDN(sonosDevices as Object, UDN as string) as object
 	device = invalid
 	for i = 0 to sonosDevices.count() - 1
-		if (sonosDevices[i].baseURL = baseURL) then
+		if (sonosDevices[i].UDN = UDN) then
 			device = sonosDevices[i]
 		end if
 	end for
@@ -327,7 +390,7 @@ Sub SonosRegisterForEvents(sonos as Object, device as Object)
 		end if
 		
 ' Uncomment the return below to test making only a single call
-return
+'return
 		
 		if device.renderingService <> invalid then
 			renderingcontrol_event_handler = { name: "RenderingControl", HandleEvent: OnRenderingControlEvent, SonosDevice: device, sonos:sonos }
