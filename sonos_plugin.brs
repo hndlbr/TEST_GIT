@@ -19,7 +19,7 @@ Function newSonos(msgPort As Object, userVariables As Object, bsp as Object)
 	' Create the object to return and set it up
 	s = {}
 
-	s.version = "3.10"
+	s.version = "3.11"
 
 	s.configVersion = "1.0"
 	registrySection = CreateObject("roRegistrySection", "networking")
@@ -547,20 +547,22 @@ Sub OnFound(response as String)
 					'updateUserVar(m.s.userVariables,SonosDevice.modelNumber+"HHID",SonosDevice.hhid,false)
 
 				else ' must be a new device
-					if sonosNotification then
-						print "Received ssdp:alive, querying device..."
-					end if
-				    SendXMLQuery(m.s, response)
-
 				    ' get the UDN - if we have that already, delete it - it means it's IP address changed out from under us!
 				    deviceUDN = GetDeviceByUDN(m.s.sonosDevices, UDN)
 				    if deviceUDN <> invalid
 		                deleted=deletePlayerByUDN(m.s,UDN)
 		                if deleted=true
-							print "+++ detected UIP address change and deleted player with uuid: ";UDN
+							'print "+++ detected UIP address change and deleted player with uuid: ";UDN
+							print "+++ detected UIP address change for player with uuid: ";UDN;" - rebooting!"
+							' DND-221 - Need to reboot here to make sure HHIDs are set up properly for new players
+							RebootSystem()
 						end if		
 				    end if
 
+					if sonosNotification then
+						print "Received ssdp:alive, querying device..."
+					end if
+				    SendXMLQuery(m.s, response)
 				end if ' sonosDevice '
 			end if 'rootDeviceFound '
 		end if ' aliveFound'
