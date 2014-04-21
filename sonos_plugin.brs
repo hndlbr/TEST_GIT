@@ -19,7 +19,7 @@ Function newSonos(msgPort As Object, userVariables As Object, bsp as Object)
 	' Create the object to return and set it up
 	s = {}
 
-	s.version = "2.38"
+	s.version = "2.39"
 
 	s.configVersion = "1.0"
 	registrySection = CreateObject("roRegistrySection", "networking")
@@ -30,7 +30,7 @@ Function newSonos(msgPort As Object, userVariables As Object, bsp as Object)
 		else
 			' If no time server, assume config 1.1
 			value$ = registrySection.Read("ts")
-			if type(value$)<>"roString" or value$.Len()=0 then
+			if Len(value$) = 0 then
 				s.configVersion = "1.1"
 			end if
 		end if
@@ -76,7 +76,8 @@ Function newSonos(msgPort As Object, userVariables As Object, bsp as Object)
 	s.server = CreateObject("roHttpServer", { port: 111 })
 	if (s.server = invalid) then
 		print "Unable to create server on port 111"
-		stop
+		'Need to reboot here - can't stop in the Init function
+		RebootSystem()
 	end if
 	s.server.SetPort(msgPort)
 
@@ -117,6 +118,22 @@ Function newSonos(msgPort As Object, userVariables As Object, bsp as Object)
 	bspDevice = CreateObject("roDeviceInfo")
 	bspSerial$= bspDevice.GetDeviceUniqueId()
 	s.hhid="Sonos_RDM_"+bspSerial$
+	' DND-226 - HHID string must be exactly 32 characters
+	hhidlen = Len(s.hhid)
+	if hhidlen < 32 then
+		rg = CreateObject("roRegex", "\.", "i")
+		ver$ = rg.ReplaceAll(s.version,"_")
+		s.hhid = s.hhid + "_plgv_" + ver$
+		hhidlen = Len(s.hhid)
+		if hhidlen > 32 then
+			s.hhid = s.hhid.Left(32)
+		else
+			while hhidlen < 32
+				s.hhid = s.hhid + "x"
+				hhidlen = hhidlen + 1
+			end while
+		end if
+	end if
     if s.userVariables["siteHHID"] <> invalid
 	    updateUserVar(s.userVariables,"siteHHID",s.hhid)
     else
@@ -532,30 +549,6 @@ Sub OnFound(response as String)
 			rootDeviceString = instr(1,response,"NT: upnp:rootdevice")
 			if(rootDeviceString) then
    			    print "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&  Received ssdp:byebye ";responseLocation
-				'uuidStart=instr(1,response,"USN: uuid:")
-				'if (uuidStart) then 
-				''	uuidStart=uuidStart+10
-				''	uuidEnd=instr(uuidStart,response,"::")
-				''	uuidString=mid(response,uuidStart,uuidEnd-uuidStart)
-					'print "uuid: "+uuidString
-''					found = false
-''					i = 0
-''					numdevices = m.s.sonosDevices.count()
-''					while (not found) and (i < numdevices)  
-''						if (uuidString=m.s.sonosDevices[i].uuid) then
-''						  print "found player to delete "+m.s.sonosDevices[i].modelNumber+"with uuid: " + uuidString 
-''						  found = true
-''						  deviceNumToDelete = i
-''						end if
-''						i = i + 1
-''					end while
-''					if (found) then
-''						print "Deleting Player"+m.s.sonosDevices[deviceNumToDelete].modelNumber+"with uuid: " + uuidString
-''						' Indicate the player is no longer present
-''						if (m.s.userVariables[m.s.sonosDevices[deviceNumToDelete].modelNumber] <> invalid) then
-''							m.s.userVariables[m.s.sonosDevices[deviceNumToDelete].modelNumber].currentValue$ = "notpresent"
-''						end if
-''						m.s.sonosDevices.delete(deviceNumToDelete)
 	                deleted=deletePlayerByUDN(m.s,UDN)
 	                if deleted=true
 						print "+++ got goodbye and deleted player with uuid: ";UDN
@@ -776,31 +769,6 @@ function findMatchingValidHHID(s as object)
 	next
 	return ""
 end function
-
-
-'function DetermineSiteHHID(s as object)
-
-	' this function will scan a set of SonosDevices and return the HHID string that should be used for the site'
-
- ''     matchHHID=findMatchingValidHHID(s)
- ''     if matchHHID<>""
- ''       print "two devices have: ";matchHHID;" - using that as siteHHID"
- ''       return matchHHID
- ''     end if
-    
-	' if we get here we have no idea, so we'll just assume that any valid siteHHID is the right hhid by default
-''	for each device in s.sonosDevices
-''		if (instr(1, device.hhid, "Sonos_RDM_")) then
-''		    print "using ";device.hhid;" as the site HHID"
-''	        return device.hhid
-''	    end if
- ''   next
-''
- ''   ' if we get here, it means we basically have all factory reset players - so we'll make it up later!
-  ''  print "no devices have a valid RDM HHID"
-   '' return ""
-
-'end function
 
 
 sub CheckPlayerHHIDs(s as object) as boolean
@@ -2163,10 +2131,10 @@ end Sub
 
 Sub SonosCheckAlarm(sonos as object, sonosDevice as object)
 
+	connectedPlayerIP = sonosDevice.baseURL
 	if sonosDevice.AlarmCheckNeeded = "yes" then
 	
 		' Get Alarm List
-		connectedPlayerIP = sonosDevice.baseURL
 		mp = sonos.mp
 		
 		xmlString="<?xml version="+chr(34)+"1.0"+chr(34)+" encoding="+chr(34)+"utf-8"+chr(34)+" standalone="+chr(34)+"yes"+chr(34)
@@ -2214,6 +2182,8 @@ Sub SonosCheckAlarm(sonos as object, sonosDevice as object)
 		
 	else
 		print "Alarm Check not needed, device: " + sonosDevice.modelNumber
+		' Post the next command in the queue for this player
+		postNextCommandInQueue(sonos, connectedPlayerIP)
 	end if
 
 end Sub
