@@ -19,7 +19,7 @@ Function newSonos(msgPort As Object, userVariables As Object, bsp as Object)
 	' Create the object to return and set it up
 	s = {}
 
-	s.version = "2.39"
+	s.version = "2.40"
 
 	s.configVersion = "1.0"
 	registrySection = CreateObject("roRegistrySection", "networking")
@@ -121,18 +121,12 @@ Function newSonos(msgPort As Object, userVariables As Object, bsp as Object)
 	' DND-226 - HHID string must be exactly 32 characters
 	hhidlen = Len(s.hhid)
 	if hhidlen < 32 then
-		rg = CreateObject("roRegex", "\.", "i")
-		ver$ = rg.ReplaceAll(s.version,"_")
-		s.hhid = s.hhid + "_plgv_" + ver$
+		s.hhid = s.hhid + "_"
 		hhidlen = Len(s.hhid)
-		if hhidlen > 32 then
-			s.hhid = s.hhid.Left(32)
-		else
-			while hhidlen < 32
-				s.hhid = s.hhid + "x"
-				hhidlen = hhidlen + 1
-			end while
-		end if
+		while hhidlen < 32
+			s.hhid = s.hhid + "0"
+			hhidlen = hhidlen + 1
+		end while
 	end if
     if s.userVariables["siteHHID"] <> invalid
 	    updateUserVar(s.userVariables,"siteHHID",s.hhid)
