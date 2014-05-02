@@ -19,7 +19,7 @@ Function newSonos(msgPort As Object, userVariables As Object, bsp as Object)
 	' Create the object to return and set it up
 	s = {}
 
-	s.version = "3.11"
+	s.version = "3.12"
 
 	s.configVersion = "1.0"
 	registrySection = CreateObject("roRegistrySection", "networking")
@@ -125,6 +125,16 @@ Function newSonos(msgPort As Object, userVariables As Object, bsp as Object)
 	bspDevice = CreateObject("roDeviceInfo")
 	bspSerial$= bspDevice.GetDeviceUniqueId()
 	s.hhid="Sonos_RDM_"+bspSerial$
+	' DND-226 - HHID string must be exactly 32 characters
+	hhidlen = Len(s.hhid)
+	if hhidlen < 32 then
+		s.hhid = s.hhid + "_"
+		hhidlen = Len(s.hhid)
+		while hhidlen < 32
+			s.hhid = s.hhid + "0"
+			hhidlen = hhidlen + 1
+		end while
+	end if
     if s.userVariables["siteHHID"] <> invalid
 	    updateUserVar(s.userVariables,"siteHHID",s.hhid,false)
     else
@@ -903,6 +913,7 @@ Sub newSonosDevice(device as Object) as Object
 	sonosDevice.transportState = "STOPPED"
 	sonosDevice.CurrentPlayMode = "NORMAL"
 	sonosDevice.AVTransportURI = "none"
+	sonosDevice.muteCheckNeeded = false
 	sonosDevice.SleepTimerGeneration = 0
 	sonosDevice.AlarmListVersion = -1
 	sonosDevice.AlarmCheckNeeded = "yes"
@@ -1073,6 +1084,7 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 					'postNextCommandInQueue(sonos, sonosDevice.baseURL)
 				'end if
 			else if command="volume" then
+				CheckMute(sonos, sonosDevice)
 				volume = val(detail)
 				print "Setting volume on ";sonosDevice.modelNumber;" to ["volume;"]"
 				if sonosDevice.volume<>volume
@@ -1093,6 +1105,7 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 					volincrease=abs(val(detail))
 				end if
 				if (devType <> "sall") then
+					CheckMute(sonos, sonosDevice)
 					sonosDevice.volume = sonosDevice.volume + volincrease
 					if (sonosDevice.volume > 100) then
 						sonosDevice.volume = 100
@@ -1103,6 +1116,7 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 				else ' sall - increase volume on all devices
 					sonosDevices=sonos.sonosDevices
 					for each device in sonosDevices
+						CheckMute(sonos, device)
 						device.volume = device.volume + volincrease
 						if (device.volume > 100) then
 							device.volume = 100
@@ -1118,6 +1132,7 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 					voldecrease=abs(val(detail))
 				end if
 				if (devType <> "sall") then
+					CheckMute(sonos, sonosDevice)
 					sonosDevice.volume = sonosDevice.volume - voldecrease
 					if (sonosDevice.volume < 0) then
 						sonosDevice.volume = 0
@@ -1128,6 +1143,7 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 				else ' sall - increase volume on all devices
 					sonosDevices=sonos.sonosDevices
 					for each device in sonosDevices
+						CheckMute(sonos, device)
 						device.volume = device.volume - voldecrease
 						if (device.volume < 0) then
 							device.volume = 0
@@ -1455,6 +1471,19 @@ Sub CheckSonosTopology(sonos as object)
 		end if
 	end if
 
+End Sub
+
+Sub CheckMute(sonos as object, sonosDevice as object)
+	doCheck = getUserVariableValue(sonos, sonosDevice.modelNumber +"MuteCheck")
+	if doCheck <> invalid and doCheck = "yes" and sonosDevice.muteCheckNeeded then
+		commandToQ = {}
+		commandToQ.IP = sonosDevice.baseURL
+		commandToQ.msg = "sonos!" + sonosDevice.modelNumber + "!unmute"
+		sonos.commandQ.push(commandToQ)	
+		print "+++ Queuing:unmute ";sonosDevice.modelNumber + " " +sonosDevice.baseURL
+
+		sonosDevice.muteCheckNeeded = false		
+	end if
 End Sub
 
 sub SonosGetVolume(mp as object, connectedPlayerIP as string) as object
@@ -3437,12 +3466,22 @@ Sub OnRenderingControlEvent(userdata as Object, e as Object)
 		if name="Mute"
 			c=x@channel
 			v=x@val
+			if v = "1" then
+				str$ = "muted"
+			else
+				str$ = "unmuted"
+			end if
 			if c="Master"
 				updateDeviceVariable(s, sonosDevice, "Mute", v)
-				print "+++ Master muted (channel: ";c;")"
+				print "+++ Master ";str$;" (channel: ";c;")"
 				changed = true
+				if v = "1" then
+					sonosDevice.muteCheckNeeded = true
+				else
+					sonosDevice.muteCheckNeeded = false
+				end if
 			else
-				print "+++ Other muted (channel: ";c;")"
+				print "+++ Other ";str$;" (channel: ";c;")"
 			end if
 		end if	
     end for
