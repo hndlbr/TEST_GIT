@@ -13,12 +13,12 @@ Sub Main()
 End Sub
 
 Function newSonos(msgPort As Object)
-	print "initSonos"
-
 	' Create the object to return and set it up
 	s = {}
 	s.msgPort = msgPort
 	s.st = CreateObject("roSystemTime")
+	print "initSonos at ";s.st.GetLocalDateTime()
+	
 	s.upnp = invalid 
 	s.sonosDevices = CreateObject("roArray",1, True)
 
@@ -118,6 +118,7 @@ Sub CreateUPnPController(s as Object)
 	if s.upnp = invalid then
 		print "Creating roUPnPController"
 		s.upnp = CreateObject("roUPnPController")
+		s.upnp.SetDebug(true)
 		if s.upnp = invalid then
 			print "Failed to create upnp_controller"
 			stop
@@ -147,7 +148,7 @@ Sub DoAliveCheck(s as Object)
 			count% = device.aliveCount% - 1
 			' Remove the device if not found for several tries
 			if count% = 0 then
-				DeletePlayerByUDN(s,device.UDN)
+				DeletePlayerByUDN(s,device.UDN,true)
 				print "+++ alive timer expired - device [";device.modelNumber;" - ";device.UDN;"] not seen and is deleted"
 			else
 				device.aliveCount% = count%
@@ -166,7 +167,7 @@ Function IsModelDesired(model as string) as boolean
 	return false
 End Function
 
-Function DeletePlayerByUDN(s as object, udn as String) as boolean
+Function DeletePlayerByUDN(s as object, udn as String, delUpnpDevice as Boolean) as boolean
 	print "+++ DeletePlayerByUDN ";udn
 	found = false
 	i = 0
@@ -183,6 +184,12 @@ Function DeletePlayerByUDN(s as object, udn as String) as boolean
 	    modelBeingDeleted=s.sonosDevices[deviceNumToDelete].modelNumber
 		print "!!! Deleting Player "+modelBeingDeleted+" with UDN: " + udn
 		s.sonosDevices.delete(deviceNumToDelete)
+		if delUpnpDevice then
+			' Delete also from UPnP device list managed by UPnPController
+			if not s.upnp.RemoveDevice("uuid:" + udn) then
+				print "UPnPController.RemoveDevice failed to remove this device!"
+			end if
+		end if
 	else
 		print "- Matching UDN not in list: ";udn
 	end if		
@@ -235,20 +242,23 @@ Sub CheckNewUPnPDevice(upnpDevice as Object, s as Object)
 End Sub
 
 Sub CheckUPnPDeviceStatus(ssdpData as Object, s as Object)
-	udn = GetUDNfromUSNHeader(ssdpData.USN)
-	sonosDevice=GetDeviceByUDN(s.sonosDevices, udn)
-	if sonosDevice <> invalid then
-		print "Found existing Sonos Device at baseURL ";sonosDevice.baseURL;", UDN: ";udn
-		' Mark device as alive
-		sonosDevice.alive=true
-		sonosDevice.aliveCount%=3
-		UpdateSonosDeviceSSDPData(sonosDevice, ssdpData)
-		if sonosDevice.desired then
-			des$=" is desired"
-		else
-			des$=" is NOT desired"
+	usn = ssdpData.USN
+	if usn <> invalid then
+		udn = GetUDNfromUSNHeader(usn)
+		sonosDevice=GetDeviceByUDN(s.sonosDevices, udn)
+		if sonosDevice <> invalid then
+			print "Found existing Sonos Device at baseURL ";sonosDevice.baseURL;", UDN: ";udn
+			' Mark device as alive
+			sonosDevice.alive=true
+			sonosDevice.aliveCount%=3
+			UpdateSonosDeviceSSDPData(sonosDevice, ssdpData)
+			if sonosDevice.desired then
+				des$=" is desired"
+			else
+				des$=" is NOT desired"
+			end if
+			print "Player ";sonosDevice.modelNumber;des$
 		end if
-		print "Player ";sonosDevice.modelNumber;des$
 	end if
 End Sub
 
@@ -256,7 +266,9 @@ Sub CheckUPnPDeviceRemoved(upnpDevice, s)
 	print "+++ UPnP Device removed from control point"
 	headers = upnpDevice.GetHeaders()
 	udn = GetUDNfromUSNHeader(headers.USN)
-	deletePlayerByUDN(s,udn)
+	' No need to delete the UPnP controller's device, it is already deleted
+	' We do need to delete from local list...
+	DeletePlayerByUDN(s,udn,false)
 End Sub
 
 Function newSonosDevice(sonos as Object, upnpDevice as Object, isDesired as Boolean) as Object
