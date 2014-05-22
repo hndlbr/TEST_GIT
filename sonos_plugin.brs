@@ -19,7 +19,7 @@ Function newSonos(msgPort As Object, userVariables As Object, bsp as Object)
 	' Create the object to return and set it up
 	s = {}
 
-	s.version = "3.12"
+	s.version = "3.13"
 
 	s.configVersion = "1.0"
 	registrySection = CreateObject("roRegistrySection", "networking")
@@ -63,6 +63,9 @@ Function newSonos(msgPort As Object, userVariables As Object, bsp as Object)
 	end if
 	if (s.userVariables["subBondTo"] <> invalid) then
 		s.userVariables["subBondTo"].Reset(False)
+	end if
+	if (s.userVariables["requiresManualUpdate"] <> invalid) then
+		s.userVariables["requiresManualUpdate"].Reset(False)
 	end if
 
 	' Create timer to see if players have gone away
