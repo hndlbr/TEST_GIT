@@ -1,5 +1,6 @@
 ' Plug-in script for for BrightSign firmware 4.8 or greater
 ' This plug-in relies on low level BrightSign UPnP support
+' Functionally level with 3.13
 
 Function sonos_Initialize(msgPort As Object, userVariables As Object, bsp as Object)
 
@@ -20,7 +21,7 @@ Function newSonos(msgPort As Object, userVariables As Object, bsp as Object)
 	' Create the object to return and set it up
 	s = {}
 
-	s.version = "4.00"
+	s.version = "4.00.02"
 
 	s.configVersion = "1.0"
 	registrySection = CreateObject("roRegistrySection", "networking")
@@ -53,7 +54,7 @@ Function newSonos(msgPort As Object, userVariables As Object, bsp as Object)
 	s.timer.Start()
 
 	s.st=CreateObject("roSystemTime")
-	'TIMING print "Sonos Plugin created at: ";s.st.GetLocalDateTime()
+	print "Sonos Plugin created at: ";s.st.GetLocalDateTime()
 
 	' Reset some critical variables
 	if (s.userVariables["aliveTimeoutSeconds"] <> invalid) then
@@ -61,6 +62,9 @@ Function newSonos(msgPort As Object, userVariables As Object, bsp as Object)
 	end if
 	if (s.userVariables["subBondTo"] <> invalid) then
 		s.userVariables["subBondTo"].Reset(False)
+	end if
+	if (s.userVariables["requiresManualUpdate"] <> invalid) then
+		s.userVariables["requiresManualUpdate"].Reset(False)
 	end if
 
 	' Create timer to see if players have gone away
@@ -116,6 +120,16 @@ Function newSonos(msgPort As Object, userVariables As Object, bsp as Object)
 	bspDevice = CreateObject("roDeviceInfo")
 	bspSerial$= bspDevice.GetDeviceUniqueId()
 	s.hhid="Sonos_RDM_"+bspSerial$
+	' DND-226 - HHID string must be exactly 32 characters
+	hhidlen = Len(s.hhid)
+	if hhidlen < 32 then
+		s.hhid = s.hhid + "_"
+		hhidlen = Len(s.hhid)
+		while hhidlen < 32
+			s.hhid = s.hhid + "0"
+			hhidlen = hhidlen + 1
+		end while
+	end if
 	updateUserVar(s.userVariables,"siteHHID",s.hhid,false)
 
     setDebugPrintBehavior(s)
@@ -191,7 +205,6 @@ Function sonos_ProcessEvent(event As Object) as boolean
              if (event["EventType"] = "SEND_PLUGIN_MESSAGE") then
                 if event["PluginName"] = "sonos" then
                     pluginMessage$ = event["PluginMessage"]
-					print "SEND_PLUGIN/EVENT_MESSAGE:";pluginMessage$
                     retval = ParseSonosPluginMsg(pluginMessage$, m)
                 endif
             endif
@@ -201,27 +214,27 @@ Function sonos_ProcessEvent(event As Object) as boolean
 		evType = event.GetType()
 		if evType = 0 then
 			if type(obj) = "roAssociativeArray" then
-				'CheckSSDPNotification(obj, s)
+				CheckSSDPNotification(obj, m)
 			else
 				print "!!!!! Received roUPnPSearchEvent, type 0 - unexpected object: ";type(obj)
 			end if
 		else if evType = 1 then
 			if type(obj) = "roAssociativeArray" then
-				CheckUPnPDeviceStatus(obj, s)
+				CheckUPnPDeviceStatus(obj, m)
 			else
 				print "!!!!! Received roUPnPSearchEvent, type 1 - unexpected object: ";type(obj)
 			end if
 		else if evType = 2 then
 			if type(obj) = "roUPnPDevice" then
 				' new device
-				CheckNewUPnPDevice(obj, s)
+				CheckNewUPnPDevice(obj, m)
 			else
 				print "!!!!! Received roUPnPSearchEvent, type 2 - unexpected object: ";type(obj)
 			end if
 		else if evType = 3 then
 			if type(obj) = "roUPnPDevice" then
 				' device was removed 
-				CheckUPnPDeviceRemoved(obj, s)
+				CheckUPnPDeviceRemoved(obj, m)
 			else
 				print "!!!!! Received roUPnPSearchEvent, type 3 - unexpected object: ";type(obj)
 			end if
@@ -238,8 +251,8 @@ Function sonos_ProcessEvent(event As Object) as boolean
 			print "*********************************************  UDP EVENT - move to plug in message  ***************************************"
 			print msg$
 			print "***************************************************************************************************************************"
+			retval = ParseSonosPluginMsg(msg$, m)
 		end if
-		retval = ParseSonosPluginMsg(msg$, m)
 	else if (type(event) = "roUrlEvent") then
 		' Handle responses from REST API calls
 		'print "*****  Got roUrlEvent in Sonos"	
@@ -250,7 +263,7 @@ Function sonos_ProcessEvent(event As Object) as boolean
 			SonosRenewRegisterForEvents(m)
 			retval = true
 		else if (event.GetSourceIdentity() = m.timerAliveCheck.GetIdentity()) then
-			DoAliveCheck(s)
+			DoAliveCheck(m)
 	        retval=true
 		else if (m.timerTopologyCheck <> invalid) and (event.GetSourceIdentity() = m.timerTopologyCheck.GetIdentity()) then
 			StartTopologyCheckTimer(m)
@@ -365,6 +378,7 @@ Sub CreateUPnPController(s as Object)
 	if s.upnp = invalid then
 		print "Creating roUPnPController"
 		s.upnp = CreateObject("roUPnPController")
+		's.upnp.SetDebug(true)
 		if s.upnp = invalid then
 			print "Failed to create upnp_controller"
 			stop
@@ -394,7 +408,7 @@ Sub DoAliveCheck(s as Object)
 			count% = device.aliveCount% - 1
 			' Remove the device if not found for several tries
 			if count% = 0 then
-				DeletePlayerByUDN(s,device.UDN)
+				DeletePlayerByUDN(s,device.UDN,true)
 				print "+++ alive timer expired - device [";device.modelNumber;" - ";device.UDN;"] not seen and is deleted"
 			else
 				device.aliveCount% = count%
@@ -453,11 +467,6 @@ Sub CheckSSDPNotification(headers as Object, s as Object)
 		if (sonosDevice <> invalid) then
 			print "Received ssdp:alive, device already in list "; headerBaseURL;" hhid: ";hhid;" old bootseq: "sonosDevice.bootseq;" new bootseq: ";bootseq;" version: ";sonosDevice.softwareVersion
 
-			sonosDevice.alive=true
-			updateUserVar(s.userVariables,sonosDevice.modelNumber+"HHID",sonosDevice.hhid,false)
-			xfer=rdmPingAsync(s.msgPort,sonosDevice.baseURL,hhid) 
-			s.postObjects.push(xfer)
-
 			' if this device is in our list but is in factory reset we need to reboot'
 			print "SonosDevice.hhid: ";SonosDevice.hhid
 			if SonosDevice.hhid <> "" then
@@ -467,14 +476,17 @@ Sub CheckSSDPNotification(headers as Object, s as Object)
 				end if
 			end if
 
+			sonosDevice.alive=true
+			xfer=rdmPingAsync(s.msgPort,sonosDevice.baseURL,hhid) 
+			s.postObjects.push(xfer)
+
 			' if it's bootseq is different we need to punt and treat it as new
 			if bootseq <> sonosDevice.bootseq then
-				print "+++ bootseq incremented - treating as a new player"
+				print "+++ bootseq incremented - removing device so that it will be re-initialized"
 				s.sonosDevices.delete(sonosDeviceIndex)
 				updateUserVar(s.userVariables,SonosDevice.modelNumber+"HHIDStatus","pending",true)
-				' In original plugin, we queried the device XML here
-				' Here, device should be re-initialized in next device scan
-				' Possibly: accelerate the device scan rather than waiting for timer
+				' Force device removal - it will be re-initialized in the next scan
+				s.upnp.RemoveDevice("uuid:" + UDN)
 				return
 			end if
 
@@ -482,34 +494,21 @@ Sub CheckSSDPNotification(headers as Object, s as Object)
 			updateUserVar(s.userVariables,SonosDevice.modelNumber,"present",false)
 			updateUserVar(s.userVariables,SonosDevice.modelNumber+"Version",SonosDevice.softwareVersion,false)
 
-		else ' must be a new device
-			' In original plugin, we queried the device XML here
-			' Here, device should be re-initialized in next device scan
+		else ' we don't have both UDN and IP address
 
-			' get the UDN - if we have that already, delete it - it means it's IP address changed out from under us!
+			' get the UDN - if we do have that already, it means it's IP address changed out from under us!
 			deviceUDN = GetDeviceByUDN(s.sonosDevices, UDN)
 			if deviceUDN <> invalid
-				deleted=deletePlayerByUDN(s, UDN)
-				if deleted = true then
-					print "+++ detected UIP address change and deleted player with uuid: ";UDN
+				deleted=deletePlayerByUDN(s,UDN,true)
+				if deleted=true
+					print "+++ detected UIP address change for player with uuid: ";UDN;" - rebooting!"
+					' DND-221 - Need to reboot here to make sure HHIDs are set up properly for new players
+					RebootSystem()
 				end if		
 			end if
 
 		end if ' sonosDevice '
 	end if ' aliveFound and rootDevice '
-
-	byebyeFound = headers.DoesExist("NTS") and headers.NTS = "ssdp:byebye"
-	if byebyeFound then
-		if rootDevice then
-			print "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&  Received ssdp:byebye "
-			deleted=deletePlayerByUDN(s,UDN)
-			if deleted=true
-				print "+++ Got byebye and deleted player with uuid: ";UDN
-			else
-				print "+++ Got byebye but player is not in list, UDN :"; UDN	
-			end if		
-		end if
-	end if ' byebyeFound'
 End Sub
 
 Function isModelDesiredByUservar(s as object, model as string) as boolean
@@ -521,8 +520,7 @@ Function isModelDesiredByUservar(s as object, model as string) as boolean
 	return false
 End Function
 
-Function DeletePlayerByUDN(s as object, udn as String) as boolean
-
+Function DeletePlayerByUDN(s as object, udn as String, delUpnpDevice as Boolean) as boolean
 	print "+++ DeletePlayerByUDN ";udn
 	found = false
 	i = 0
@@ -539,6 +537,12 @@ Function DeletePlayerByUDN(s as object, udn as String) as boolean
 	    modelBeingDeleted=s.sonosDevices[deviceNumToDelete].modelNumber
 		print "!!! Deleting Player "+modelBeingDeleted+" with UDN: " + udn
 		s.sonosDevices.delete(deviceNumToDelete)
+		if delUpnpDevice then
+			' Delete also from UPnP device list managed by UPnPController
+			if not s.upnp.RemoveDevice("uuid:" + udn) then
+				print "UPnPController.RemoveDevice failed to remove this device!"
+			end if
+		end if
 
 		' Indicate the player is no longer present
 		if (s.userVariables[modelBeingDeleted] <> invalid) then
@@ -549,7 +553,7 @@ Function DeletePlayerByUDN(s as object, udn as String) as boolean
  		    setSonosMasterDevice(s,"sall")
  		end if
 	else
-		print "Matching UDN not in list: ";udn
+		print "- Matching UDN not in list: ";udn
 	end if		
 	return found
 end function
@@ -638,20 +642,27 @@ Sub CheckNewUPnPDevice(upnpDevice as Object, s as Object)
 End Sub
 
 Sub CheckUPnPDeviceStatus(ssdpData as Object, s as Object)
-	udn = GetUDNfromUSNHeader(ssdpData.USN)
-	sonosDevice=GetDeviceByUDN(s.sonosDevices, udn)
-	if sonosDevice <> invalid then
-		print "Found existing Sonos Device at baseURL ";sonosDevice.baseURL;", UDN: ";udn
-		' Mark device as alive
-		sonosDevice.alive=true
-		sonosDevice.aliveCount%=3
-		UpdateSonosDeviceSSDPData(sonosDevice, ssdpData)
-		if sonosDevice.desired then
-			des$=" is desired"
-		else
-			des$=" is NOT desired"
+	usn = ssdpData.USN
+	if usn <> invalid then
+		udn = GetUDNfromUSNHeader(usn)
+		sonosDevice=GetDeviceByUDN(s.sonosDevices, udn)
+		if sonosDevice <> invalid then
+			print "Found existing Sonos Device at baseURL ";sonosDevice.baseURL;", UDN: ";udn
+			' Mark device as alive
+			sonosDevice.alive=true
+			sonosDevice.aliveCount%=3
+			hhid = sonosDevice.hhid
+			UpdateSonosDeviceSSDPData(sonosDevice, ssdpData)
+			if hhid <> sonosDevice.hhid then
+				updateUserVar(s.userVariables,sonosDevice.modelNumber+"HHID",sonosDevice.hhid,true)
+			end if
+			if sonosDevice.desired then
+				des$=" is desired"
+			else
+				des$=" is NOT desired"
+			end if
+			print "Player ";sonosDevice.modelNumber;des$
 		end if
-		print "Player ";sonosDevice.modelNumber;des$
 	end if
 End Sub
 
@@ -659,7 +670,8 @@ Sub CheckUPnPDeviceRemoved(upnpDevice, s)
 	print "+++ UPnP Device removed from control point"
 	headers = upnpDevice.GetHeaders()
 	udn = GetUDNfromUSNHeader(headers.USN)
-	deletePlayerByUDN(s,udn)
+	' No need to delete from UPnPController list - that has already happened
+	DeletePlayerByUDN(s,udn,false)
 End Sub
 
 Function newSonosDevice(sonos as Object, upnpDevice as Object, isDesired as Boolean) as Object
@@ -698,6 +710,7 @@ Function newSonosDevice(sonos as Object, upnpDevice as Object, isDesired as Bool
 	sonosDevice.transportState = "STOPPED"
 	sonosDevice.CurrentPlayMode = "NORMAL"
 	sonosDevice.AVTransportURI = "none"
+	sonosDevice.MuteCheckNeeded = false
 	sonosDevice.SleepTimerGeneration = 0
 	sonosDevice.AlarmListVersion = -1
 	sonosDevice.AlarmCheckNeeded = "yes"
@@ -731,7 +744,7 @@ Sub UpdateSonosDeviceSSDPData(sonosDevice as Object, ssdpData as Object)
 		sonosDevice.baseURL = GetBaseURLFromLocation(ssdpData.location)
 		sonosDevice.hhid = ""
 		if ssdpData.DoesExist("X-RINCON-HOUSEHOLD") then
-			hhid = ssdpData["X-RINCON-HOUSEHOLD"]
+			sonosDevice.hhid = ssdpData["X-RINCON-HOUSEHOLD"]
 		end if
 		sonosDevice.bootseq = ssdpData["X-RINCON-BOOTSEQ"]
 End Sub
@@ -803,7 +816,7 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 		
 	' convert the message to all lower case for easier string matching later
 	msg = lcase(origMsg)
-	print "Received Plugin message: "+msg
+	print "--- RECEIVED Plugin message: ";msg
 	' verify its a SONOS message'
 	r = CreateObject("roRegex", "^SONOS", "i")
 	match=r.IsMatch(msg)
@@ -898,9 +911,9 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 		'  and if this message would send another command, put it in the command queue
 		else if (not SonosDeviceBusy(sonos, sonosDeviceURL)) or (devType = "sall") then
 			if sonosDeviceURL.Len() > 0 then
-				print "Executing:";command +" " + devType + " " + detail + " " + sonosDeviceURL
+				print "[[[ Executing:";command +" " + devType + " " + detail + " " + sonosDeviceURL
 			else
-				print "Executing:";command +" " + devType + " " + detail + " " + "No URL Specified"
+				print "[[[ Executing:";command +" " + devType + " " + detail + " " + "No URL Specified"
 			end if
 			' UPnP actions
 			if command="mute" then
@@ -910,6 +923,7 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 				print "Sending unMute"
 				SonosSetMute(sonos,sonosDevice,0) 
 			else if command="volume" then
+				CheckMute(sonos, sonosDevice)
 				volume = val(detail)
 				print "Setting volume on ";sonosDevice.modelNumber;" to ["volume;"]"
 				if sonosDevice.volume<>volume then
@@ -926,6 +940,7 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 					volincrease=abs(val(detail))
 				end if
 				if (devType <> "sall") then
+					CheckMute(sonos, sonosDevice)
 					sonosDevice.volume = sonosDevice.volume + volincrease
 					if (sonosDevice.volume > 100) then
 						sonosDevice.volume = 100
@@ -935,6 +950,7 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 				else ' sall - increase volume on all devices
 					sonosDevices=sonos.sonosDevices
 					for each device in sonosDevices
+						CheckMute(sonos, device)
 						' queue volume command if device busy
 						if isModelDesiredByUservar(sonos, device.modelNumber) then
 							if SonosDeviceBusy(sonos, device.baseURL) then
@@ -956,6 +972,7 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 					voldecrease=abs(val(detail))
 				end if
 				if (devType <> "sall") then
+					CheckMute(sonos, sonosDevice)
 					sonosDevice.volume = sonosDevice.volume - voldecrease
 					if (sonosDevice.volume < 0) then
 						sonosDevice.volume = 0
@@ -965,6 +982,7 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 				else ' sall - increase volume on all devices
 					sonosDevices=sonos.sonosDevices
 					for each device in sonosDevices
+						CheckMute(sonos, device)
 						' queue volume command if device busy
 						if isModelDesiredByUservar(sonos, device.modelNumber) then
 							if SonosDeviceBusy(sonos, device.baseURL) then
@@ -1108,8 +1126,10 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 				xfer=rdmHouseholdSetupAsync(sonos.msgPort,sonosDeviceURL,sonos.hhid,roomName,"none",1) 
 				sonos.postObjects.push(xfer)
 				print "hhsetup: ";type(xfer)
-				print "deleting sonos device: ";sonosDevice.modelNumber
-				DeleteSonosDevice(sonos.userVariables,sonosDevices,sonosDeviceURL)
+				' Device will reboot - no need to delete it until we get the bye-bye
+				' If we put this back in, uncomment DeleteSonosDevice
+				'print "deleting sonos device: ";sonosDevice.modelNumber
+				'DeleteSonosDevice(sonos.userVariables,sonosDevices,sonosDeviceURL)
 				' PrintAllSonosDevices(sonos)
 			else
 				print "Discarding UNSUPPORTED command :"; command
@@ -1195,12 +1215,19 @@ Sub CheckSonosTopology(sonos as object)
 					sonos.accelerateAliveCheck = False
 					' Bond sub to bondMaster
 					print "**** Bonding ";bondMaster$;" to SUB"
-					SonosSubBond(sonos, bondMaster, subDevice.UDN)
+					if SonosDeviceBusy(sonos, bondMaster.baseURL) then
+						QueueSonosMessage(sonos, bondMaster.baseURL, "sonos|"+bondMaster$+"|subbond")
+						print "+++ Queuing: subbond ";bondMaster$
+					else
+						SonosSubBond(sonos, bondMaster, subDevice.UDN)
+					endif
 				else if (subBondStatus$ = "Bonded/missing") or (subDevice = invalid and subBondStatus$.Left(6) = "Bonded") then
 					sonos.accelerateAliveCheck = False
 					if sonos.masterBondedToSubUDN <> invalid and sonos.masterBondedToSubUDN <> "none" then
 						' Unbond sub from master
 						print "**** SUB is missing - unbonding ";bondMaster$;" from SUB"
+						' Cannot queue this one because we may not know the right sub UDN
+						'  later, if the SUB is missing
 						SonosSubUnBond(sonos, bondMaster, sonos.masterBondedToSubUDN)
 					else
 						print "**** Need to unbond SUB, but we don't have sub UDN that was bonded"
@@ -1210,6 +1237,16 @@ Sub CheckSonosTopology(sonos as object)
 		end if
 	end if
 
+End Sub
+
+Sub CheckMute(sonos as object, sonosDevice as object)
+	doCheck = getUserVariableValue(sonos, sonosDevice.modelNumber +"MuteCheck")
+	if doCheck <> invalid and doCheck = "yes" and sonosDevice.muteCheckNeeded then
+		msg = "sonos!" + sonosDevice.modelNumber + "!unmute"
+		QueueSonosMessage(sonos, sonosDevice.baseURL, msg)
+		print "+++ Queuing:unmute ";sonosDevice.modelNumber + " " +sonosDevice.baseURL
+		sonosDevice.muteCheckNeeded = false		
+	end if
 End Sub
 
 
@@ -1479,7 +1516,7 @@ Sub SonosCheckAlarm(sonos as object, sonosDevice as object)
 End Sub
 
 Sub ProcessSonosAlarmCheck(sonos as Object, deviceUDN as string, responseData as Object)
-	alStr = escapeDecode(CurrentAlarmList["CurrentRDM"])
+	alStr = escapeDecode(responseData["CurrentAlarmList"])
 	print "CurrentAlarmList: " + alStr
 	sonosDevice=GetDeviceByUDN(sonos.sonosDevices, deviceUDN)
 	if alStr <> invalid and sonosDevice <> invalid then
@@ -1788,7 +1825,7 @@ Function HandleSonosUPnPActionResult(msg as object, sonos as object) as boolean
 			connectedPlayerIP=sonosReqData["dest"]
 			deviceUDN=sonosReqData["dev"]
 			reqType=sonosReqData["type"]
-			print "UPnP return code: "; success; " request type: ";reqType;" from ";connectedPlayerIP
+			print "]]] UPnP return code: "; success; ", request type: ";reqType;", from ";connectedPlayerIP
 			if success and responseData <> invalid then
 				if reqType="GetVolume" then
 					ProcessSonosVolumeResponse(sonos,deviceUDN,responseData)
@@ -1800,12 +1837,12 @@ Function HandleSonosUPnPActionResult(msg as object, sonos as object) as boolean
 					ProcessSonosAlarmCheck(sonos,deviceUDN,responseData)
 				end if
 			end if
-					
-			' See if we have a command in the command queue for this player, if so execute it
-			postNextCommandInQueue(sonos, connectedPlayerIP)
 
 			' delete this transfer object from the transfer object list
 			sonos.upnpActionObjects.Delete(i)
+					
+			' See if we have a command in the command queue for this player, if so execute it
+			postNextCommandInQueue(sonos, connectedPlayerIP)
 			found = true
 		end if
 		i = i + 1
@@ -1835,13 +1872,13 @@ Function HandleSonosXferEvent(msg as object, sonos as object) as boolean
 			print "Message.getInt() = ";msg.getInt(); " reqData:";reqData;"  IP:"; connectedPlayerIP
 			if (msg.getInt() = 1) then
 ''				print "HTTP return code: "; eventCode; " request type: ";reqData;" from ";connectedPlayerIP;" at: ";sonos.st.GetLocalDateTime()
-				print "HTTP return code: "; eventCode; " request type: ";reqData;" from ";connectedPlayerIP
-					
-				' See if we have a command in the command queue for this player, if so execute it
-				postNextCommandInQueue(sonos, connectedPlayerIP)
+				print "]]] HTTP return code: "; eventCode; ", request type: ";reqData;", from ";connectedPlayerIP
 
 				' delete this transfer object from the transfer object list
 				sonos.xferObjects.Delete(i)
+					
+				' See if we have a command in the command queue for this player, if so execute it
+				postNextCommandInQueue(sonos, connectedPlayerIP)
 				found = true
 			end if
 		end if
@@ -1864,20 +1901,18 @@ Function HandleSonosXferEvent(msg as object, sonos as object) as boolean
 				reqData = ""
 			end if
 			if (msg.getInt() = 1) then
-				print "HTTP return code: "; eventCode; " request type: ";reqData;" from ";connectedPlayerIP
+				print "]]] HTTP return code: "; eventCode; ", request type: ";reqData;", from ";connectedPlayerIP
 				if (eventCode = 200) then 
 					if reqData="rdmPing" then
 					     print "+++ got reply for rdmPing"
 					end if
 				end if		
 
-				' pop the next queued up message, if any'
-				'if connectedPlayerIP<>"" then
-				'    postNextCommandInQueue(sonos, connectedPlayerIP)
-				'end if
-
 				' delete this transfer object from the transfer object list
 				sonos.postObjects.Delete(i)
+
+				' Check for a queued up message, and execute it if the device isn't busy
+				postNextCommandInQueue(sonos, connectedPlayerIP)
 				found = true
 			end if
 		end if
@@ -1888,28 +1923,37 @@ Function HandleSonosXferEvent(msg as object, sonos as object) as boolean
 End Function
 
 Sub postNextCommandInQueue(sonos as object, connectedPlayerIP as string)
-	' See how many commands we have the queue
-	numCmds = sonos.commandQ.count()
-	cmdFound = false
-	x = 0
+	if Len(connectedPlayerIP) > 0 then	
+		' See how many commands we have the queue
+		numCmds = sonos.commandQ.count()
+		cmdFound = false
+		x = 0
 	if (numCmds > 0) then 
 'TIMING'		print "+++ There are ";numCmds;" in the queue at ";sonos.st.GetLocalDateTime()
-		print "+++ There are ";numCmds;" in the queue"
-	end if
-	
-	' loop thru all of the commands to see if we can find one that matches this player IP
-	while (not cmdFound) and (x < numCmds)
-		' if a command is found that matches this IP, post that command
-		if (sonos.commandQ[x].IP = connectedPlayerIP) then
-			' send plugin message to ourself to execute the next queued command 
-			sendPluginMessage(sonos, sonos.commandQ[x].msg)
-			
-			' delete this command from the command queue
-			sonos.commandQ.Delete(x)
-			cmdFound = true
+			print "+++ There are";numCmds;" commands in the queue"
 		end if
-		x = x + 1
-	end while
+		
+		' If by any chance, there is another active command, don't post the next in queue
+		' This can happen in rare instances
+		if not SonosDeviceBusy(sonos, connectedPlayerIP) then
+			' loop thru all of the commands to see if we can find one that matches this player IP
+			while (not cmdFound) and (x < numCmds)
+				' if a command is found that matches this IP, post that command
+				if (sonos.commandQ[x].IP = connectedPlayerIP) then
+					print "+++ Sending queued msg: ";sonos.commandQ[x].msg
+					' send plugin message to ourself to execute the next queued command 
+					sendPluginMessage(sonos, sonos.commandQ[x].msg)
+					
+					' delete this command from the command queue
+					sonos.commandQ.Delete(x)
+					cmdFound = true
+				end if
+				x = x + 1
+			end while
+		else
+			print "+++ Device is still busy, not posting next queued command"
+		end if
+	end if
 End Sub
 
 Function SonosDeviceBusy(sonos as object, deviceIP as String) as Boolean
@@ -2062,14 +2106,14 @@ Sub OnAVTransportEvent(s as object, sonosDevice as object, e as object)
 
 		transportState = event.instanceid.transportstate@val
 		if (transportState <> invalid) then 
+			print "~~~ Transport event from ";sonosDevice.modelNumber;" TransportState: [";transportstate;"] "
 			updateDeviceVariable(s, sonosDevice, "TransportState", transportState)
-			print "Transport event from ";sonosDevice.modelNumber;" TransportState: [";transportstate;"] "
 		end if
 
 		AVTransportURI = event.instanceid.AVTransportURI@val
 		if (AVTransportURI <> invalid) then 
+			print "~~~ Transport event from ";sonosDevice.modelNumber;" AVTransportURI: [";AVTransportURI;"] "
 			updateDeviceVariable(s, sonosDevice, "AVTransportURI", AVTransportURI)
-			print "Transport event from ";sonosDevice.modelNumber;" AVTransportURI: [";AVTransportURI;"] "
 			nr=CheckForeignPlayback(s,sonosDevice.modelNumber,AVTransportURI)
 			if nr=true then
 				sendPluginEvent(s,"ForeignTransportStateURI")
@@ -2078,14 +2122,14 @@ Sub OnAVTransportEvent(s as object, sonosDevice as object, e as object)
 
 		CurrentPlayMode = event.instanceid.CurrentPlayMode@val
 		if (CurrentPlayMode <> invalid) then 
+			print "~~~ Transport event from ";sonosDevice.modelNumber;" CurrentPlayMode: [";currentPlayMode;"] "
 			updateDeviceVariable(s, sonosDevice, "CurrentPlayMode", CurrentPlayMode)
-			print "Transport event from ";sonosDevice.modelNumber;" CurrentPlayMode: [";currentPlayMode;"] "
 		end if
 
 		SleepTimerGeneration = event.instanceid.rSleepTimerGeneration@val
 		if (SleepTimerGeneration <> invalid) then 
+			print "~~~ Transport event from ";sonosDevice.modelNumber;" SleepTimerGeneration: [";SleepTimerGeneration;"] "
 			updateDeviceVariable(s, sonosDevice, "SleepTimerGeneration", SleepTimerGeneration)
-			print "Transport event from ";sonosDevice.modelNumber;" SleepTimerGeneration: [";SleepTimerGeneration;"] "
 		end if
 
 		' Send a plugin message to indicate at least one of the transport state variables has changed
@@ -2192,12 +2236,22 @@ Sub OnRenderingControlEvent(s as object, sonosDevice as object, e as object)
 			if name="Mute"
 				c=x@channel
 				v=x@val
+				if v = "1" then
+					str$ = "muted"
+				else
+					str$ = "unmuted"
+				end if
 				if c="Master"
 					updateDeviceVariable(s, sonosDevice, "Mute", v)
-					print "+++ Master muted (channel: ";c;")"
+					print "+++ Master ";str$;" (channel: ";c;")"
 					changed = true
+					if v = "1" then
+						sonosDevice.muteCheckNeeded = true
+					else
+						sonosDevice.muteCheckNeeded = false
+					end if
 				else
-					print "+++ Other muted (channel: ";c;")"
+					print "+++ Other ";str$;" (channel: ";c;")"
 				end if
 			end if	
 		end for
@@ -2525,25 +2579,25 @@ Sub updateUserVar(uv as object, targetVar as string, newValue as string, postMsg
 	end if
 End Sub
 
-Sub DeleteSonosDevice(userVariables as object, devices as object, baseURL as object)
-	found = false
-	deviceToDelete = 0
-	for i=0 to devices.Count() - 1
-		if devices[i].baseURL=baseURL then
-			found = true
-			deviceToDelete = i
-		end if
-	end for
-
-	if found then
-		modelNumber=devices[deviceToDelete].modelNumber
-		print "***** deleting device ";modelNumber
-		if (userVariables[modelNumber] <> invalid) then
-			userVariables[modelNumber].currentValue$ = "notpresent"
-		end if
-		devices.delete(deviceToDelete)
-	end if 
-End Sub
+' Sub DeleteSonosDevice(userVariables as object, devices as object, baseURL as object)
+	' found = false
+	' deviceToDelete = 0
+	' for i=0 to devices.Count() - 1
+		' if devices[i].baseURL=baseURL then
+			' found = true
+			' deviceToDelete = i
+		' end if
+	' end for
+	'
+	' if found then
+		' modelNumber=devices[deviceToDelete].modelNumber
+		' print "***** deleting device ";modelNumber
+		' if (userVariables[modelNumber] <> invalid) then
+			' userVariables[modelNumber].currentValue$ = "notpresent"
+		' end if
+		' devices.delete(deviceToDelete)
+	' end if 
+' End Sub
 
 Sub setbuttonstate(sonos as object, state as string)
 	' If the user variable ButtonType = EUCapSense then set the two GPIO's to the following
@@ -2595,3 +2649,29 @@ Function getPlayerNameByModel(model as object) as String
 	end if
 	return model
 End Function		
+
+Function escapeDecode(str as String) as String
+	nstr="" 
+	pstr="" 
+	n=0
+	r = CreateObject("roRegex", "&", "i")
+	frags=r.split(str)
+	for each s in frags
+		if n <> 0 then
+			r2 = CreateObject("roRegex", "lt;", "i")
+			pstr=r2.ReplaceAll(s,"<")
+			r3 = CreateObject("roRegex", "gt;", "i")
+			pstr=r3.ReplaceAll(pstr,">")
+			r4 = CreateObject("roRegex", "quot;", "i")
+			pstr=r4.ReplaceAll(pstr,chr(34))
+			r5 = CreateObject("roRegex", "apos;", "i")
+			pstr=r5.ReplaceAll(pstr,chr(39))
+			nstr=nstr+pstr
+		else
+			nstr=nstr+s   
+		end if
+		n=n+1
+	end for
+
+	return nstr
+End Function
