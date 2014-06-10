@@ -19,7 +19,7 @@ Function newSonos(msgPort As Object, userVariables As Object, bsp as Object)
 	' Create the object to return and set it up
 	s = {}
 
-	s.version = "3.13"
+	s.version = "3.14"
 
 	s.configVersion = "1.0"
 	registrySection = CreateObject("roRegistrySection", "networking")
@@ -1931,7 +1931,7 @@ Sub SonosSubCtrl(mp as object, connectedPlayerIP as string, EqKey as string, EqV
 	soapTransfer.SetPort( mp )
 
 	sonosReqData=CreateObject("roAssociativeArray")
-	sonosReqData["type"]="SubCtrl"
+	sonosReqData["type"]="SubCtrl/"+EqKey
 	sonosReqData["dest"]=connectedPlayerIP
 	soapTransfer.SetUserData(sonosReqData)
 
@@ -1947,7 +1947,7 @@ Sub SonosSubCtrl(mp as object, connectedPlayerIP as string, EqKey as string, EqV
 
     reqString = SonosCreateSetEQBody(EqKey, EqVal)
 
-	print "Executing SubControl: ";connectedPlayerIP
+	print "Executing SubControl/";EqKey;": ";connectedPlayerIP
 	ok = soapTransfer.AsyncPostFromString(reqString)
 	if not ok then
 		stop
@@ -3391,11 +3391,12 @@ Function CheckForeignPlayback(s as Object, modelNumber as string, AVTransportURI
         if s.masterDeviceLastTransportURI=AVTransportURI then
             print "+++ master AVTransportURI matches what we set it to - local content"
             return true
-		else if Right(s.masterDeviceLastTransportURI,5) = "spdif" then
-			' Check to see if the master had been set for SPDIF. If so, re-set it. (DND-211)
-			print "+++ master AVTransportURI was SPDIF but has been reset - resetting to SPDIF"
-			sendPluginMessage(s, "sonos!" + s.masterDevice + "!spdif")
-			return true
+' Must allow demo with foreign playback - presentation will reconnect SPDIF before demo/learn play
+		' else if Right(s.masterDeviceLastTransportURI,5) = "spdif" then
+			' ' Check to see if the master had been set for SPDIF. If so, re-set it. (DND-211)
+			' print "+++ master AVTransportURI was SPDIF but has been reset - resetting to SPDIF"
+			' sendPluginMessage(s, "sonos!" + s.masterDevice + "!spdif")
+			' return true
         else
             print "+++ master AVTransportURI does NOT match what we set it to - foreign content"
             return false
