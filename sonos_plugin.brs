@@ -19,7 +19,7 @@ Function newSonos(msgPort As Object, userVariables As Object, bsp as Object)
 	' Create the object to return and set it up
 	s = {}
 
-	s.version = "3.14"
+	s.version = "3.15"
 
 	s.configVersion = "1.0"
 	registrySection = CreateObject("roRegistrySection", "networking")
@@ -224,7 +224,6 @@ Function sonos_ProcessEvent(event As Object) as boolean
              if (event["EventType"] = "SEND_PLUGIN_MESSAGE") then
                 if event["PluginName"] = "sonos" then
                     pluginMessage$ = event["PluginMessage"]
-					print "SEND_PLUGIN/EVENT_MESSAGE:";pluginMessage$
                     retval = ParseSonosPluginMsg(pluginMessage$, m)
                 endif
             endif
@@ -996,7 +995,7 @@ function GetDeviceByUDN(sonosDevices as Object, UDN as string) as object
 	return device
 end function
 
-
+'---------------ParseSonosPluginMsg--------------
 Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 
 	'TIMING print "Received command - ParseSonosPluginMsg: " + origMsg;" at: ";sonos.st.GetLocalDateTime()
@@ -1005,7 +1004,7 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 		
 	' convert the message to all lower case for easier string matching later
 	msg = lcase(origMsg)
-	print "Received Plugin message: "+msg
+	print "--- RECEIVED Plugin message: "+msg
 	' verify its a SONOS message'
 	r = CreateObject("roRegex", "^SONOS", "i")
 	match=r.IsMatch(msg)
@@ -1224,36 +1223,36 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 				CheckSonosTopology(sonos)
 			else if command = "subon" then
 				' print "Sub ON"
-				xfer = SonosSubCtrl(sonos.mp, sonosDevice.baseURL, "SubEnable", "1")
+				xfer = SonosEQCtrl(sonos.mp, sonosDevice.baseURL, "SubEnable", "1")
 				sonos.xferObjects.push(xfer)
 			else if command = "suboff" then
 				' print "Sub OFF"
-				xfer = SonosSubCtrl(sonos.mp, sonosDevice.baseURL, "SubEnable", "0")
+				xfer = SonosEQCtrl(sonos.mp, sonosDevice.baseURL, "SubEnable", "0")
 				sonos.xferObjects.push(xfer)
 			else if command = "subgain" then
-                subGainValue = getUserVariableValue(sonos, "subGain")
-                if subGainValue <> invalid then
-                    xfer = SonosSubCtrl(sonos.mp, sonosDevice.baseURL, "SubGain", subGainValue)
-                    sonos.xferObjects.push(xfer)
-                else
-                    postNextCommandInQueue(sonos, sonosDevice.baseURL)
-                end if
+				if sonosDevice.subGain = invalid or sonosDevice.subGain <> val(detail) then
+					xfer = SonosEQCtrl(sonos.mp, sonosDevice.baseURL, "SubGain", detail)
+					sonos.xferObjects.push(xfer)
+				else
+				    print "+++ SubGain already set correctly - ignoring command"
+					postNextCommandInQueue(sonos, sonosDevice.baseURL)
+				end if
 			else if command = "subcrossover" then
-                subCrossoverValue = getUserVariableValue(sonos, "subCrossover")
-                if subCrossoverValue <> invalid then
-                    xfer = SonosSubCtrl(sonos.mp, sonosDevice.baseURL, "SubCrossover", subCrossoverValue)
-                    sonos.xferObjects.push(xfer)
-                else
-                    postNextCommandInQueue(sonos, sonosDevice.baseURL)
-                end if
+				if sonosDevice.subCrossover = invalid or sonosDevice.subCrossover <> val(detail) then
+					xfer = SonosEQCtrl(sonos.mp, sonosDevice.baseURL, "SubCrossover", detail)
+					sonos.xferObjects.push(xfer)
+				else
+				    print "+++ SubCrossover already set correctly - ignoring command"
+					postNextCommandInQueue(sonos, sonosDevice.baseURL)
+				end if
 			else if command = "subpolarity" then
-                subPolarityValue = getUserVariableValue(sonos, "subPolarity")
-                if subPolarityValue <> invalid then
-                    xfer = SonosSubCtrl(sonos.mp, sonosDevice.baseURL, "SubPolarity", subPolarityValue)
-                    sonos.xferObjects.push(xfer)
-                else
-                    postNextCommandInQueue(sonos, sonosDevice.baseURL)
-                end if
+				if sonosDevice.subPolarity = invalid or sonosDevice.subPolarity <> val(detail) then
+					xfer = SonosEQCtrl(sonos.mp, sonosDevice.baseURL, "SubPolarity", detail)
+					sonos.xferObjects.push(xfer)
+				else
+				    print "+++ SubPolarity already set correctly - ignoring command"
+					postNextCommandInQueue(sonos, sonosDevice.baseURL)
+				end if
 			else if command = "surroundon" then
 				' print "Surround ON"
 				xfer = SonosSurroundCtrl(sonos.mp, sonosDevice.baseURL,1)
@@ -1262,6 +1261,22 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 				' print "Surround OFF"
 				xfer = SonosSurroundCtrl(sonos.mp, sonosDevice.baseURL,0)
 				sonos.xferObjects.push(xfer)
+			else if command = "dialoglevel" then
+				if sonosDevice.dialogLevel = invalid or sonosDevice.dialogLevel <> val(detail) then
+					xfer = SonosEQCtrl(sonos.mp, sonosDevice.baseURL, "DialogLevel", detail)
+					sonos.xferObjects.push(xfer)
+				else
+				    print "+++ DialogLevel already set correctly - ignoring command"
+					postNextCommandInQueue(sonos, sonosDevice.baseURL)
+				end if
+			else if command = "nightmode" then
+				if sonosDevice.nightMode = invalid or sonosDevice.nightMode <> val(detail) then
+					xfer = SonosEQCtrl(sonos.mp, sonosDevice.baseURL, "NightMode", detail)
+					sonos.xferObjects.push(xfer)
+				else
+				    print "+++ NightMode already set correctly - ignoring command"
+					postNextCommandInQueue(sonos, sonosDevice.baseURL)
+				end if
 			else if command = "mutebuttonbehavior" then
 				xfer = SonosMutePauseControl(sonos.mp, sonosDevice.baseURL)
 				sonos.xferObjects.push(xfer)
@@ -1356,6 +1371,7 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 				setbuttonstate(sonos, detail)
 			else
 				print "Discarding UNSUPPORTED command :"; command
+				postNextCommandInQueue(sonos, sonosDevice.baseURL)
 			end if
 		else
 			'TIMING print "Queueing command due to device being busy: ";msg;" at: ";sonos.st.GetLocalDateTime()
@@ -1922,16 +1938,16 @@ Function SonosCreateSetEQBody(key as string, value as string) as string
 
 end Function
 
-Sub SonosSubCtrl(mp as object, connectedPlayerIP as string, EqKey as string, EqVal as string) as object
+Sub SonosEQCtrl(mp as object, connectedPlayerIP as string, EqKey as string, EqVal as string) as object
 	
-	' print "SonosSubCtrl"
+	' print "SonosEQCtrl"
 
 	soapTransfer = CreateObject("roUrlTransfer")
 	soapTransfer.SetMinimumTransferRate( 500, 1 )
 	soapTransfer.SetPort( mp )
 
 	sonosReqData=CreateObject("roAssociativeArray")
-	sonosReqData["type"]="SubCtrl/"+EqKey
+	sonosReqData["type"]="EQCtrl/"+EqKey
 	sonosReqData["dest"]=connectedPlayerIP
 	soapTransfer.SetUserData(sonosReqData)
 
@@ -2105,7 +2121,7 @@ Sub SonosSetSleepTimer(sonos as object, sonosDevice as object, timeout as string
 	connectedPlayerIP = sonosDevice.baseURL
 	if (timeout = "") and (sonosDevice.SleepTimerGeneration = 0) then
 		' don't do the SOAP call since the device is already has the sleep timer disabled
-		print "not setting sleep timer since value is already 0"
+		print "+++ SleepTimer already set to 0 - ignoring command"
 
 		' Post the next command in the queue for this player
 		postNextCommandInQueue(sonos, connectedPlayerIP)
@@ -2337,7 +2353,7 @@ Sub SonosSetPlayMode(sonos as object, sonosDevice as object)
 		connectedPlayerIP = sonosDevice.baseURL
 	if (sonosDevice.CurrentPlayMode = "NORMAL") then
 		' do nothing save time on the SOAP call
-
+		print "+++ CurrentPlayMode already set to NORMAL - ignoring command"
 		' Post the next command in the queue for this player
 		postNextCommandInQueue(sonos, connectedPlayerIP)
 	else
@@ -3456,9 +3472,9 @@ Sub OnRenderingControlEvent(userdata as Object, e as Object)
     for each x in vals.GetChildElements()
     	name=x.GetName()
 	'    print "|"+name"|"	
+		v=x@val
 		if name="Volume"
 			c=x@channel
-			v=x@val
 			if c="Master"
 				updateDeviceVariable(s, sonosDevice, "Volume", v)
 				print "+++ Master volume changed (channel: ";c;")"
@@ -3466,10 +3482,8 @@ Sub OnRenderingControlEvent(userdata as Object, e as Object)
 			else
 				print "+++ Other volume changed (channel: ";c;")"
 			end if
-		end if	
-		if name="Mute"
+		else if name="Mute"
 			c=x@channel
-			v=x@val
 			if v = "1" then
 				str$ = "muted"
 			else
@@ -3487,6 +3501,16 @@ Sub OnRenderingControlEvent(userdata as Object, e as Object)
 			else
 				print "+++ Other ";str$;" (channel: ";c;")"
 			end if
+			else if name="SubGain"
+				updateDeviceVariable(s, sonosDevice, "subGain", v)
+			else if name="SubPolarity"
+				updateDeviceVariable(s, sonosDevice, "subPolarity", v)
+			else if name="SubCrossover"
+				updateDeviceVariable(s, sonosDevice, "subCrossover", v)
+			else if name="DialogLevel"
+				updateDeviceVariable(s, sonosDevice, "dialogLevel", v)
+			else if name="NightMode"
+				updateDeviceVariable(s, sonosDevice, "nightMode", v)
 		end if	
     end for
 
@@ -3719,6 +3743,21 @@ Sub updateDeviceVariable(sonos as object, sonosDevice as object, variable as str
 			sonosDevice.AlarmCheckNeeded = "yes"
 			updateDeviceUserVariable(sonos, sonosDevice, "AlarmCheckNeeded", "yes")
 		end if 
+	else if variable = 	"subGain" then
+		sonosDevice.subGain=val(value)
+		updateUserVar(sonos.userVariables, variable, value, false)
+	else if variable = 	"subPolarity" then
+		sonosDevice.subPolarity=val(value)
+		updateUserVar(sonos.userVariables, variable, value, false)
+	else if variable = 	"subCrossover" then
+		sonosDevice.subCrossover=val(value)
+		updateUserVar(sonos.userVariables, variable, value, false)
+	else if variable = 	"dialogLevel" then
+		sonosDevice.dialogLevel=val(value)
+		updateUserVar(sonos.userVariables, variable, value, false)
+	else if variable = 	"nightMode" then
+		sonosDevice.nightMode=val(value)
+		updateUserVar(sonos.userVariables, variable, value, false)
 	end if
 
 end Sub
