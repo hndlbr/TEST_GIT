@@ -19,7 +19,7 @@ Function newSonos(msgPort As Object, userVariables As Object, bsp as Object)
 	' Create the object to return and set it up
 	s = {}
 
-	s.version = "3.15"
+	s.version = "3.16"
 
 	s.configVersion = "1.0"
 	registrySection = CreateObject("roRegistrySection", "networking")
@@ -1222,13 +1222,21 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 			else if command = "checktopology" then
 				CheckSonosTopology(sonos)
 			else if command = "subon" then
-				' print "Sub ON"
-				xfer = SonosEQCtrl(sonos.mp, sonosDevice.baseURL, "SubEnable", "1")
-				sonos.xferObjects.push(xfer)
+				if sonosDevice.subEnabled = invalid or sonosDevice.subEnabled <> 1 then
+					xfer = SonosEQCtrl(sonos.mp, sonosDevice.baseURL, "SubEnable", "1")
+					sonos.xferObjects.push(xfer)
+				else
+				    print "+++ SUB already on - ignoring command"
+					postNextCommandInQueue(sonos, sonosDevice.baseURL)
+				end if
 			else if command = "suboff" then
-				' print "Sub OFF"
-				xfer = SonosEQCtrl(sonos.mp, sonosDevice.baseURL, "SubEnable", "0")
-				sonos.xferObjects.push(xfer)
+				if sonosDevice.subEnabled = invalid or sonosDevice.subEnabled <> 0 then
+					xfer = SonosEQCtrl(sonos.mp, sonosDevice.baseURL, "SubEnable", "0")
+					sonos.xferObjects.push(xfer)
+				else
+				    print "+++ SUB already off - ignoring command"
+					postNextCommandInQueue(sonos, sonosDevice.baseURL)
+				end if
 			else if command = "subgain" then
 				if sonosDevice.subGain = invalid or sonosDevice.subGain <> val(detail) then
 					xfer = SonosEQCtrl(sonos.mp, sonosDevice.baseURL, "SubGain", detail)
@@ -3501,16 +3509,24 @@ Sub OnRenderingControlEvent(userdata as Object, e as Object)
 			else
 				print "+++ Other ";str$;" (channel: ";c;")"
 			end if
+			else if name="SubEnabled"
+				updateDeviceVariable(s, sonosDevice, "subEnabled", v)
+				changed = true
 			else if name="SubGain"
 				updateDeviceVariable(s, sonosDevice, "subGain", v)
+				changed = true
 			else if name="SubPolarity"
 				updateDeviceVariable(s, sonosDevice, "subPolarity", v)
+				changed = true
 			else if name="SubCrossover"
 				updateDeviceVariable(s, sonosDevice, "subCrossover", v)
+				changed = true
 			else if name="DialogLevel"
 				updateDeviceVariable(s, sonosDevice, "dialogLevel", v)
+				changed = true
 			else if name="NightMode"
 				updateDeviceVariable(s, sonosDevice, "nightMode", v)
+				changed = true
 		end if	
     end for
 
@@ -3743,6 +3759,9 @@ Sub updateDeviceVariable(sonos as object, sonosDevice as object, variable as str
 			sonosDevice.AlarmCheckNeeded = "yes"
 			updateDeviceUserVariable(sonos, sonosDevice, "AlarmCheckNeeded", "yes")
 		end if 
+	else if variable = 	"subEnabled" then
+		sonosDevice.subEnabled=val(value)
+		updateUserVar(sonos.userVariables, variable, value, false)
 	else if variable = 	"subGain" then
 		sonosDevice.subGain=val(value)
 		updateUserVar(sonos.userVariables, variable, value, false)
