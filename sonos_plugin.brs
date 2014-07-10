@@ -19,7 +19,7 @@ Function newSonos(msgPort As Object, userVariables As Object, bsp as Object)
 	' Create the object to return and set it up
 	s = {}
 
-	s.version = "3.16"
+	s.version = "3.17"
 
 	s.configVersion = "1.0"
 	registrySection = CreateObject("roRegistrySection", "networking")
@@ -221,7 +221,7 @@ Function sonos_ProcessEvent(event As Object) as boolean
 
 	if type(event) = "roAssociativeArray" then
         if type(event["EventType"]) = "roString"
-             if (event["EventType"] = "SEND_PLUGIN_MESSAGE") then
+            if (event["EventType"] = "SEND_PLUGIN_MESSAGE") then
                 if event["PluginName"] = "sonos" then
                     pluginMessage$ = event["PluginMessage"]
                     retval = ParseSonosPluginMsg(pluginMessage$, m)
@@ -1379,7 +1379,9 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 				setbuttonstate(sonos, detail)
 			else
 				print "Discarding UNSUPPORTED command :"; command
-				postNextCommandInQueue(sonos, sonosDevice.baseURL)
+				if sonosDevice <> invalid then
+					postNextCommandInQueue(sonos, sonosDevice.baseURL)
+				endif
 			end if
 		else
 			'TIMING print "Queueing command due to device being busy: ";msg;" at: ";sonos.st.GetLocalDateTime()
