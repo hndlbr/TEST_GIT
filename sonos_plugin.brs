@@ -1,6 +1,6 @@
 ' Plug-in script for for BrightSign firmware 4.8 or greater
 ' This plug-in relies on low level BrightSign UPnP support
-' Functionally level with 3.15
+' Functionally level with 3.17
 
 Function sonos_Initialize(msgPort As Object, userVariables As Object, bsp as Object)
 
@@ -21,7 +21,7 @@ Function newSonos(msgPort As Object, userVariables As Object, bsp as Object)
 	' Create the object to return and set it up
 	s = {}
 
-	s.version = "4.00.03"
+	s.version = "4.00.04"
 
 	s.configVersion = "1.0"
 	registrySection = CreateObject("roRegistrySection", "networking")
@@ -202,7 +202,7 @@ Function sonos_ProcessEvent(event As Object) as boolean
 
 	if type(event) = "roAssociativeArray" then
         if type(event["EventType"]) = "roString"
-             if (event["EventType"] = "SEND_PLUGIN_MESSAGE") then
+            if (event["EventType"] = "SEND_PLUGIN_MESSAGE") then
                 if event["PluginName"] = "sonos" then
                     pluginMessage$ = event["PluginMessage"]
                     retval = ParseSonosPluginMsg(pluginMessage$, m)
@@ -1062,11 +1062,19 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 			else if command = "checktopology" then
 				CheckSonosTopology(sonos)
 			else if command = "subon" then
-				' print "Sub ON"
-				SonosEqCtrl(sonos, sonosDevice, "SubEnable", "1")
+				if sonosDevice.subEnabled = invalid or sonosDevice.subEnabled <> 1 then
+					SonosEqCtrl(sonos, sonosDevice, "SubEnable", "1")
+				else
+				    print "+++ SUB already on - ignoring command"
+					postNextCommandInQueue(sonos, sonosDevice.baseURL)
+				end if
 			else if command = "suboff" then
-				' print "Sub OFF"
-				SonosEqCtrl(sonos, sonosDevice, "SubEnable", "0")
+				if sonosDevice.subEnabled = invalid or sonosDevice.subEnabled <> 0 then
+					SonosEqCtrl(sonos, sonosDevice, "SubEnable", "0")
+				else
+				    print "+++ SUB already off - ignoring command"
+					postNextCommandInQueue(sonos, sonosDevice.baseURL)
+				end if
 			else if command = "subgain" then
 				if sonosDevice.subGain = invalid or sonosDevice.subGain <> val(detail) then
 					SonosEqCtrl(sonos, sonosDevice, "SubGain", detail)
@@ -1153,7 +1161,9 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 				' PrintAllSonosDevices(sonos)
 			else
 				print "Discarding UNSUPPORTED command :"; command
-				postNextCommandInQueue(sonos, sonosDevice.baseURL)
+				if sonosDevice <> invalid then
+					postNextCommandInQueue(sonos, sonosDevice.baseURL)
+				endif
 			end if
 		else
 			'TIMING print "Queueing command due to device being busy: ";msg;" at: ";sonos.st.GetLocalDateTime()
@@ -2271,16 +2281,24 @@ Sub OnRenderingControlEvent(s as object, sonosDevice as object, e as object)
 				else
 					print "+++ Other ";str$;" (channel: ";c;")"
 				end if
+			else if name="SubEnabled"
+				updateDeviceVariable(s, sonosDevice, "subEnabled", v)
+				changed = true
 			else if name="SubGain"
 				updateDeviceVariable(s, sonosDevice, "subGain", v)
+				changed = true
 			else if name="SubPolarity"
 				updateDeviceVariable(s, sonosDevice, "subPolarity", v)
+				changed = true
 			else if name="SubCrossover"
 				updateDeviceVariable(s, sonosDevice, "subCrossover", v)
+				changed = true
 			else if name="DialogLevel"
 				updateDeviceVariable(s, sonosDevice, "dialogLevel", v)
+				changed = true
 			else if name="NightMode"
 				updateDeviceVariable(s, sonosDevice, "nightMode", v)
+				changed = true
 			end if	
 		end for
 
@@ -2454,6 +2472,9 @@ Sub updateDeviceVariable(sonos as object, sonosDevice as object, variable as str
 			sonosDevice.AlarmCheckNeeded = "yes"
 			updateDeviceUserVariable(sonos, sonosDevice, "AlarmCheckNeeded", "yes")
 		end if 
+	else if variable = "subEnabled" then
+		sonosDevice.subEnabled=val(value)
+		updateUserVar(sonos.userVariables, variable, value, false)
 	else if variable = 	"subGain" then
 		sonosDevice.subGain=val(value)
 		updateUserVar(sonos.userVariables, variable, value, false)
