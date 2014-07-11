@@ -21,7 +21,7 @@ Function newSonos(msgPort As Object, userVariables As Object, bsp as Object)
 	' Create the object to return and set it up
 	s = {}
 
-	s.version = "4.00.04"
+	s.version = "4.00.05"
 
 	s.configVersion = "1.0"
 	registrySection = CreateObject("roRegistrySection", "networking")
@@ -444,32 +444,23 @@ Sub CheckSSDPNotification(headers as Object, s as Object)
 	aliveFound = headers.DoesExist("NTS") and headers.NTS = "ssdp:alive"
 	rootDevice = headers.DoesExist("NT") and headers.NT = "upnp:rootdevice"
 	if aliveFound and rootDevice then
-		sonosDevice = invalid
-		headerBaseURL = ""
-		if headers.DoesExist("location") then
-			headerBaseURL = GetBaseURLFromLocation(headers.location)
-			for i = 0 to s.sonosDevices.count() - 1
-				if s.sonosDevices[i].baseURL = headerBaseURL then
-					if s.sonosDevices[i].UDN = UDN
-						' must match both baseURL and UDN to be considered the same device'
-						sonosDevice = s.sonosDevices[i]
-						sonosDeviceIndex = i			
-					end if 	
-				end if
-			end for
-		end if
 
 		' No console output for non-Sonos devices
 		if sonosNotification then
+			headerBaseURL = ""
+			if headers.DoesExist("location") then
+				headerBaseURL = GetBaseURLFromLocation(headers.location)
+			end if
 			print "************ alive found ************ [";headerBaseURL;"]"
 		end if
 
+		sonosDevice = GetDeviceByUDN(s.sonosDevices, UDN)
 		if (sonosDevice <> invalid) then
-			print "Received ssdp:alive, device already in list "; headerBaseURL;" hhid: ";hhid;" old bootseq: "sonosDevice.bootseq;" new bootseq: ";bootseq;" version: ";sonosDevice.softwareVersion
+			print "Received ssdp:alive, device already in list "; sonosDevice.friendlyName ;" hhid: ";hhid;" old bootseq: "sonosDevice.bootseq;" new bootseq: ";bootseq;" version: ";sonosDevice.softwareVersion
 
 			' if this device is in our list but is in factory reset we need to reboot'
-			print "SonosDevice.hhid: ";SonosDevice.hhid
-			if SonosDevice.hhid <> "" then
+			print "SonosDevice.hhid: ";sonosDevice.hhid
+			if sonosDevice.hhid <> "" then
 				if hhid = "" then
 					print "device previously had hhid=";sonosDevice.hhid;" but now has no hhid - rebooting!"					
 					RebootSystem()
@@ -477,36 +468,20 @@ Sub CheckSSDPNotification(headers as Object, s as Object)
 			end if
 
 			sonosDevice.alive=true
-			xfer=rdmPingAsync(s.msgPort,sonosDevice.baseURL,hhid) 
+			xfer=rdmPingAsync(s.msgPort,sonosDevice,hhid) 
 			s.postObjects.push(xfer)
 
 			' if it's bootseq is different we need to punt and treat it as new
 			if bootseq <> sonosDevice.bootseq then
 				print "+++ bootseq incremented - removing device so that it will be re-initialized"
-				s.sonosDevices.delete(sonosDeviceIndex)
 				updateUserVar(s.userVariables,SonosDevice.modelNumber+"HHIDStatus","pending",true)
 				' Force device removal - it will be re-initialized in the next scan
 				s.upnp.RemoveDevice("uuid:" + UDN)
-				return
+			else
+				' Set the user variables
+				updateUserVar(s.userVariables,SonosDevice.modelNumber,"present",false)
+				updateUserVar(s.userVariables,SonosDevice.modelNumber+"Version",SonosDevice.softwareVersion,false)
 			end if
-
-			' Set the user variables
-			updateUserVar(s.userVariables,SonosDevice.modelNumber,"present",false)
-			updateUserVar(s.userVariables,SonosDevice.modelNumber+"Version",SonosDevice.softwareVersion,false)
-
-		else ' we don't have both UDN and IP address
-
-			' get the UDN - if we do have that already, it means it's IP address changed out from under us!
-			deviceUDN = GetDeviceByUDN(s.sonosDevices, UDN)
-			if deviceUDN <> invalid
-				deleted=deletePlayerByUDN(s,UDN,true)
-				if deleted=true
-					print "+++ detected UIP address change for player with uuid: ";UDN;" - rebooting!"
-					' DND-221 - Need to reboot here to make sure HHIDs are set up properly for new players
-					RebootSystem()
-				end if		
-			end if
-
 		end if ' sonosDevice '
 	end if ' aliveFound and rootDevice '
 End Sub
@@ -599,7 +574,7 @@ Sub CheckNewUPnPDevice(upnpDevice as Object, s as Object)
 				updateUserVar(s.userVariables,SonosDevice.modelNumber+"HHID",SonosDevice.hhid,true)
 
 				' do the RDM ping'
-				xfer = rdmPingAsync(s.msgPort,sonosDevice.baseURL,s.hhid) 
+				xfer = rdmPingAsync(s.msgPort,sonosDevice,s.hhid) 
 				s.postObjects.push(xfer)
 				
 				' if this Sonos device was previously skipped on boot, we need to reboot'
@@ -737,6 +712,9 @@ Sub updateSonosDevice(sonosDevice as Object, upnpDevice as Object, isDesired as 
 		sonosDevice.modelDescription = lcase(info.modelDescription)
 		sonosDevice.deviceType = info.deviceType
 		sonosDevice.softwareVersion=lcase(info.softwareVersion)
+		
+		' Friendly name is used for internal identification
+		sonosDevice.friendlyName = "<"+sonosDevice.modelNumber+">"
 	end if
 End Sub
 
@@ -851,7 +829,8 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 			return retval
 		end if
 
-		sonosDeviceURL = ""
+		sonosDeviceName = ""
+		sonosDeviceUDN = ""
 		if ((devType = "sall") or (command = "present")) then
 			' Do not try to validate the device
 			sonosDevice = invalid
@@ -868,7 +847,8 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 			end for
 			
 			if (sonosDevice <> invalid) then
-				sonosDeviceURL = sonosDevice.baseURL
+				sonosDeviceUDN = sonosDevice.UDN
+				sonosDeviceName = sonosDevice.friendlyName
 			end if
 
 			desired=isModelDesiredByUservar(sonos, devType)
@@ -909,11 +889,11 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 		' if command is not a management command, check to see if device is busy
 		' if the Sonos device is not already processing a command,
 		'  and if this message would send another command, put it in the command queue
-		else if (not SonosDeviceBusy(sonos, sonosDeviceURL)) or (devType = "sall") then
-			if sonosDeviceURL.Len() > 0 then
-				print "[[[ Executing:";command +" " + devType + " " + detail + " " + sonosDeviceURL
+		else if (not SonosDeviceBusy(sonos, sonosDeviceUDN)) or (devType = "sall") then
+			if sonosDeviceName.Len() > 0 then
+				print "[[[ Executing:";command +" " + sonosDeviceName + " " + detail
 			else
-				print "[[[ Executing:";command +" " + devType + " " + detail + " " + "No URL Specified"
+				print "[[[ Executing:";command +" " + devType + " " + detail
 			end if
 			' UPnP actions
 			if command="mute" then
@@ -953,8 +933,8 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 						CheckMute(sonos, device)
 						' queue volume command if device busy
 						if isModelDesiredByUservar(sonos, device.modelNumber) then
-							if SonosDeviceBusy(sonos, device.baseURL) then
-								QueueSonosMessage(sonos, device.baseURL, "sonos!" + device.modelNumber + "!volup!" + detail)
+							if SonosDeviceBusy(sonos, device.UDN) then
+								QueueSonosMessage(sonos, device.UDN, "sonos!" + device.modelNumber + "!volup!" + detail)
 							else
 								device.volume = device.volume + volincrease
 								if (device.volume > 100) then
@@ -985,8 +965,8 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 						CheckMute(sonos, device)
 						' queue volume command if device busy
 						if isModelDesiredByUservar(sonos, device.modelNumber) then
-							if SonosDeviceBusy(sonos, device.baseURL) then
-								QueueSonosMessage(sonos, device.baseURL, "sonos!" + device.modelNumber + "!voldown!" + detail)
+							if SonosDeviceBusy(sonos, device.UDN) then
+								QueueSonosMessage(sonos, device.UDN, "sonos!" + device.modelNumber + "!voldown!" + detail)
 							else
 								device.volume = device.volume - voldecrease
 								if (device.volume < 0) then
@@ -1014,8 +994,8 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 					for each device in sonosDevices
 						' queue checkAlarm command if device busy
 						if isModelDesiredByUservar(sonos, device.modelNumber) then
-							if SonosDeviceBusy(sonos, device.baseURL) then
-								QueueSonosMessage(sonos, device.baseURL, "sonos!" + device.modelNumber + "!checkalarm")
+							if SonosDeviceBusy(sonos, device.UDN) then
+								QueueSonosMessage(sonos, device.UDN, "sonos!" + device.modelNumber + "!checkalarm")
 							else
 								SonosCheckAlarm(sonos, device)
 							end if
@@ -1066,35 +1046,35 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 					SonosEqCtrl(sonos, sonosDevice, "SubEnable", "1")
 				else
 				    print "+++ SUB already on - ignoring command"
-					postNextCommandInQueue(sonos, sonosDevice.baseURL)
+					postNextCommandInQueue(sonos, sonosDeviceUDN)
 				end if
 			else if command = "suboff" then
 				if sonosDevice.subEnabled = invalid or sonosDevice.subEnabled <> 0 then
 					SonosEqCtrl(sonos, sonosDevice, "SubEnable", "0")
 				else
 				    print "+++ SUB already off - ignoring command"
-					postNextCommandInQueue(sonos, sonosDevice.baseURL)
+					postNextCommandInQueue(sonos, sonosDeviceUDN)
 				end if
 			else if command = "subgain" then
 				if sonosDevice.subGain = invalid or sonosDevice.subGain <> val(detail) then
 					SonosEqCtrl(sonos, sonosDevice, "SubGain", detail)
 				else
 				    print "+++ SubGain already set correctly - ignoring command"
-					postNextCommandInQueue(sonos, sonosDevice.baseURL)
+					postNextCommandInQueue(sonos, sonosDeviceUDN)
 				end if
 			else if command = "subcrossover" then
 				if sonosDevice.subCrossover = invalid or sonosDevice.subCrossover <> val(detail) then
 					SonosEqCtrl(sonos, sonosDevice, "SubCrossover", detail)
 				else
 				    print "+++ SubCrossover already set correctly - ignoring command"
-					postNextCommandInQueue(sonos, sonosDevice.baseURL)
+					postNextCommandInQueue(sonos, sonosDeviceUDN)
 				end if
 			else if command = "subpolarity" then
 				if sonosDevice.subPolarity = invalid or sonosDevice.subPolarity <> val(detail) then
 					SonosEqCtrl(sonos, sonosDevice, "SubPolarity", detail)
 				else
 				    print "+++ SubPolarity already set correctly - ignoring command"
-					postNextCommandInQueue(sonos, sonosDevice.baseURL)
+					postNextCommandInQueue(sonos, sonosDeviceUDN)
 				end if
 			else if command = "surroundon" then
 				' print "Surround ON"
@@ -1107,14 +1087,14 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 					SonosEqCtrl(sonos, sonosDevice, "DialogLevel", detail)
 				else
 				    print "+++ DialogLevel already set correctly - ignoring command"
-					postNextCommandInQueue(sonos, sonosDevice.baseURL)
+					postNextCommandInQueue(sonos, sonosDeviceUDN)
 				end if
 			else if command = "nightmode" then
 				if sonosDevice.nightMode = invalid or sonosDevice.nightMode <> val(detail) then
 					SonosEqCtrl(sonos, sonosDevice, "NightMode", detail)
 				else
 				    print "+++ NightMode already set correctly - ignoring command"
-					postNextCommandInQueue(sonos, sonosDevice.baseURL)
+					postNextCommandInQueue(sonos, sonosDeviceUDN)
 				end if
 			else if command = "mutebuttonbehavior" then
 				SonosMutePauseControl(sonos, sonosDevice)
@@ -1135,13 +1115,13 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 				SonosSoftwareUpdate(sonos, sonosDevice, currentNet.ip4_address, detail)
 			' Next commands are REST commands - these may require queuing
 			else if command = "wifi" then
-				xfer = SonosSetWifi(sonos.msgPort, sonosDeviceURL, detail)
+				xfer = SonosSetWifi(sonos.msgPort, sonosDevice, detail)
 				sonos.xferObjects.push(xfer)
 			else if command = "reboot" then
-				xfer=SonosPlayerReboot(sonos.msgPort, sonosDeviceURL)
+				xfer=SonosPlayerReboot(sonos.msgPort,sonosDevice)
 				sonos.xferObjects.push(xfer)
 			else if command = "rdmping" then
-				xfer=rdmPingAsync(sonos.msgPort,sonosDeviceURL,sonos.hhid) 
+				xfer=rdmPingAsync(sonos.msgPort,sonosDevice,sonos.hhid) 
 				sonos.postObjects.push(xfer)
 			else if command = "sethhid" then
 				varName=sonosDevice.modelNumber+"RoomName"
@@ -1151,24 +1131,23 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 					print "ERROR:  no room name defined for player ";sonosDevice.modelNumber
 					roomName=sonosDevice.modelNumber
 				end if
-				xfer=rdmHouseholdSetupAsync(sonos.msgPort,sonosDeviceURL,sonos.hhid,roomName,"none",1) 
+				xfer=rdmHouseholdSetupAsync(sonos.msgPort,sonosDevice,sonos.hhid,roomName,"none",1) 
 				sonos.postObjects.push(xfer)
 				print "hhsetup: ";type(xfer)
 				' Device will reboot - no need to delete it until we get the bye-bye
-				' If we put this back in, uncomment DeleteSonosDevice
+				' If we put this back in, uncomment DeletePlayerByUDN
 				'print "deleting sonos device: ";sonosDevice.modelNumber
-				'DeleteSonosDevice(sonos.userVariables,sonosDevices,sonosDeviceURL)
-				' PrintAllSonosDevices(sonos)
+				'DeletePlayerByUDN(sonos,sonosDeviceUDN,true)
 			else
 				print "Discarding UNSUPPORTED command :"; command
 				if sonosDevice <> invalid then
-					postNextCommandInQueue(sonos, sonosDevice.baseURL)
+					postNextCommandInQueue(sonos, sonosDeviceUDN)
 				endif
 			end if
 		else
 			'TIMING print "Queueing command due to device being busy: ";msg;" at: ";sonos.st.GetLocalDateTime()
-			QueueSonosMessage(sonos, sonosDeviceURL, msg)
-			print "+++ Queuing:";command +" " + devType + " " + detail + " " +sonosDeviceURL		
+			QueueSonosMessage(sonos, sonosDeviceUDN, msg)
+			print "+++ Queuing:";command +" " + devType + " " + detail + " " +sonosDeviceUDN		
 
 			for each c in sonos.commandQ
 			    print "   +++ ";c.IP;" - ";c.msg
@@ -1179,9 +1158,9 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 	return retval
 End Function
 
-Sub QueueSonosMessage(sonos as object, connectedIP as string, msg as string)
+Sub QueueSonosMessage(sonos as object, udn as string, msg as string)
 	commandToQ = {}
-	commandToQ.IP = connectedIP
+	commandToQ.UDN = udn
 	commandToQ.msg = msg
 	sonos.commandQ.push(commandToQ)	
 End Sub
@@ -1246,8 +1225,8 @@ Sub CheckSonosTopology(sonos as object)
 					sonos.accelerateAliveCheck = False
 					' Bond sub to bondMaster
 					print "**** Bonding ";bondMaster$;" to SUB"
-					if SonosDeviceBusy(sonos, bondMaster.baseURL) then
-						QueueSonosMessage(sonos, bondMaster.baseURL, "sonos|"+bondMaster$+"|subbond")
+					if SonosDeviceBusy(sonos, bondMaster.UDN) then
+						QueueSonosMessage(sonos, bondMaster.UDN, "sonos|"+bondMaster$+"|subbond")
 						print "+++ Queuing: subbond ";bondMaster$
 					else
 						SonosSubBond(sonos, bondMaster, subDevice.UDN)
@@ -1274,8 +1253,8 @@ Sub CheckMute(sonos as object, sonosDevice as object)
 	doCheck = getUserVariableValue(sonos, sonosDevice.modelNumber +"MuteCheck")
 	if doCheck <> invalid and doCheck = "yes" and sonosDevice.muteCheckNeeded then
 		msg = "sonos!" + sonosDevice.modelNumber + "!unmute"
-		QueueSonosMessage(sonos, sonosDevice.baseURL, msg)
-		print "+++ Queuing:unmute ";sonosDevice.modelNumber + " " +sonosDevice.baseURL
+		QueueSonosMessage(sonos, sonosDevice.UDN, msg)
+		print "+++ Queuing:unmute ";sonosDevice.friendlyName
 		sonosDevice.muteCheckNeeded = false		
 	end if
 End Sub
@@ -1288,12 +1267,12 @@ Sub SonosGetVolume(sonos as object, sonosDevice as object)
 		
 		sonosReqData=CreateObject("roAssociativeArray")
 		sonosReqData["type"]="GetVolume"
-		sonosReqData["dest"]=sonosDevice.baseURL
+		sonosReqData["name"]=sonosDevice.friendlyName
 		sonosReqData["dev"]=sonosDevice.UDN
 		sonosReqData["id"]=sonosDevice.renderingService.Invoke("GetVolume", params)
 		sonos.upnpActionObjects.push(sonosReqData)
 	else
-		postNextCommandInQueue(sonos, sonosDevice.baseURL)
+		postNextCommandInQueue(sonos, sonosDevice.UDN)
 	end if
 End Sub
 
@@ -1316,12 +1295,12 @@ Sub SonosSetVolume(sonos as object, sonosDevice as object, volume as integer)
 		
 		sonosReqData=CreateObject("roAssociativeArray")
 		sonosReqData["type"]="SetVolume"
-		sonosReqData["dest"]=sonosDevice.baseURL
+		sonosReqData["name"]=sonosDevice.friendlyName
 		sonosReqData["dev"]=sonosDevice.UDN
 		sonosReqData["id"]=sonosDevice.renderingService.Invoke("SetVolume", params)
 		sonos.upnpActionObjects.push(sonosReqData)
 	else
-		postNextCommandInQueue(sonos, sonosDevice.baseURL)
+		postNextCommandInQueue(sonos, sonosDevice.UDN)
 	end if
 End Sub
 
@@ -1336,12 +1315,12 @@ Sub SonosSetMute(sonos as object, sonosDevice as object, muteVal as integer)
 		
 		sonosReqData=CreateObject("roAssociativeArray")
 		sonosReqData["type"]="SetMute"
-		sonosReqData["dest"]=sonosDevice.baseURL
+		sonosReqData["name"]=sonosDevice.friendlyName
 		sonosReqData["dev"]=sonosDevice.UDN
 		sonosReqData["id"]=sonosDevice.renderingService.Invoke("SetMute", params)
 		sonos.upnpActionObjects.push(sonosReqData)
 	else
-		postNextCommandInQueue(sonos, sonosDevice.baseURL)
+		postNextCommandInQueue(sonos, sonosDevice.UDN)
 	end if
 End Sub
 
@@ -1351,12 +1330,12 @@ Sub SonosGetMute(sonos as object, sonosDevice as object)
 		
 		sonosReqData=CreateObject("roAssociativeArray")
 		sonosReqData["type"]="GetMute"
-		sonosReqData["dest"]=sonosDevice.baseURL
+		sonosReqData["name"]=sonosDevice.friendlyName
 		sonosReqData["dev"]=sonosDevice.UDN
 		sonosReqData["id"]=sonosDevice.renderingService.Invoke("GetMute", params)
 		sonos.upnpActionObjects.push(sonosReqData)
 	else
-		postNextCommandInQueue(sonos, sonosDevice.baseURL)
+		postNextCommandInQueue(sonos, sonosDevice.UDN)
 	end if
 End Sub
 
@@ -1365,7 +1344,7 @@ Sub SonosMutePauseControl(sonos as object, sonosDevice as object)
 	
 	sonosReqData=CreateObject("roAssociativeArray")
 	sonosReqData["type"]="MutePauseControl"
-	sonosReqData["dest"]=sonosDevice.baseURL
+	sonosReqData["name"]=sonosDevice.friendlyName
 	sonosReqData["dev"]=sonosDevice.UDN
 	sonosReqData["id"]=sonosDevice.systemPropertiesService.Invoke("SetString", params)
 	sonos.upnpActionObjects.push(sonosReqData)
@@ -1381,7 +1360,7 @@ Sub SonosSetRDM(sonos as object, sonosDevice as object, rdmVal as integer)
 	
 	sonosReqData=CreateObject("roAssociativeArray")
 	sonosReqData["type"]="SetRDM"
-	sonosReqData["dest"]=sonosDevice.baseURL
+	sonosReqData["name"]=sonosDevice.friendlyName
 	sonosReqData["dev"]=sonosDevice.UDN
 	sonosReqData["id"]=sonosDevice.systemPropertiesService.Invoke("EnableRDM", params)
 	sonos.upnpActionObjects.push(sonosReqData)
@@ -1392,7 +1371,7 @@ Sub SonosGetRDM(sonos as object, sonosDevice as object)
 	
 	sonosReqData=CreateObject("roAssociativeArray")
 	sonosReqData["type"]="GetRDM"
-	sonosReqData["dest"]=sonosDevice.baseURL
+	sonosReqData["name"]=sonosDevice.friendlyName
 	sonosReqData["dev"]=sonosDevice.UDN
 	sonosReqData["id"]=sonosDevice.systemPropertiesService.Invoke("GetRDM", params)
 	sonos.upnpActionObjects.push(sonosReqData)
@@ -1414,7 +1393,7 @@ Sub SonosApplyRDMDefaultSettings(sonos as object, sonosDevice as object)
 	
 	sonosReqData=CreateObject("roAssociativeArray")
 	sonosReqData["type"]="ApplyRDMDefaultSettings"
-	sonosReqData["dest"]=sonosDevice.baseURL
+	sonosReqData["name"]=sonosDevice.friendlyName
 	sonosReqData["dev"]=sonosDevice.UDN
 	sonosReqData["id"]=sonosDevice.systemPropertiesService.Invoke("ApplyRDMDefaultSettings", params)
 	sonos.upnpActionObjects.push(sonosReqData)
@@ -1426,7 +1405,7 @@ Sub SonosSetAutoplayRoomUUID(sonos as object, sonosDevice as object)
 	
 	sonosReqData=CreateObject("roAssociativeArray")
 	sonosReqData["type"]="SetAutoplayRoomUUID"
-	sonosReqData["dest"]=sonosDevice.baseURL
+	sonosReqData["name"]=sonosDevice.friendlyName
 	sonosReqData["dev"]=sonosDevice.UDN
 	sonosReqData["id"]=sonosDevice.devicePropertiesService.Invoke("SetAutoplayRoomUUID", params)
 	sonos.upnpActionObjects.push(sonosReqData)
@@ -1440,12 +1419,12 @@ Sub SonosEqCtrl(sonos as object, sonosDevice as object, EqKey as string, EqVal a
 		
 		sonosReqData=CreateObject("roAssociativeArray")
 		sonosReqData["type"]=EqKey
-		sonosReqData["dest"]=sonosDevice.baseURL
+		sonosReqData["name"]=sonosDevice.friendlyName
 		sonosReqData["dev"]=sonosDevice.UDN
 		sonosReqData["id"]=sonosDevice.renderingService.Invoke("SetEQ", params)
 		sonos.upnpActionObjects.push(sonosReqData)
 	else
-		postNextCommandInQueue(sonos, sonosDevice.baseURL)
+		postNextCommandInQueue(sonos, sonosDevice.UDN)
 	end if
 End Sub
 
@@ -1455,12 +1434,12 @@ Sub SonosResetBasicEq(sonos as object, sonosDevice as object)
 		
 		sonosReqData=CreateObject("roAssociativeArray")
 		sonosReqData["type"]="ResetBasicEQ"
-		sonosReqData["dest"]=sonosDevice.baseURL
+		sonosReqData["name"]=sonosDevice.friendlyName
 		sonosReqData["dev"]=sonosDevice.UDN
 		sonosReqData["id"]=sonosDevice.renderingService.Invoke("ResetBasicEQ", params)
 		sonos.upnpActionObjects.push(sonosReqData)
 	else
-		postNextCommandInQueue(sonos, sonosDevice.baseURL)
+		postNextCommandInQueue(sonos, sonosDevice.UDN)
 	end if
 End Sub
 
@@ -1471,7 +1450,7 @@ Sub SonosSubBond(sonos as object, sonosDevice as object, subUDN as string)
 	
 	sonosReqData=CreateObject("roAssociativeArray")
 	sonosReqData["type"]="SubBond"
-	sonosReqData["dest"]=sonosDevice.baseURL
+	sonosReqData["name"]=sonosDevice.friendlyName
 	sonosReqData["dev"]=sonosDevice.UDN
 	sonosReqData["id"]=sonosDevice.devicePropertiesService.Invoke("AddHTSatellite", params)
 	sonos.upnpActionObjects.push(sonosReqData)
@@ -1483,7 +1462,7 @@ Sub SonosSubUnbond(sonos as object, sonosDevice as object, subUDN as string)
 	
 	sonosReqData=CreateObject("roAssociativeArray")
 	sonosReqData["type"]="SubUnbond"
-	sonosReqData["dest"]=sonosDevice.baseURL
+	sonosReqData["name"]=sonosDevice.friendlyName
 	sonosReqData["dev"]=sonosDevice.UDN
 	sonosReqData["id"]=sonosDevice.devicePropertiesService.Invoke("RemoveHTSatellite", params)
 	sonos.upnpActionObjects.push(sonosReqData)
@@ -1497,12 +1476,12 @@ Sub SonosSetSleepTimer(sonos as object, sonosDevice as object, timeout as string
 		
 		sonosReqData=CreateObject("roAssociativeArray")
 		sonosReqData["type"]="SetSleepTimer"
-		sonosReqData["dest"]=sonosDevice.baseURL
+		sonosReqData["name"]=sonosDevice.friendlyName
 		sonosReqData["dev"]=sonosDevice.UDN
 		sonosReqData["id"]=sonosDevice.avTransportService.Invoke("ConfigureSleepTimer", params)
 		sonos.upnpActionObjects.push(sonosReqData)
 	else
-		postNextCommandInQueue(sonos, sonosDevice.baseURL)
+		postNextCommandInQueue(sonos, sonosDevice.UDN)
 	end if
 End Sub
 
@@ -1512,12 +1491,12 @@ Sub SonosGetSleepTimer(sonos as object, sonosDevice as object)
 		
 		sonosReqData=CreateObject("roAssociativeArray")
 		sonosReqData["type"]="GetSleepTimer"
-		sonosReqData["dest"]=sonosDevice.baseURL
+		sonosReqData["name"]=sonosDevice.friendlyName
 		sonosReqData["dev"]=sonosDevice.UDN
 		sonosReqData["id"]=sonosDevice.avTransportService.Invoke("GetRemainingSleepTimerDuration", params)
 		sonos.upnpActionObjects.push(sonosReqData)
 	else
-		postNextCommandInQueue(sonos, sonosDevice.baseURL)
+		postNextCommandInQueue(sonos, sonosDevice.UDN)
 	end if
 End Sub
 
@@ -1527,7 +1506,7 @@ Sub SonosCheckAlarm(sonos as object, sonosDevice as object)
 	
 		sonosReqData=CreateObject("roAssociativeArray")
 		sonosReqData["type"]="ListAlarms"
-		sonosReqData["dest"]=sonosDevice.baseURL
+		sonosReqData["name"]=sonosDevice.friendlyName
 		sonosReqData["dev"]=sonosDevice.UDN
 		sonosReqData["id"]=sonosDevice.alarmClockService.Invoke("ListAlarms", params)
 		sonos.upnpActionObjects.push(sonosReqData)
@@ -1541,7 +1520,7 @@ Sub SonosCheckAlarm(sonos as object, sonosDevice as object)
 			sonosDevice.AlarmCheckNeeded = "no"
 		end if
 	else
-		postNextCommandInQueue(sonos, sonosDevice.baseURL)
+		postNextCommandInQueue(sonos, sonosDevice.UDN)
 		print "Alarm Check not needed, device: " + sonosDevice.modelNumber
 	end if
 End Sub
@@ -1570,7 +1549,7 @@ Sub SonosDestroyAlarm(sonos as object, sonosDevice as object, alarmId as string)
 	
 	sonosReqData=CreateObject("roAssociativeArray")
 	sonosReqData["type"]="DestroyAlarm"
-	sonosReqData["dest"]=sonosDevice.baseURL
+	sonosReqData["name"]=sonosDevice.friendlyName
 	sonosReqData["dev"]=sonosDevice.UDN
 	sonosReqData["id"]=sonosDevice.alarmClockService.Invoke("DestroyAlarm", params)
 	sonos.upnpActionObjects.push(sonosReqData)
@@ -1583,12 +1562,12 @@ Sub SonosSetPlayMode(sonos as object, sonosDevice as object)
 	
 		sonosReqData=CreateObject("roAssociativeArray")
 		sonosReqData["type"]="SetPlayMode"
-		sonosReqData["dest"]=sonosDevice.baseURL
+		sonosReqData["name"]=sonosDevice.friendlyName
 		sonosReqData["dev"]=sonosDevice.UDN
 		sonosReqData["id"]=sonosDevice.avTransportService.Invoke("SetPlayMode", params)
 		sonos.upnpActionObjects.push(sonosReqData)
 	else
-		postNextCommandInQueue(sonos, sonosDevice.baseURL)
+		postNextCommandInQueue(sonos, sonosDevice.UDN)
 	end if
 End Sub
 
@@ -1604,12 +1583,12 @@ Sub SonosSetSong(sonos as object, sonosDevice as object, bspIP as string, mp3fil
 		
 		sonosReqData=CreateObject("roAssociativeArray")
 		sonosReqData["type"]="SetSong"
-		sonosReqData["dest"]=sonosDevice.baseURL
+		sonosReqData["name"]=sonosDevice.friendlyName
 		sonosReqData["dev"]=sonosDevice.UDN
 		sonosReqData["id"]=sonosDevice.avTransportService.Invoke("SetAVTransportURI", params)
 		sonos.upnpActionObjects.push(sonosReqData)
 	else
-		postNextCommandInQueue(sonos, sonosDevice.baseURL)
+		postNextCommandInQueue(sonos, sonosDevice.UDN)
 	end if
 End Sub
 
@@ -1625,12 +1604,12 @@ Sub SonosSetSPDIF(sonos as object, sonosDevice as object)
 		
 		sonosReqData=CreateObject("roAssociativeArray")
 		sonosReqData["type"]="SetSPDIF"
-		sonosReqData["dest"]=sonosDevice.baseURL
+		sonosReqData["name"]=sonosDevice.friendlyName
 		sonosReqData["dev"]=sonosDevice.UDN
 		sonosReqData["id"]=sonosDevice.avTransportService.Invoke("SetAVTransportURI", params)
 		sonos.upnpActionObjects.push(sonosReqData)
 	else
-		postNextCommandInQueue(sonos, sonosDevice.baseURL)
+		postNextCommandInQueue(sonos, sonosDevice.UDN)
 	end if
 End Sub
 
@@ -1673,12 +1652,12 @@ Sub SonosSetGroup(sonos as object, sonosDevice as object, masterUDN as string)
 		
 		sonosReqData=CreateObject("roAssociativeArray")
 		sonosReqData["type"]="SetGroup"
-		sonosReqData["dest"]=sonosDevice.baseURL
+		sonosReqData["name"]=sonosDevice.friendlyName
 		sonosReqData["dev"]=sonosDevice.UDN
 		sonosReqData["id"]=sonosDevice.avTransportService.Invoke("SetAVTransportURI", params)
 		sonos.upnpActionObjects.push(sonosReqData)
 	else
-		postNextCommandInQueue(sonos, sonosDevice.baseURL)
+		postNextCommandInQueue(sonos, sonosDevice.UDN)
 	end if
 End Sub
 
@@ -1688,17 +1667,17 @@ Sub SonosPlaySong(sonos as object, sonosDevice as object)
 		
 		sonosReqData=CreateObject("roAssociativeArray")
 		sonosReqData["type"]="PlaySong"
-		sonosReqData["dest"]=sonosDevice.baseURL
+		sonosReqData["name"]=sonosDevice.friendlyName
 		sonosReqData["dev"]=sonosDevice.UDN
 		sonosReqData["id"]=sonosDevice.avTransportService.Invoke("Play", params)
 		sonos.upnpActionObjects.push(sonosReqData)
 	else
-		postNextCommandInQueue(sonos, sonosDevice.baseURL)
+		postNextCommandInQueue(sonos, sonosDevice.UDN)
 	end if
 End Sub
 
 Sub SonosSoftwareUpdate(sonos as object, sonosDevice as object, serverURL as string, version as string)
-	print "SonosSoftwareUpdate: "+sonosDevice.baseURL+" * "+serverURL+" * "+version
+	print "SonosSoftwareUpdate: "+sonosDevice.friendlyName+" * "+serverURL+" * "+version
 
 	' check if it's too old for us to use
 	sv=val(sonosDevice.softwareVersion)
@@ -1724,7 +1703,7 @@ Sub SonosSoftwareUpdate(sonos as object, sonosDevice as object, serverURL as str
 
 	sonosReqData=CreateObject("roAssociativeArray")
 	sonosReqData["type"]="BeginSoftwareUpdate"
-	sonosReqData["dest"]=sonosDevice.baseURL
+	sonosReqData["name"]=sonosDevice.friendlyName
 	sonosReqData["dev"]=sonosDevice.UDN
 	sonosReqData["id"]=sonosDevice.zoneGroupTopologyService.Invoke("BeginSoftwareUpdate", params)
 	sonos.upnpActionObjects.push(sonosReqData)
@@ -1733,18 +1712,18 @@ End Sub
 
 
 'region Sonos REST commands
-Function rdmPingAsync(mp as object, connectedPlayerIP as string, hhid as string) as Object
-	print "rdmPingAsync: ";hhid;" for ";connectedPlayerIP
+Function rdmPingAsync(mp as object, sonosDevice as object, hhid as string) as Object
+	print "rdmPingAsync: ";hhid;" for ";sonosDevice.friendlyName
 
 	sURL="/rdmping"
 	v={}
 	v.hhid=hhid
-	b = postFormDataAsync(mp,connectedPlayerIP,sURL,v,"rdmPing")
+	b = postFormDataAsync(mp,sonosDevice,sURL,v,"rdmPing")
 	return b
 End Function
 
-Function rdmHouseholdSetupAsync(mp as object,connectedPlayerIP as string, hhid as string, name as string, icon as string, reboot as integer) as Object
-	print "setting hhid: ";hhid;" for ";connectedPlayerIP
+Function rdmHouseholdSetupAsync(mp as object, sonosDevice as object, hhid as string, name as string, icon as string, reboot as integer) as Object
+	print "setting hhid: ";hhid;" for ";sonosDevice.friendlyName
 
 	sURL="/rdmhhsetup"
 	v={}
@@ -1754,19 +1733,20 @@ Function rdmHouseholdSetupAsync(mp as object,connectedPlayerIP as string, hhid a
 	v.wto="60"
 	v.reboot=str(reboot)
 	v.reboot=v.reboot.trim()
-	b = postFormDataAsync(mp,connectedPlayerIP,sURL,v,"rdmHouseholdSetup")
+	b = postFormDataAsync(mp,sonosDevice,sURL,v,"rdmHouseholdSetup")
 	return b
 End Function
 
-Function postFormDataAsync(mp as object, connectedPlayerIP as object, sURL as string, vars as Object, reqType as object) as Object
-	targetURL=connectedPlayerIP+sURL
+Function postFormDataAsync(mp as object, sonosDevice as object, sURL as string, vars as Object, reqType as object) as Object
+	targetURL=sonosDevice.baseURL+sURL
     fTransfer = CreateObject("roUrlTransfer")
     fTransfer.SetUrl(targetURL)
     fTransfer.SetPort(mp)
 
     sonosReqData=CreateObject("roAssociativeArray")
 	sonosReqData["type"]=reqType
-	sonosReqData["dest"]=connectedPlayerIP
+	sonosReqData["name"]=sonosDevice.friendlyName
+	sonosReqData["dev"]=sonosDevice.UDN
 	fTransfer.SetUserData(sonosReqData)
 
 	postString=""
@@ -1787,17 +1767,18 @@ Function postFormDataAsync(mp as object, connectedPlayerIP as object, sURL as st
 	return fTransfer
 End Function  
 
-Function SonosSetWifi(mp as object, connectedPlayerIP as string, setValue as string) as object
+Function SonosSetWifi(mp as object, sonosDevice as object, setValue as string) as object
 	cmdTransfer = CreateObject("roUrlTransfer")
 	cmdTransfer.SetMinimumTransferRate( 500, 1 )
 	cmdTransfer.SetPort( mp )
 
 	sonosReqData=CreateObject("roAssociativeArray")
 	sonosReqData["type"]="WifiCtrl"
-	sonosReqData["dest"]=connectedPlayerIP
+	sonosReqData["name"]=sonosDevice.friendlyName
+	sonosReqData["dev"]=sonosDevice.UDN
 	cmdTransfer.SetUserData(sonosReqData)
 
-	sURL=connectedPlayerIP+"/wifictrl?wifi="+setValue
+	sURL=sonosDevice.baseURL+"/wifictrl?wifi="+setValue
 	cmdTransfer.SetUrl(sURL)
 
 	print "Executing SonosSetWifi: ";sURL
@@ -1808,27 +1789,29 @@ Function SonosSetWifi(mp as object, connectedPlayerIP as string, setValue as str
 	return cmdTransfer
 end Function
 
-Function SonosPlayerReboot(mp as object, connectedPlayerIP as string) as object
+Function SonosPlayerReboot(mp as object, sonosDevice as object) as object
 	cmdTransfer = CreateObject("roUrlTransfer")
 	cmdTransfer.SetMinimumTransferRate( 500, 1 )
 	cmdTransfer.SetPort( mp )
 
 	sonosReqData=CreateObject("roAssociativeArray")
 	sonosReqData["type"]="reboot"
-	sonosReqData["dest"]=connectedPlayerIP
+	sonosReqData["name"]=sonosDevice.friendlyName
+	sonosReqData["dev"]=sonosDevice.UDN
 	cmdTransfer.SetUserData(sonosReqData)
 
-	print "REBOOT ";connectedPlayerIP
-	print "REBOOT ";connectedPlayerIP
-	print "REBOOT ";connectedPlayerIP
-	print "REBOOT ";connectedPlayerIP
-	print "REBOOT ";connectedPlayerIP
-	print "REBOOT ";connectedPlayerIP
-	print "REBOOT ";connectedPlayerIP
-	print "REBOOT ";connectedPlayerIP
-	print "REBOOT ";connectedPlayerIP
+	name = sonosDevice.friendlyName
+	print "REBOOT ";name
+	print "REBOOT ";name
+	print "REBOOT ";name
+	print "REBOOT ";name
+	print "REBOOT ";name
+	print "REBOOT ";name
+	print "REBOOT ";name
+	print "REBOOT ";name
+	print "REBOOT ";name
 
-	url=connectedPlayerIP+"/reboot"
+	url=sonosDevice.baseURL+"/reboot"
 	cmdTransfer.SetUrl(url)
 
 	ok = cmdTransfer.AsyncGetToString()
@@ -1853,10 +1836,10 @@ Function HandleSonosUPnPActionResult(msg as object, sonos as object) as boolean
 		sonosReqData=sonos.upnpActionObjects[i]
 		id=sonosReqData["id"]
 		if (actionID = id) then
-			connectedPlayerIP=sonosReqData["dest"]
+			deviceName=sonosReqData["name"]
 			deviceUDN=sonosReqData["dev"]
 			reqType=sonosReqData["type"]
-			print "]]] UPnP return code: "; success; ", request type: ";reqType;", from ";connectedPlayerIP
+			print "]]] UPnP return code: "; success; ", request type: ";reqType;", from ";deviceName
 			if success and responseData <> invalid then
 				if reqType="GetVolume" then
 					ProcessSonosVolumeResponse(sonos,deviceUDN,responseData)
@@ -1873,7 +1856,7 @@ Function HandleSonosUPnPActionResult(msg as object, sonos as object) as boolean
 			sonos.upnpActionObjects.Delete(i)
 					
 			' See if we have a command in the command queue for this player, if so execute it
-			postNextCommandInQueue(sonos, connectedPlayerIP)
+			postNextCommandInQueue(sonos, deviceUDN)
 			found = true
 		end if
 		i = i + 1
@@ -1894,22 +1877,24 @@ Function HandleSonosXferEvent(msg as object, sonos as object) as boolean
 		if (id = eventID) then
 			' See if this is the transfer being completed
 			if (sonosReqData <> invalid) then 
-				connectedPlayerIP=sonosReqData["dest"]
+				deviceName=sonosReqData["name"]
+				deviceUDN=sonosReqData["dev"]
 				reqData=sonosReqData["type"]
 			else
-				connectedPlayerIP = ""
+				deviceName = ""
+				deviceUDN = ""
 				reqData = ""
 			end if
-			print "Message.getInt() = ";msg.getInt(); " reqData:";reqData;"  IP:"; connectedPlayerIP
+			print "Message.getInt() = ";msg.getInt(); " reqData:";reqData;"  device:"; deviceName
 			if (msg.getInt() = 1) then
-''				print "HTTP return code: "; eventCode; " request type: ";reqData;" from ";connectedPlayerIP;" at: ";sonos.st.GetLocalDateTime()
-				print "]]] HTTP return code: "; eventCode; ", request type: ";reqData;", from ";connectedPlayerIP
+''				print "HTTP return code: "; eventCode; " request type: ";reqData;" from ";deviceName;" at: ";sonos.st.GetLocalDateTime()
+				print "]]] HTTP return code: "; eventCode; ", request type: ";reqData;", from ";deviceName
 
 				' delete this transfer object from the transfer object list
 				sonos.xferObjects.Delete(i)
 					
 				' See if we have a command in the command queue for this player, if so execute it
-				postNextCommandInQueue(sonos, connectedPlayerIP)
+				postNextCommandInQueue(sonos, deviceUDN)
 				found = true
 			end if
 		end if
@@ -1925,14 +1910,16 @@ Function HandleSonosXferEvent(msg as object, sonos as object) as boolean
 		if (id = eventID) then
 			' See if this is the transfer being complete
 			if (sonosReqData <> invalid) then 
-				connectedPlayerIP=sonosReqData["dest"]
+				deviceName=sonosReqData["name"]
+				deviceUDN=sonosReqData["dev"]
 				reqData=sonosReqData["type"]
 			else
-				connectedPlayerIP = ""
+				deviceName = ""
+				deviceUDN = ""
 				reqData = ""
 			end if
 			if (msg.getInt() = 1) then
-				print "]]] HTTP return code: "; eventCode; ", request type: ";reqData;", from ";connectedPlayerIP
+				print "]]] HTTP return code: "; eventCode; ", request type: ";reqData;", from ";deviceName
 				if (eventCode = 200) then 
 					if reqData="rdmPing" then
 					     print "+++ got reply for rdmPing"
@@ -1943,7 +1930,7 @@ Function HandleSonosXferEvent(msg as object, sonos as object) as boolean
 				sonos.postObjects.Delete(i)
 
 				' Check for a queued up message, and execute it if the device isn't busy
-				postNextCommandInQueue(sonos, connectedPlayerIP)
+				postNextCommandInQueue(sonos, deviceUDN)
 				found = true
 			end if
 		end if
@@ -1953,8 +1940,8 @@ Function HandleSonosXferEvent(msg as object, sonos as object) as boolean
 	return found
 End Function
 
-Sub postNextCommandInQueue(sonos as object, connectedPlayerIP as string)
-	if Len(connectedPlayerIP) > 0 then	
+Sub postNextCommandInQueue(sonos as object, deviceUDN as string)
+	if Len(deviceUDN) > 0 then	
 		' See how many commands we have the queue
 		numCmds = sonos.commandQ.count()
 		cmdFound = false
@@ -1966,11 +1953,11 @@ Sub postNextCommandInQueue(sonos as object, connectedPlayerIP as string)
 		
 		' If by any chance, there is another active command, don't post the next in queue
 		' This can happen in rare instances
-		if not SonosDeviceBusy(sonos, connectedPlayerIP) then
-			' loop thru all of the commands to see if we can find one that matches this player IP
+		if not SonosDeviceBusy(sonos, deviceUDN) then
+			' loop thru all of the commands to see if we can find one that matches this player UDN
 			while (not cmdFound) and (x < numCmds)
-				' if a command is found that matches this IP, post that command
-				if (sonos.commandQ[x].IP = connectedPlayerIP) then
+				' if a command is found that matches this UDN, post that command
+				if (sonos.commandQ[x].UDN = deviceUDN) then
 					print "+++ Sending queued msg: ";sonos.commandQ[x].msg
 					' send plugin message to ourself to execute the next queued command 
 					sendPluginMessage(sonos, sonos.commandQ[x].msg)
@@ -1987,17 +1974,17 @@ Sub postNextCommandInQueue(sonos as object, connectedPlayerIP as string)
 	end if
 End Sub
 
-Function SonosDeviceBusy(sonos as object, deviceIP as String) as Boolean
+Function SonosDeviceBusy(sonos as object, deviceUDN as String) as Boolean
 	found = false
-	if (deviceIP <> "") then 
+	if (deviceUDN <> "") then 
 		' check both action and transfer queue
 		numActions = sonos.upnpActionObjects.count()
 		i = 0
 		while (not found) and (i < numActions)
 			sonosReqData=sonos.upnpActionObjects[i]
 			if sonosReqData <> invalid
-				connectedPlayerIP=sonosReqData["dest"]
-				if connectedPlayerIP = deviceIP
+				connectedPlayerUDN=sonosReqData["dev"]
+				if connectedPlayerUDN = deviceUDN
 					found = true
 				end if
 			end if
@@ -2009,8 +1996,8 @@ Function SonosDeviceBusy(sonos as object, deviceIP as String) as Boolean
 		while (not found) and (i < numXfers)
 			sonosReqData=sonos.xferObjects[i].GetUserData()
 			if sonosReqData <> invalid
-				connectedPlayerIP=sonosReqData["dest"]
-				if connectedPlayerIP = deviceIP
+				connectedPlayerUDN=sonosReqData["dev"]
+				if connectedPlayerUDN = deviceUDN
 					found = true
 				end if
 			end if
@@ -2034,7 +2021,7 @@ Sub SonosRegisterForEvents(sonos as Object, device as Object)
 			print "[[[ Subscribing to AVTransport service for device ";device.modelNumber
 			sonosReqData=CreateObject("roAssociativeArray")
 			sonosReqData["type"]="RegisterForAVTransportEvent"
-			sonosReqData["dest"]=device.baseURL
+			sonosReqData["name"]=device.friendlyName
 			sonosReqData["dev"]=device.UDN
 			sonosReqData["id"]=device.avTransportService.Subscribe()
 			sonos.upnpActionObjects.push(sonosReqData)
@@ -2047,7 +2034,7 @@ Sub SonosRegisterForEvents(sonos as Object, device as Object)
 			print "[[[ Subscribing to RenderingControl service for device ";device.modelNumber
 			sonosReqData=CreateObject("roAssociativeArray")
 			sonosReqData["type"]="RegisterForRenderingControlEvent"
-			sonosReqData["dest"]=device.baseURL
+			sonosReqData["name"]=device.friendlyName
 			sonosReqData["dev"]=device.UDN
 			sonosReqData["id"]=device.renderingService.Subscribe()
 			sonos.upnpActionObjects.push(sonosReqData)
@@ -2059,7 +2046,7 @@ Sub SonosRegisterForEvents(sonos as Object, device as Object)
 		print "[[[ Subscribing to AlarmClock service for device ";device.modelNumber
 		sonosReqData=CreateObject("roAssociativeArray")
 		sonosReqData["type"]="RegisterForAlarmClockEvent"
-		sonosReqData["dest"]=device.baseURL
+		sonosReqData["name"]=device.friendlyName
 		sonosReqData["dev"]=device.UDN
 		sonosReqData["id"]=device.alarmClockService.Subscribe()
 		sonos.upnpActionObjects.push(sonosReqData)
@@ -2070,7 +2057,7 @@ Sub SonosRegisterForEvents(sonos as Object, device as Object)
 		print "[[[ Subscribing to ZoneGroupTopology service for device ";device.modelNumber
 		sonosReqData=CreateObject("roAssociativeArray")
 		sonosReqData["type"]="RegisterForZoneGroupTopologyEvent"
-		sonosReqData["dest"]=device.baseURL
+		sonosReqData["name"]=device.friendlyName
 		sonosReqData["dev"]=device.UDN
 		sonosReqData["id"]=device.zoneGroupTopologyService.Subscribe()
 		sonos.upnpActionObjects.push(sonosReqData)
@@ -2085,7 +2072,7 @@ Sub SonosRenewRegisterForEvents(sonos as Object)
 				print "[[[ Renewing subscription to AVTransport service for device ";device.modelNumber
 				sonosReqData=CreateObject("roAssociativeArray")
 				sonosReqData["type"]="RenewRegisterForAVTransportEvent"
-				sonosReqData["dest"]=device.baseURL
+				sonosReqData["name"]=device.friendlyName
 				sonosReqData["dev"]=device.UDN
 				sonosReqData["id"]=device.avTransportService.RenewSubscription()
 				sonos.upnpActionObjects.push(sonosReqData)
@@ -2095,7 +2082,7 @@ Sub SonosRenewRegisterForEvents(sonos as Object)
 				print "[[[ Renewing subscription to RenderingControl service for device ";device.modelNumber
 				sonosReqData=CreateObject("roAssociativeArray")
 				sonosReqData["type"]="RenewRegisterForRenderingControlEvent"
-				sonosReqData["dest"]=device.baseURL
+				sonosReqData["name"]=device.friendlyName
 				sonosReqData["dev"]=device.UDN
 				sonosReqData["id"]=device.renderingService.RenewSubscription()
 				sonos.upnpActionObjects.push(sonosReqData)
@@ -2104,7 +2091,7 @@ Sub SonosRenewRegisterForEvents(sonos as Object)
 			print "[[[ Renewing subscription to AlarmClock service for device ";device.modelNumber
 			sonosReqData=CreateObject("roAssociativeArray")
 			sonosReqData["type"]="RenewRegisterForAlarmClockEvent"
-			sonosReqData["dest"]=device.baseURL
+			sonosReqData["name"]=device.friendlyName
 			sonosReqData["dev"]=device.UDN
 			sonosReqData["id"]=device.alarmClockService.RenewSubscription()
 			sonos.upnpActionObjects.push(sonosReqData)
@@ -2112,7 +2099,7 @@ Sub SonosRenewRegisterForEvents(sonos as Object)
 			print "[[[ Renewing subscription to ZoneGroupTopology service for device ";device.modelNumber
 			sonosReqData=CreateObject("roAssociativeArray")
 			sonosReqData["type"]="RenewRegisterForZoneGroupTopologyEvent"
-			sonosReqData["dest"]=device.baseURL
+			sonosReqData["name"]=device.friendlyName
 			sonosReqData["dev"]=device.UDN
 			sonosReqData["id"]=device.zoneGroupTopologyService.RenewSubscription()
 			sonos.upnpActionObjects.push(sonosReqData)
@@ -2436,7 +2423,7 @@ Function CheckSubBonding(s as object, zoneGroupStateXml$ as string) as string
 End Function
 
 Sub updateDeviceVariable(sonos as object, sonosDevice as object, variable as string, value as string)
-	print "updateDeviceVariable: ";variable;", device: ";sonosDevice.modelNumber
+	'print "updateDeviceVariable: ";variable;", device: ";sonosDevice.modelNumber
 	
 	if variable = "Volume" then
 		print "Volume at (";sonosDevice.modelNumber;") {"+sonosDevice.UDN+"} is ["+value+"]"
