@@ -19,7 +19,7 @@ Function newSonos(msgPort As Object, userVariables As Object, bsp as Object)
 	' Create the object to return and set it up
 	s = {}
 
-	s.version = "3.17"
+	s.version = "3.18"
 
 	s.configVersion = "1.0"
 	registrySection = CreateObject("roRegistrySection", "networking")
@@ -915,6 +915,7 @@ Sub newSonosDevice(device as Object) as Object
 	sonosDevice.transportState = "STOPPED"
 	sonosDevice.CurrentPlayMode = "NORMAL"
 	sonosDevice.AVTransportURI = "none"
+	sonosDevice.foreignPlaybackURI = false
 	sonosDevice.muteCheckNeeded = false
 	sonosDevice.SleepTimerGeneration = 0
 	sonosDevice.AlarmListVersion = -1
@@ -3335,25 +3336,31 @@ Sub OnAVTransportEvent(userdata as Object, e as Object)
 	if (transportState <> invalid) then 
 		updateDeviceVariable(s, sonosDevice, "TransportState", transportState)
 		print "Transport event from ";sonosDevice.modelNumber;" TransportState: [";transportstate;"] "
-
-		if transportState="PLAYING"
-		    if s.debugPrintLearnTiming=true
-
-
-		    end if
-		end if
 	end if
 
 	AVTransportURI = event.instanceid.AVTransportURI@val
 	if (AVTransportURI <> invalid) then 
 		updateDeviceVariable(s, sonosDevice, "AVTransportURI", AVTransportURI)
 		print "Transport event from ";sonosDevice.modelNumber;" AVTransportURI: [";AVTransportURI;"] "
-		nr=CheckForeignPlayback(s,sonosDevice.modelNumber,AVTransportURI)
-		if nr=true
+		sonosDevice.foreignPlaybackURI = CheckForeignPlayback(s,sonosDevice.modelNumber,AVTransportURI)
+		if sonosDevice.foreignPlaybackURI = true then
 		    sendPluginEvent(s,"ForeignTransportStateURI")
 		end if
 	end if
 
+	if (transportState <> invalid) then 
+		if sonosDevice.foreignPlaybackURI and transportState="PLAYING" then
+			foreignPlayBackActive = "1"
+		else
+			foreignPlayBackActive = "0"
+		end if
+		updateDeviceUserVariable(s, sonosDevice, "ForeignPlaybackActive", foreignPlayBackActive)
+		if sonosDevice.foreignPlaybackURI = true then
+			print "Sending ForeignTransportStateChange plugin event, foreignPlayBackActive = ";foreignPlayBackActive
+		    sendPluginEvent(s,"ForeignTransportStateChange")
+		end if
+	end if
+	
 	CurrentPlayMode = event.instanceid.CurrentPlayMode@val
 	if (CurrentPlayMode <> invalid) then 
 		updateDeviceVariable(s, sonosDevice, "CurrentPlayMode", CurrentPlayMode)
@@ -3398,6 +3405,7 @@ Function CheckForeignPlayback(s as Object, modelNumber as string, AVTransportURI
 	    print "+++ master device is not yet set"
 	    return false
 	end if
+	
 	master=GetDeviceByPlayerModel(s.sonosDevices, s.masterDevice)
 	if (master=invalid) then
 	    print "+++ unable to find device for master";s.masterDevice
@@ -3405,8 +3413,6 @@ Function CheckForeignPlayback(s as Object, modelNumber as string, AVTransportURI
 	end if
 
 	device=GetDeviceByPlayerModel(s.sonosDevices, modelNumber)
-
-
 	if (device=invalid) then
 	    print "+++ unable to find device for model";modelNumber
 	    return false
@@ -3416,16 +3422,10 @@ Function CheckForeignPlayback(s as Object, modelNumber as string, AVTransportURI
     if device.modelNumber=s.masterDevice then
         if s.masterDeviceLastTransportURI=AVTransportURI then
             print "+++ master AVTransportURI matches what we set it to - local content"
-            return true
-' Must allow demo with foreign playback - presentation will reconnect SPDIF before demo/learn play
-		' else if Right(s.masterDeviceLastTransportURI,5) = "spdif" then
-			' ' Check to see if the master had been set for SPDIF. If so, re-set it. (DND-211)
-			' print "+++ master AVTransportURI was SPDIF but has been reset - resetting to SPDIF"
-			' sendPluginMessage(s, "sonos!" + s.masterDevice + "!spdif")
-			' return true
+            return false
         else
             print "+++ master AVTransportURI does NOT match what we set it to - foreign content"
-            return false
+            return true
         end if
     end if
 
@@ -3449,8 +3449,7 @@ Function CheckForeignPlayback(s as Object, modelNumber as string, AVTransportURI
 	    return true
 	end if
 
-
-	return true
+	return false
 
 end Function
 
