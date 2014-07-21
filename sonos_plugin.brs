@@ -1,6 +1,6 @@
 ' Plug-in script for for BrightSign firmware 4.8 or greater
 ' This plug-in relies on low level BrightSign UPnP support
-' Functionally level with 3.17
+' Functionally equivalent to 3.18
 
 Function sonos_Initialize(msgPort As Object, userVariables As Object, bsp as Object)
 
@@ -685,6 +685,7 @@ Function newSonosDevice(sonos as Object, upnpDevice as Object, isDesired as Bool
 	sonosDevice.transportState = "STOPPED"
 	sonosDevice.CurrentPlayMode = "NORMAL"
 	sonosDevice.AVTransportURI = "none"
+	sonosDevice.foreignPlaybackURI = false
 	sonosDevice.MuteCheckNeeded = false
 	sonosDevice.SleepTimerGeneration = 0
 	sonosDevice.AlarmListVersion = -1
@@ -2136,9 +2137,22 @@ Sub OnAVTransportEvent(s as object, sonosDevice as object, e as object)
 		if (AVTransportURI <> invalid) then 
 			print "~~~ Transport event from ";sonosDevice.modelNumber;" AVTransportURI: [";AVTransportURI;"] "
 			updateDeviceVariable(s, sonosDevice, "AVTransportURI", AVTransportURI)
-			nr=CheckForeignPlayback(s,sonosDevice.modelNumber,AVTransportURI)
-			if nr=true then
+			sonosDevice.foreignPlaybackURI = CheckForeignPlayback(s,sonosDevice.modelNumber,AVTransportURI)
+			if sonosDevice.foreignPlaybackURI = true then
 				sendPluginEvent(s,"ForeignTransportStateURI")
+			end if
+		end if
+
+		if (transportState <> invalid) then 
+			if sonosDevice.foreignPlaybackURI and transportState="PLAYING" then
+				foreignPlayBackActive = "1"
+			else
+				foreignPlayBackActive = "0"
+			end if
+			updateDeviceUserVariable(s, sonosDevice, "ForeignPlaybackActive", foreignPlayBackActive)
+			if sonosDevice.foreignPlaybackURI = true then
+				print "Sending ForeignTransportStateChange plugin event, foreignPlayBackActive = ";foreignPlayBackActive
+				sendPluginEvent(s,"ForeignTransportStateChange")
 			end if
 		end if
 
@@ -2197,10 +2211,10 @@ Function CheckForeignPlayback(s as Object, modelNumber as string, AVTransportURI
     if device.modelNumber=s.masterDevice then
         if s.masterDeviceLastTransportURI=AVTransportURI then
             print "+++ master AVTransportURI matches what we set it to - local content"
-            return true
+            return false
         else 
             print "+++ master AVTransportURI does NOT match what we set it to - foreign content"
-            return false
+            return true
         end if
     end if
 
@@ -2224,7 +2238,7 @@ Function CheckForeignPlayback(s as Object, modelNumber as string, AVTransportURI
 	    return true
 	end if
 
-	return true
+	return false
 End Function
 
 Sub OnRenderingControlEvent(s as object, sonosDevice as object, e as object)
