@@ -21,7 +21,7 @@ Function newSonos(msgPort As Object, userVariables As Object, bsp as Object)
 	' Create the object to return and set it up
 	s = {}
 
-	s.version = "4.00.05"
+	s.version = "4.00.06"
 
 	s.configVersion = "1.0"
 	registrySection = CreateObject("roRegistrySection", "networking")
@@ -60,24 +60,8 @@ Function newSonos(msgPort As Object, userVariables As Object, bsp as Object)
 	if (s.userVariables["aliveTimeoutSeconds"] <> invalid) then
 		s.userVariables["aliveTimeoutSeconds"].Reset(False)
 	end if
-	if (s.userVariables["subBondTo"] <> invalid) then
-		s.userVariables["subBondTo"].Reset(False)
-	end if
 	if (s.userVariables["requiresManualUpdate"] <> invalid) then
 		s.userVariables["requiresManualUpdate"].Reset(False)
-	end if
-
-	' Create timer to see if players have gone away
-	s.timerAliveCheck=CreateObject("roTimer")  
-	s.timerAliveCheck.SetPort(msgPort)
-	s.accelerateAliveCheck = False
-	StartAliveCheckTimer(s)
-	
-	' Create timer to check topology (only if SUB bonding is enabled by user var)
-	if s.userVariables["subBondTo"] <> invalid and s.userVariables["subBondTo"].currentValue$ <> "none" then
-		s.timerTopologyCheck = CreateObject("roTimer")
-		s.timerTopologyCheck.SetPort(msgPort)
-		StartTopologyCheckTimer(s)
 	end if
 
 	' Create the http server for this app, use port 111 since 80 will be used by DWS
@@ -88,6 +72,26 @@ Function newSonos(msgPort As Object, userVariables As Object, bsp as Object)
 		RebootSystem()
 	end if
 	s.server.SetPort(msgPort)
+	
+	jsonFilePath$ = GetPoolFilePath(s.bsp.assetPoolFiles, "sonos_topology.json")
+	jsonString$ = ReadAsciiFile(jsonFilePath$)
+	s.sonosTopology = ParseJson(jsonString$)
+	if s.sonosTopology = invalid then
+		print "Sonos_Topology file is not a valid json file"
+	end if
+
+	' Create timer to see if players have gone away
+	s.timerAliveCheck=CreateObject("roTimer")  
+	s.timerAliveCheck.SetPort(msgPort)
+	s.accelerateAliveCheck = False
+	StartAliveCheckTimer(s)
+	
+	' Create timer to check topology (only if SUB is present and we have a designated master)
+	if getSubBondMaster(s) <> invalid then
+		s.timerTopologyCheck = CreateObject("roTimer")
+		s.timerTopologyCheck.SetPort(msgPort)
+		StartTopologyCheckTimer(s)
+	end if
 
 	' Create the array to hold the Sonos devices
 	s.sonosDevices = CreateObject("roArray",1, True)
@@ -288,6 +292,14 @@ Sub isSonosDevicePresent(s as object , devType as string ) as boolean
 	return found
 End Sub
 
+Function getSubBondMaster(s as Object) as String
+	master = invalid
+	if s.sonosTopology <> invalid and s.sonosTopology["sub"] <> invalid  and s.sonosTopology["sub"].bond = true then
+		master = s.sonosTopology["master"]
+	end if
+	return master
+End Function
+
 'region Print/Log
 Sub PrintAllSonosDevices(s as Object) 
     print "***************************  Sonos plugin version ";s.version;"***************************"
@@ -486,11 +498,10 @@ Sub CheckSSDPNotification(headers as Object, s as Object)
 	end if ' aliveFound and rootDevice '
 End Sub
 
-Function isModelDesiredByUservar(s as object, model as string) as boolean
-	if s.userVariables[model+"Desired"] <> invalid then
-	    if s.userVariables[model+"Desired"].currentValue$ = "yes"
-	        return true
-	    end if
+Function isModelDesired(s as object, model as string) as boolean
+	if s.sonosTopology <> invalid  then
+		modelTopology = s.sonosTopology[model]
+		return modelTopology <> invalid and modelTopology.maxCount > 0
 	end if
 	return false
 End Function
@@ -561,7 +572,7 @@ Sub CheckNewUPnPDevice(upnpDevice as Object, s as Object)
 				' end for
 			' end if
 			
-			desired = isModelDesiredByUservar(s,model)
+			desired = isModelDesired(s,model)
 			sonosDevice = newSonosDevice(s,upnpDevice,desired)
 			if desired=true then
 				sonosDevice.desired = true
@@ -601,7 +612,7 @@ Sub CheckNewUPnPDevice(upnpDevice as Object, s as Object)
 			s.sonosDevices.push(sonosDevice)
 		else
 			sonosDevice=GetDeviceByUDN(s.sonosDevices, udn)
-			desired=isModelDesiredByUservar(s,model)
+			desired=isModelDesired(s,model)
 			updateSonosDevice(sonosDevice,upnpDevice,desired)
 			if desired then
 				des$="is desired"
@@ -852,7 +863,7 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 				sonosDeviceName = sonosDevice.friendlyName
 			end if
 
-			desired=isModelDesiredByUservar(sonos, devType)
+			desired=isModelDesired(sonos, devType)
 
 			if (sonosDevice = invalid) or (not desired) then
 				print "No device of that type on this network or it is NOT Desired"
@@ -933,7 +944,7 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 					for each device in sonosDevices
 						CheckMute(sonos, device)
 						' queue volume command if device busy
-						if isModelDesiredByUservar(sonos, device.modelNumber) then
+						if isModelDesired(sonos, device.modelNumber) then
 							if SonosDeviceBusy(sonos, device.UDN) then
 								QueueSonosMessage(sonos, device.UDN, "sonos!" + device.modelNumber + "!volup!" + detail)
 							else
@@ -965,7 +976,7 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 					for each device in sonosDevices
 						CheckMute(sonos, device)
 						' queue volume command if device busy
-						if isModelDesiredByUservar(sonos, device.modelNumber) then
+						if isModelDesired(sonos, device.modelNumber) then
 							if SonosDeviceBusy(sonos, device.UDN) then
 								QueueSonosMessage(sonos, device.UDN, "sonos!" + device.modelNumber + "!voldown!" + detail)
 							else
@@ -994,7 +1005,7 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 					sonosDevices=sonos.sonosDevices
 					for each device in sonosDevices
 						' queue checkAlarm command if device busy
-						if isModelDesiredByUservar(sonos, device.modelNumber) then
+						if isModelDesired(sonos, device.modelNumber) then
 							if SonosDeviceBusy(sonos, device.UDN) then
 								QueueSonosMessage(sonos, device.UDN, "sonos!" + device.modelNumber + "!checkalarm")
 							else
@@ -1027,7 +1038,7 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 				SonosPlaySong(sonos, sonosDevice)
 			else if command = "subbond" then
 				' bond Sub to given device
-				if isModelDesiredByUservar(sonos, "sub") then
+				if isModelDesired(sonos, "sub") then
 					subDevice = GetDeviceByPlayerModel(sonos.sonosDevices, "sub")
 					if subDevice <> invalid then
 						SonosSubBond(sonos, sonosDevice, subDevice.UDN)
@@ -1179,7 +1190,7 @@ Function setSonosMasterDevice(sonos as object, devType as string) as object
 	    ' pick a random device'
 	    for each device in sonos.sonosDevices
 
-	        desired=isModelDesiredByUservar(sonos,device.modelNumber)
+	        desired=isModelDesired(sonos,device.modelNumber)
 	        if desired=true and device.modelNumber <> "sub" then
 		        sonos.masterDevice = device.modelNumber
 		        print "+++ setting master device to: ";sonos.masterDevice
@@ -1206,10 +1217,7 @@ Sub CheckSonosTopology(sonos as object)
 	' Do nothing about bonding until the boot sequence is done
 	if runningState="running" then
 	
-		bondMaster$ = "none"
-		if sonos.userVariables["subBondTo"] <> invalid then
-			bondMaster$ = sonos.userVariables["subBondTo"].currentValue$
-		end if
+		bondMaster$ = getSubBondMaster(sonos)
 	
 		subBondStatus$ = "none"
 		if sonos.userVariables["subBondStatus"] <> invalid then
@@ -1218,7 +1226,7 @@ Sub CheckSonosTopology(sonos as object)
 
 		print "**** Checking Sonos Topology, master: ";bondMaster$;", subBondStatus: ";subBondStatus$;", time: ";sonos.st.GetLocalDateTime()
 
-		if bondMaster$ <> "none" and subBondStatus$ <> "none" then
+		if bondMaster$ <> invalid and subBondStatus$ <> "none" then
 			bondMaster = GetDeviceByPlayerModel(sonos.sonosDevices, bondMaster$)
 			if bondMaster <> invalid then
 				subDevice = GetDeviceByPlayerModel(sonos.sonosDevices, "sub")
@@ -1627,7 +1635,7 @@ Sub SonosGroupAll(s as object) as object
 
 	for each device in s.sonosDevices
 	    if device.modelNumber<>s.masterDevice then
-	        desired=isModelDesiredByUservar(s,device.modelNumber)
+	        desired=isModelDesired(s,device.modelNumber)
 	        if desired=true then
 	            l = len(device.AVTransportURI)
 	            colon = instr(1,device.AVTransportURI,":")
@@ -2184,7 +2192,7 @@ End Sub
 Function CheckForeignPlayback(s as Object, modelNumber as string, AVTransportURI as String) as object
 	print "CheckForeignPlayback - device: ";modelNumber;" - ";AVTransportURI
 
-	desired=isModelDesiredByUservar(s,modelNumber)
+	desired=isModelDesired(s,modelNumber)
     if desired=false then
         print "+++ got unexpected messages from ";modelNumber;" which is NOT desired"
         return false
@@ -2336,12 +2344,9 @@ Sub OnZoneGroupTopologyEvent(s as object, sonosDevice as object, e as object)
 	if e.GetVariable() = "ZoneGroupState" then
 		' We only need to check messages from the sub and the bond master
 		'  if we are only checking sub bonding
-		bondMaster$ = "none"
-		if s.userVariables["subBondTo"] <> invalid then
-			bondMaster$ = s.userVariables["subBondTo"].currentValue$
-		end if
+		bondMaster$ = getSubBondMaster(s)
 		
-		if sonosDevice.modelNumber = "sub" or sonosDevice.modelNumber = bondMaster$ then
+		if bondMaster$ <> invalid and (sonosDevice.modelNumber = "sub" or sonosDevice.modelNumber = bondMaster$) then
 			status$ = CheckSubBonding(s, e.GetValue())
 		
 			curStatus$ = getUserVariableValue(s, "subBondStatus")
