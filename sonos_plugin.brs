@@ -21,7 +21,7 @@ Function newSonos(msgPort As Object, userVariables As Object, bsp as Object)
 	' Create the object to return and set it up
 	s = {}
 
-	s.version = "4.00.08"
+	s.version = "4.00.09"
 
 	s.configVersion = "1.0"
 	registrySection = CreateObject("roRegistrySection", "networking")
@@ -89,7 +89,8 @@ Function newSonos(msgPort As Object, userVariables As Object, bsp as Object)
 	s.accelerateAliveCheck = False
 	
 	' Create timer to check topology (only if SUB is present and we have a designated master)
-	if getSubBondMaster(s) <> invalid then
+	bondMasterSpec$ = getSubBondMaster(s)
+	if bondMasterSpec$.Len() > 0 then
 		s.timerTopologyCheck = CreateObject("roTimer")
 		s.timerTopologyCheck.SetPort(msgPort)
 	end if
@@ -270,11 +271,12 @@ Function sonos_ProcessEvent(event As Object) as boolean
 End Function
 
 Function getSubBondMaster(s as Object) as String
-	masterSpec = invalid
+	masterSpec = ""
 	if s.sonosTopology <> invalid then
 		subDevice = s.sonosTopology.models["sub"]
-		if subDevice <> invalid  and subDevice.bond = true then
-			masterSpec = s.sonosTopology["master"]
+		masterDevice = s.sonosTopology["master"]
+		if subDevice <> invalid  and masterDevice <> invalid and subDevice.bond <> invalid and subDevice.bond = true then
+			masterSpec = masterDevice
 		end if
 	end if
 	return masterSpec
@@ -578,7 +580,7 @@ Function DeletePlayerByUDN(s as object, udn as String, delUpnpDevice as Boolean)
 		
 		' Indicate the player is no longer present
 		if (s.userVariables[modelBeingDeleted] <> invalid) then
-			s.userVariables[modelBeingDeleted].currentValue$ = "notpresent"
+			updateUserVar(s.userVariables, modelBeingDeleted, "notpresent", true)
 		end if
 		print "current master is: ";s.masterDeviceUDN
 		if udn=s.masterDeviceUDN then
@@ -720,6 +722,7 @@ Function newSonosDevice(sonos as Object, upnpDevice as Object, isDesired as Bool
 	sonosDevice.AlarmCheckNeeded = "yes"
 	
 	sonosDevice.hhidSetupPending = false
+	sonosDevice.sendSetupCommands = true
 	
 	sonosDevice.GetDeviceSpec = sonosDevice_getDeviceSpec
 	sonosDevice.MatchesDeviceSpec = sonosDevice_matchesDeviceSpec
@@ -931,8 +934,10 @@ Sub DoNewDeviceSetupCheck(s as object)
 						else
 						    print "!!!!! Device ";deviceModel;" is ready, UDN: ";device.UDN
 							mtDevice.status = "ready"
-							xfer = rdmPingAsync(s.msgPort, device, s.hhid) 
-							s.postObjects.push(xfer)
+							if device.sendSetupCommands then
+								SendSetupCommands(s, device)
+								device.sendSetupCommands = false
+							end if
 						end if
 					else
 						mtDevice.UDN = ""
@@ -944,6 +949,20 @@ Sub DoNewDeviceSetupCheck(s as object)
 	end for
 	if s.setupActive then
 		CheckSetupComplete(s)
+	end if
+End Sub
+
+Sub SendSetupCommands(s as object, sonosDevice as object)
+	modelTopology = s.sonosTopology.models[sonosDevice.modelNumber]
+	setupCommands = modelTopology.setupCommands
+	devSpec$ = sonosDevice.GetDeviceSpec()
+	if type(setupCommands) = "roArray" then
+		print "!!! Sending";stri(setupCommands.Count());" setup commands to ";devSpec$
+		for each commandString in setupCommands
+			if commandString.Len() > 0 then
+				sendPluginMessage(s, "sonos!" + devSpec$ + "!" + commandString)
+			end if
+		end for
 	end if
 End Sub
 
@@ -992,7 +1011,8 @@ Function CheckSetupComplete(s as object) as boolean
 			if masterDevice <> invalid then
 				setSonosMasterDevice(s, masterDevice.UDN)
 			else
-				print "Could not set master to ";s.sonosTopology.master;" as specified by topology file"
+				print "Could not set master to ";s.sonosTopology.master;" as specified by topology file; setting to random device"
+				setSonosMasterDevice(s, "")
 			endif
 		end if
 		updateUserVar(s.userVariables,"runningState","running",true)
@@ -1148,8 +1168,6 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 		
 		sonosDeviceName = ""
 		sonosDeviceUDN = ""
-		model = GetModelParametersFromDevSpec(devSpec)
-		
 		if (devSpec = "sall") then
 			' Do not try to validate the device
 			sonosDevice = invalid
@@ -1238,7 +1256,7 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 						' queue volume command if device busy
 						if device.IsActive(sonos) then
 							if SonosDeviceBusy(sonos, device.UDN) then
-								QueueSonosMessage(sonos, device.UDN, "sonos!" + device.modelNumber + "!volup!" + detail)
+								QueueSonosMessage(sonos, device.UDN, "sonos!" + device.GetDeviceSpec() + "!volup!" + detail)
 							else
 								device.volume = device.volume + volincrease
 								if (device.volume > 100) then
@@ -1270,7 +1288,7 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 						' queue volume command if device busy
 						if device.IsActive(sonos) then
 							if SonosDeviceBusy(sonos, device.UDN) then
-								QueueSonosMessage(sonos, device.UDN, "sonos!" + device.modelNumber + "!voldown!" + detail)
+								QueueSonosMessage(sonos, device.UDN, "sonos!" + device.GetDeviceSpec() + "!voldown!" + detail)
 							else
 								device.volume = device.volume - voldecrease
 								if (device.volume < 0) then
@@ -1299,7 +1317,7 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 						' queue checkAlarm command if device busy
 						if device.IsActive(sonos) then
 							if SonosDeviceBusy(sonos, device.UDN) then
-								QueueSonosMessage(sonos, device.UDN, "sonos!" + device.modelNumber + "!checkalarm")
+								QueueSonosMessage(sonos, device.UDN, "sonos!" + device.GetDeviceSpec() + "!checkalarm")
 							else
 								SonosCheckAlarm(sonos, device)
 							end if
@@ -1318,7 +1336,7 @@ Function ParseSonosPluginMsg(origMsg as string, sonos as object) as boolean
 			else if command="group" then
 				if (devSpec <> "sall") then 
 					' this groups a given device to the master we already know about'
-					print "+++ grouping all players to master ";s.masterDeviceUDN
+					print "+++ grouping ";sonosDevice.GetDeviceSpec();" to master ";s.masterDeviceUDN
 					if s.masterDeviceUDN.Len() > 0 then
 						SonosSetGroup(sonos, sonosDevice, s.masterDeviceUDN)
 					end if						
@@ -1512,9 +1530,8 @@ Sub CheckSonosTopology(sonos as object)
 			subBondStatus$ = sonos.userVariables["subBondStatus"].currentValue$
 		end if
 
-		print "**** Checking Sonos Topology, master: ";bondMasterSpec$;", subBondStatus: ";subBondStatus$;", time: ";sonos.st.GetLocalDateTime()
-
-		if bondMasterSpec$ <> invalid and subBondStatus$ <> "none" then
+		if bondMasterSpec$.Len() > 0 and subBondStatus$ <> "none" then
+			print "**** Checking Sonos Topology, master: ";bondMasterSpec$;", subBondStatus: ";subBondStatus$;", time: ";sonos.st.GetLocalDateTime()
 			bondMaster = GetDeviceByDevSpec(sonos.sonosDevices, bondMasterSpec$)
 			if bondMaster <> invalid then
 				subDevice = GetDeviceByDevSpec(sonos.sonosDevices, "sub")
@@ -1919,7 +1936,11 @@ Sub SonosGroupAll(s as object) as object
 	            print "+++ comparing device URI [";uri;"] to master URI [";master.UDN;"]"
 	            if uri <> master.UDN then
 	                print "+++ grouping device ";device.modelNumber;" with master ";master.modelNumber
-					SonosSetGroup(s, device, master.UDN)
+					if SonosDeviceBusy(s, device.UDN) then
+						QueueSonosMessage(s, device.UDN, "sonos!" + device.GetDeviceSpec() + "!group")
+					else
+						SonosSetGroup(s, device, master.UDN)
+					end if
 				else
 				    print "+++ device ";device.modelNumber;" is already grouped with master ";master.modelNumber
 				end if
@@ -1976,8 +1997,8 @@ Sub SonosSoftwareUpdate(sonos as object, sonosDevice as object, serverURL as str
 	    else
 	        print "Sonos device "+sonosDevice.modelNumber+" is at version ";sonosDevice.softwareVersion;" but has an hhid, continuing..."
 	    end if
-	else
-	    print "-- player software is recent enough for use in this presentation"
+	'else
+	    'print "-- player software is recent enough for use in this presentation"
 	end if
 	
 	updateURL = "http://" + serverURL + ":111/^" + version
@@ -2615,7 +2636,7 @@ Sub OnZoneGroupTopologyEvent(s as object, sonosDevice as object, e as object)
 		'  if we are only checking sub bonding
 		bondMasterSpec$ = getSubBondMaster(s)
 		
-		if bondMasterSpec$ <> invalid and (sonosDevice.modelNumber = "sub" or sonosDevice.MatchesDeviceSpec(bondMasterSpec$)) then
+		if bondMasterSpec$.Len() > 0 and (sonosDevice.modelNumber = "sub" or sonosDevice.MatchesDeviceSpec(bondMasterSpec$)) then
 			status$ = CheckSubBonding(s, e.GetValue())
 		
 			curStatus$ = getUserVariableValue(s, "subBondStatus")
@@ -2901,7 +2922,7 @@ Sub updateUserVar(uv as object, targetVar as string, newValue as string, postMsg
 	if uv[targetVar] <> invalid then
 		uv[targetVar].SetCurrentValue(newValue, postMsg)
 	else
-	    print "updateUserVar: error trying to set non-existant user variable ";targetVar
+	    print "updateUserVar: error trying to set non-existent user variable ";targetVar
 	end if
 End Sub
 
