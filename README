@@ -1,6 +1,8 @@
 
 The following are the user variables used in the Sonos TGT/BBY all in one display kiosk
 
+Time to face the change, turn and face the strange
+
 pluginVersion - string
  - reflects the version of the plugin as defined in the newSonos() function
  - set by the plugin
